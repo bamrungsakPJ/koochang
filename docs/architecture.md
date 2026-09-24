@@ -10,7 +10,7 @@
 | D1 | Stack | TypeScript · NestJS · Prisma (SQL Server) · React + Vite + TanStack Query + Tailwind · npm workspaces monorepo · pin: Nest 11, Prisma 6, TS 5.9 (major ใหม่กว่านี้ค่อยอัปเกรดทีหลัง) |
 | D2 | รูปแบบระบบ | Modular Monolith, 1 codebase / 2 process (`api`, `worker`), ไม่มี Redis/broker ใน MVP (ใช้ outbox table) |
 | D3 | Hosting | **On-premise** — server ของเราเอง host ทุก tenant (shared DB, shared schema) |
-| D4 | Object Storage | MinIO (S3-compatible, self-hosted) ผ่าน `StorageAdapter` |
+| D4 | Object Storage | ผ่าน `ObjectStorage` adapter · ตอนนี้ใช้ `LocalDiskStorage` (`MEDIA_DIR`) · เป้าหมาย MinIO (S3-compatible, self-hosted) |
 | D5 | LINE | MVP ใช้ **LINE OA กลางของ ServiceFlow** สำหรับช่าง/Owner · OA ของร้านเอง (ฝั่งลูกค้า) = 0.2 |
 | D6 | Identity | **ไม่ใช้อีเมลทั้งระบบ** ใช้เบอร์โทร (เก็บ E.164 `+66…`) |
 | D7 | Owner | สมัคร = เบอร์ + **SMS OTP** + ตั้งรหัสผ่าน · login = เบอร์ + รหัสผ่าน · ลืมรหัส = OTP · OTP สร้าง/ตรวจโดยระบบเราเอง ส่งผ่าน **DEESMSX Send SMS API** (`SMS_MODE=deesmsx`) |
