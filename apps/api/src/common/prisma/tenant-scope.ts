@@ -4,7 +4,19 @@ import { PrismaClient } from '@prisma/client';
  * Models that belong to a tenant. Every query on these through a scoped client gets
  * `tenantId` forced into its `where` / `data`. Add new tenant-owned models here.
  */
-const TENANT_MODELS = new Set<string>(['Membership', 'Invite', 'DomainEvent']);
+const TENANT_MODELS = new Set<string>([
+  'Membership',
+  'Invite',
+  'DomainEvent',
+  'Customer',
+  'Site',
+  'AssetCategory',
+  'Asset',
+  'Job',
+  'PartUsed',
+  'PartRequest',
+  'Media',
+]);
 
 const WHERE_OPERATIONS = new Set<string>([
   'findFirst',

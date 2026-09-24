@@ -34,12 +34,13 @@ export class AuthGuard implements CanActivate {
           tenant: { publicId: claims.tid, deletedAt: null },
           account: { publicId: claims.sub, status: 'ACTIVE' },
         },
-        include: { tenant: { select: { publicId: true } } },
+        include: { tenant: { select: { publicId: true } }, account: { select: { displayName: true } } },
       });
       if (!m) throw new UnauthorizedException();
       auth = {
         accountId: m.accountId,
         accountPublicId: claims.sub,
+        displayName: m.account.displayName,
         membership: {
           id: m.id,
           publicId: m.publicId,
@@ -51,10 +52,10 @@ export class AuthGuard implements CanActivate {
     } else {
       const account = await this.prisma.account.findFirst({
         where: { publicId: claims.sub, status: 'ACTIVE' },
-        select: { id: true },
+        select: { id: true, displayName: true },
       });
       if (!account) throw new UnauthorizedException();
-      auth = { accountId: account.id, accountPublicId: claims.sub };
+      auth = { accountId: account.id, accountPublicId: claims.sub, displayName: account.displayName };
     }
     req.auth = auth;
 

@@ -7,6 +7,7 @@ import { appendEvent, EventType } from '../../common/events';
 import { newPublicId } from '../../common/ids';
 import { isUniqueViolation, PrismaService } from '../../common/prisma/prisma.service';
 import { RateLimiter } from '../../common/rate-limiter';
+import { seedDefaultCategories } from '../../common/seed';
 import { Session, SessionService } from './session.service';
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -43,6 +44,7 @@ export class AuthService {
         await tx.membership.create({
           data: { publicId: newPublicId(), tenantId: tenant.id, accountId: account.id, role: Role.OWNER },
         });
+        await seedDefaultCategories(tx, tenant.id);
         await appendEvent(tx, {
           tenantId: tenant.id,
           eventType: EventType.TENANT_CREATED,

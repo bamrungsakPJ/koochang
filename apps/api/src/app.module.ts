@@ -1,7 +1,10 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { Public } from './common/auth/auth-context';
 import { CommonModule } from './common/common.module';
+import { AssetModule } from './modules/asset/asset.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CustomerModule } from './modules/customer/customer.module';
+import { MediaModule } from './modules/media/media.module';
 import { TeamModule } from './modules/team/team.module';
 
 @Controller('health')
@@ -14,7 +17,7 @@ class HealthController {
 }
 
 @Module({
-  imports: [CommonModule, AuthModule, TeamModule],
+  imports: [CommonModule, AuthModule, TeamModule, MediaModule, CustomerModule, AssetModule],
   controllers: [HealthController],
 })
 export class AppModule {}

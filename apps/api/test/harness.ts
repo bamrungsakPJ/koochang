@@ -1,4 +1,6 @@
 import { Test } from '@nestjs/testing';
+import os from 'node:os';
+import path from 'node:path';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { SMS_SENDER, SmsSender } from '../src/adapters/sms';
@@ -54,6 +56,7 @@ export async function createHarness(): Promise<Harness> {
         JWT_SECRET: 'test-secret-test-secret-test-secret-1234',
         APP_URL: 'http://localhost:5173',
         LINE_AUTH_MODE: 'dev',
+        MEDIA_DIR: path.join(os.tmpdir(), 'serviceflow-test-media'),
       }),
     )
     .overrideProvider(SMS_SENDER)
@@ -78,6 +81,14 @@ export async function createHarness(): Promise<Harness> {
       limiter.reset();
       // Children first (FKs are NO ACTION).
       await prisma.domainEvent.deleteMany();
+      await prisma.partUsed.deleteMany();
+      await prisma.partRequest.deleteMany();
+      await prisma.job.deleteMany();
+      await prisma.asset.deleteMany();
+      await prisma.media.deleteMany();
+      await prisma.site.deleteMany();
+      await prisma.customer.deleteMany();
+      await prisma.assetCategory.deleteMany();
       await prisma.invite.deleteMany();
       await prisma.refreshToken.deleteMany();
       await prisma.otpChallenge.deleteMany();
@@ -116,6 +127,11 @@ export async function signupShop(h: Harness, phone: string, shopName: string) {
     cookies: signup.headers['set-cookie'] as unknown as string[],
   };
 }
+
+/** Smallest valid-looking JPEG header; enough for magic-byte detection. */
+export const TINY_JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
+
+export const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 export async function inviteAndJoin(h: Harness, ownerToken: string, lineUserId: string, name: string) {
   const invite = await h

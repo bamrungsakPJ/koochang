@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConsoleSmsSender, DeeSmsxSender, SMS_SENDER } from '../adapters/sms';
 import { DevLineIdTokenVerifier, LINE_ID_TOKEN_VERIFIER, LineApiIdTokenVerifier } from '../adapters/line-auth';
+import { LocalDiskStorage, OBJECT_STORAGE } from '../adapters/storage';
 import { APP_CONFIG, AppConfig, loadConfig } from '../config/config';
 import { AuthGuard } from './auth/auth.guard';
 import { SessionCookie } from './auth/session-cookie';
@@ -38,8 +39,22 @@ import { RateLimiter } from './rate-limiter';
           ? new LineApiIdTokenVerifier(config.LINE_LOGIN_CHANNEL_ID)
           : new DevLineIdTokenVerifier(),
     },
+    {
+      provide: OBJECT_STORAGE,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => new LocalDiskStorage(config.MEDIA_DIR),
+    },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
-  exports: [APP_CONFIG, PrismaService, TokenService, SessionCookie, RateLimiter, SMS_SENDER, LINE_ID_TOKEN_VERIFIER],
+  exports: [
+    APP_CONFIG,
+    PrismaService,
+    TokenService,
+    SessionCookie,
+    RateLimiter,
+    SMS_SENDER,
+    LINE_ID_TOKEN_VERIFIER,
+    OBJECT_STORAGE,
+  ],
 })
 export class CommonModule {}

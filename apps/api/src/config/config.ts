@@ -15,6 +15,8 @@ const schema = z
     DEESMSX_SECRET_KEY: z.string().default(''),
     /** Sender name approved in the DEESMSX back office. */
     DEESMSX_SENDER: z.string().default(''),
+    /** Local media storage root (dev / single server). */
+    MEDIA_DIR: z.string().default('./var/media'),
     LINE_AUTH_MODE: z.enum(['dev', 'line']).default('dev'),
     LINE_LOGIN_CHANNEL_ID: z.string().default(''),
   })

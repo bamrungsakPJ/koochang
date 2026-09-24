@@ -22,13 +22,23 @@ model Tenant {
   publicId     String    @unique @db.Char(26)
   name         String    @db.NVarChar(200)
   settingsJson String    @default("{}") @db.NVarChar(Max)
+  /// Last issued job number (J-000001…); incremented atomically inside the job-create transaction.
+  jobSeq       Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  memberships Membership[]
-  invites     Invite[]
-  events      DomainEvent[]
+  memberships     Membership[]
+  invites         Invite[]
+  events          DomainEvent[]
+  customers       Customer[]
+  sites           Site[]
+  assetCategories AssetCategory[]
+  assets          Asset[]
+  jobs            Job[]
+  media           Media[]
+  partsUsed       PartUsed[]
+  partRequests    PartRequest[]
 }
 
 /// A person. Crosses tenants: one technician can work for several shops.
@@ -73,8 +83,12 @@ model Membership {
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   account Account @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  invitesCreated  Invite[] @relation("InviteCreatedBy")
-  invitesAccepted Invite[] @relation("InviteAcceptedBy")
+  invitesCreated  Invite[]      @relation("InviteCreatedBy")
+  invitesAccepted Invite[]      @relation("InviteAcceptedBy")
+  assetsInstalled Asset[]
+  jobsAssigned    Job[]
+  partRequests    PartRequest[]
+  mediaCreated    Media[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, accountId])
@@ -129,14 +143,14 @@ model Invite {
 }
 
 model RefreshToken {
-  id         Int       @id @default(autoincrement())
-  accountId  Int
+  id             Int       @id @default(autoincrement())
+  accountId      Int
   /// Tenant the session was scoped to when issued (public id), null = not chosen yet.
-  tenantPublicId String? @db.Char(26)
-  tokenHash  String    @unique @db.VarChar(64)
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  tenantPublicId String?   @db.Char(26)
+  tokenHash      String    @unique @db.VarChar(64)
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
 
   account Account @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -154,9 +168,228 @@ model DomainEvent {
   subjectType  String?  @db.VarChar(30)
   subjectId    String?  @db.Char(26)
   metadataJson String   @default("{}") @db.NVarChar(Max)
+  /// Links used to build timelines (asset history = events WHERE assetId).
+  jobId        Int?
+  assetId      Int?
+  customerId   Int?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job      Job?      @relation(fields: [tenantId, jobId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  asset    Asset?    @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  customer Customer? @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([tenantId, occurredAt])
   @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, assetId, occurredAt])
+  @@index([tenantId, jobId, occurredAt])
+}
+
+// ───────────────────────── M1: core workflow ─────────────────────────
+
+model Customer {
+  id          Int       @id @default(autoincrement())
+  publicId    String    @unique @db.Char(26)
+  tenantId    Int
+  displayName String    @db.NVarChar(200)
+  /// Optional (req §5). Not unique: families and companies share numbers.
+  phoneE164   String?   @db.VarChar(20)
+  notes       String?   @db.NVarChar(2000)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sites  Site[]
+  assets Asset[]
+  jobs   Job[]
+  events DomainEvent[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, phoneE164])
+  @@index([tenantId, displayName])
+}
+
+/// Where equipment is installed (home, shop, factory, branch…). Location preferred over typed address.
+model Site {
+  id          Int       @id @default(autoincrement())
+  publicId    String    @unique @db.Char(26)
+  tenantId    Int
+  customerId  Int
+  displayName String    @db.NVarChar(200)
+  lat         Float?
+  lng         Float?
+  addressText String?   @db.NVarChar(500)
+  notes       String?   @db.NVarChar(2000)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  assets   Asset[]
+  jobs     Job[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, customerId])
+}
+
+model AssetCategory {
+  id             Int       @id @default(autoincrement())
+  publicId       String    @unique @db.Char(26)
+  tenantId       Int
+  name           String    @db.NVarChar(100)
+  /// JSON string[]: problem choices for this category (req §11).
+  issueTypesJson String    @default("[]") @db.NVarChar(Max)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assets Asset[]
+
+  @@unique([tenantId, id])
+}
+
+/// The heart of the system (req §7). Only the customer is required; everything else can be enriched later.
+model Asset {
+  id                      Int       @id @default(autoincrement())
+  publicId                String    @unique @db.Char(26)
+  tenantId                Int
+  customerId              Int
+  siteId                  Int?
+  categoryId              Int?
+  brand                   String?   @db.NVarChar(100)
+  model                   String?   @db.NVarChar(100)
+  serialNumber            String?   @db.NVarChar(100)
+  installedAt             DateTime?
+  installedByMembershipId Int?
+  warrantyStart           DateTime?
+  warrantyEnd             DateTime?
+  nextServiceDate         DateTime?
+  status                  String    @default("ACTIVE") @db.VarChar(20)
+  primaryMediaId          Int?
+  /// JSON { field: "MANUAL" | "AI_CONFIRMED" | "AI_EDITED" } — provenance of each value.
+  fieldSourcesJson        String    @default("{}") @db.NVarChar(Max)
+  notes                   String?   @db.NVarChar(2000)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer     Customer       @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  site         Site?          @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  category     AssetCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  installedBy  Membership?    @relation(fields: [tenantId, installedByMembershipId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  primaryMedia Media?         @relation(fields: [tenantId, primaryMediaId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  jobs         Job[]
+  events       DomainEvent[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, customerId])
+  @@index([tenantId, serialNumber])
+  @@index([tenantId, nextServiceDate])
+}
+
+model Job {
+  id                   Int       @id @default(autoincrement())
+  publicId             String    @unique @db.Char(26)
+  tenantId             Int
+  jobNo                String    @db.VarChar(20)
+  assetId              Int?
+  customerId           Int
+  siteId               Int?
+  source               String    @db.VarChar(10)
+  issueType            String?   @db.NVarChar(100)
+  issueNote            String?   @db.NVarChar(2000)
+  status               String    @db.VarChar(20)
+  assignedMembershipId Int?
+  /// JSON { workTypes: string[], note?: string } written on completion.
+  outcomeJson          String?   @db.NVarChar(Max)
+  returnNote           String?   @db.NVarChar(2000)
+  scheduledFor         DateTime?
+  assignedAt           DateTime?
+  acceptedAt           DateTime?
+  onTheWayAt           DateTime?
+  arrivedAt            DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asset        Asset?        @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  customer     Customer      @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  site         Site?         @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  assignee     Membership?   @relation(fields: [tenantId, assignedMembershipId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  partsUsed    PartUsed[]
+  partRequests PartRequest[]
+  events       DomainEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, jobNo])
+  @@index([tenantId, status])
+  @@index([tenantId, assignedMembershipId, status])
+  @@index([tenantId, assetId])
+}
+
+/// Service record only — not inventory (req §17).
+model PartUsed {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  jobId     Int
+  name      String   @db.NVarChar(200)
+  spec      String?  @db.NVarChar(100)
+  qty       Int      @default(1)
+  source    String   @default("MANUAL") @db.VarChar(10)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job    Job    @relation(fields: [tenantId, jobId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId, jobId])
+}
+
+model PartRequest {
+  id                      Int       @id @default(autoincrement())
+  publicId                String    @unique @db.Char(26)
+  tenantId                Int
+  jobId                   Int
+  description             String?   @db.NVarChar(500)
+  mediaId                 Int?
+  status                  String    @default("REQUESTED") @db.VarChar(20)
+  requestedByMembershipId Int
+  resolvedAt              DateTime?
+  createdAt               DateTime  @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job         Job        @relation(fields: [tenantId, jobId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  requestedBy Membership @relation(fields: [tenantId, requestedByMembershipId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId, status])
+}
+
+/// Photos/videos live in object storage; the DB keeps metadata only (req §38).
+model Media {
+  id                    Int       @id @default(autoincrement())
+  publicId              String    @unique @db.Char(26)
+  tenantId              Int
+  kind                  String    @db.VarChar(20)
+  storageKey            String    @db.VarChar(200)
+  mime                  String    @db.VarChar(50)
+  size                  Int
+  /// What it belongs to once used (ASSET / JOB / PART_REQUEST); null right after upload.
+  ownerType             String?   @db.VarChar(20)
+  ownerId               Int?
+  createdByMembershipId Int?
+  createdAt             DateTime  @default(now())
+  deletedAt             DateTime?
+
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy       Membership? @relation(fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  assetsAsPrimary Asset[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, ownerType, ownerId])
 }

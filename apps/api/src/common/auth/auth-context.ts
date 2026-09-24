@@ -13,6 +13,7 @@ export interface TenantMembership {
 export interface AuthContext {
   accountId: number;
   accountPublicId: string;
+  displayName: string;
   /** Absent until the user picks a shop (only when they belong to several). */
   membership?: TenantMembership;
 }
