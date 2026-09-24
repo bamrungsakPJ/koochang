@@ -6,6 +6,7 @@ After-sales service SaaS for dealer + installation businesses. Requirements: [re
 
 ```
 apps/api          NestJS API (+ worker later), Prisma on SQL Server
+apps/web          React + Vite: /admin (owner/admin), /tech (technician), /join/:token (invite)
 packages/shared   zod schemas, enums, Thai phone helpers (used by API and web)
 docs/             architecture + decisions
 ```
@@ -32,6 +33,7 @@ Dev machine: Windows, Node 22+. Dev database: SQL Server on the Ubuntu server.
 4. Run:
    ```bash
    npm run dev:api        # http://localhost:3000/api/v1/health
+   npm run dev:web        # http://localhost:5173 (proxies /api to :3000)
    npm test               # unit + integration (integration needs DATABASE_URL_TEST)
    npm run typecheck
    ```

@@ -94,6 +94,7 @@ export class TeamService {
       displayName: m.account.displayName,
       phone: m.account.contactPhone ? formatThaiPhone(m.account.contactPhone) : null,
       joinedAt: m.createdAt,
+      isMe: m.id === auth.membership.id,
     }));
   }
 

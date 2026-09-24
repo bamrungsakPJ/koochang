@@ -21,6 +21,7 @@ describe.skipIf(!hasTestDb)('team: technician invite via LINE', () => {
     const members = await h.http().get('/api/v1/memberships').set(bearer(shop.token)).expect(200);
     expect(members.body.map((m: { displayName: string }) => m.displayName)).toEqual(['Owner of ร้าน A', 'ช่างเอ']);
     expect(members.body[1].phone).toBe('089-999-0000');
+    expect(members.body.map((m: { isMe: boolean }) => m.isMe)).toEqual([true, false]);
 
     // Single use.
     await h.http().get(`/api/v1/public/invites/${inviteToken}`).expect(410);
