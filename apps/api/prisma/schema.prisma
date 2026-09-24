@@ -1,0 +1,162 @@
+// ServiceFlow — see docs/architecture.md §3
+//
+// Conventions
+// - `id` is internal only; APIs expose `publicId` (ULID).
+// - Tenant-owned tables carry `tenantId` and expose @@unique([tenantId, id]) so that
+//   child rows reference them with a composite FK: a row can never point across tenants.
+// - SQL Server: no enums / Json in Prisma -> NVarChar; all relations NoAction (soft delete,
+//   and SQL Server rejects multiple cascade paths).
+// - SQL Server UNIQUE treats NULLs as equal, so never put @unique on a nullable column.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id           Int       @id @default(autoincrement())
+  publicId     String    @unique @db.Char(26)
+  name         String    @db.NVarChar(200)
+  settingsJson String    @default("{}") @db.NVarChar(Max)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  memberships Membership[]
+  invites     Invite[]
+  events      DomainEvent[]
+}
+
+/// A person. Crosses tenants: one technician can work for several shops.
+model Account {
+  id           Int      @id @default(autoincrement())
+  publicId     String   @unique @db.Char(26)
+  displayName  String   @db.NVarChar(200)
+  /// Only owners/admins who log in with a password have this.
+  passwordHash String?  @db.NVarChar(255)
+  /// Self-declared, NOT verified (technicians). Verified phones live in VerifiedPhone.
+  contactPhone String?  @db.VarChar(20)
+  status       String   @default("ACTIVE") @db.VarChar(20)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  verifiedPhone  VerifiedPhone?
+  memberships    Membership[]
+  lineIdentities LineIdentity[]
+  refreshTokens  RefreshToken[]
+}
+
+/// OTP-verified phone = login identity for owners. Separate table so uniqueness has no NULLs.
+model VerifiedPhone {
+  phoneE164  String   @id @db.VarChar(20)
+  accountId  Int      @unique
+  verifiedAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Membership {
+  id        Int       @id @default(autoincrement())
+  publicId  String    @unique @db.Char(26)
+  tenantId  Int
+  accountId Int
+  role      String    @db.VarChar(20)
+  status    String    @default("ACTIVE") @db.VarChar(20)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  removedAt DateTime?
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  account Account @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  invitesCreated  Invite[] @relation("InviteCreatedBy")
+  invitesAccepted Invite[] @relation("InviteAcceptedBy")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, accountId])
+}
+
+/// LINE user IDs differ per LINE provider, so the key is (channel, user).
+model LineIdentity {
+  id            Int      @id @default(autoincrement())
+  lineChannelId String   @db.VarChar(50)
+  lineUserId    String   @db.VarChar(64)
+  accountId     Int?
+  createdAt     DateTime @default(now())
+
+  account Account? @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([lineChannelId, lineUserId])
+}
+
+model OtpChallenge {
+  id         Int       @id @default(autoincrement())
+  phoneE164  String    @db.VarChar(20)
+  purpose    String    @db.VarChar(20)
+  codeHash   String    @db.VarChar(64)
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  requestIp  String?   @db.VarChar(64)
+  createdAt  DateTime  @default(now())
+
+  @@index([phoneE164, purpose, createdAt])
+  @@index([requestIp, createdAt])
+}
+
+model Invite {
+  id                    Int       @id @default(autoincrement())
+  publicId              String    @unique @db.Char(26)
+  tenantId              Int
+  role                  String    @db.VarChar(20)
+  tokenHash             String    @unique @db.VarChar(64)
+  createdByMembershipId Int
+  expiresAt             DateTime
+  acceptedAt            DateTime?
+  acceptedMembershipId  Int?
+  revokedAt             DateTime?
+  createdAt             DateTime  @default(now())
+
+  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy          Membership  @relation("InviteCreatedBy", fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  acceptedMembership Membership? @relation("InviteAcceptedBy", fields: [tenantId, acceptedMembershipId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([tenantId, id])
+}
+
+model RefreshToken {
+  id         Int       @id @default(autoincrement())
+  accountId  Int
+  /// Tenant the session was scoped to when issued (public id), null = not chosen yet.
+  tenantPublicId String? @db.Char(26)
+  tokenHash  String    @unique @db.VarChar(64)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([accountId])
+}
+
+/// Append-only. Source for timeline, audit, analytics and notifications (req §31).
+model DomainEvent {
+  id           Int      @id @default(autoincrement())
+  tenantId     Int
+  eventType    String   @db.VarChar(50)
+  occurredAt   DateTime @default(now())
+  actorType    String   @db.VarChar(20)
+  actorId      String?  @db.Char(26)
+  subjectType  String?  @db.VarChar(30)
+  subjectId    String?  @db.Char(26)
+  metadataJson String   @default("{}") @db.NVarChar(Max)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, subjectType, subjectId])
+}
