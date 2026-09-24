@@ -1,4 +1,12 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { OtpPurpose } from '@serviceflow/shared';
 import { randomInt } from 'node:crypto';
 import { SMS_SENDER, SmsSender } from '../../adapters/sms';
@@ -13,6 +21,11 @@ const PER_PHONE_COOLDOWN_MS = 60 * 1000;
 const PER_PHONE_HOURLY = 5;
 const PER_IP_HOURLY = 20;
 const HOUR_MS = 60 * 60 * 1000;
+
+/** Kept under 70 characters: one SMS credit for a Thai (unicode) message at DEESMSX. */
+export function otpMessage(code: string): string {
+  return `รหัสยืนยัน ServiceFlow: ${code} (หมดอายุใน 5 นาที)`;
+}
 
 /**
  * SMS OTP — only used for shop signup and password reset (docs/architecture.md D7).
@@ -39,7 +52,7 @@ export class OtpService {
     if (purpose === OtpPurpose.RESET && !registered) return;
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-    await this.prisma.otpChallenge.create({
+    const challenge = await this.prisma.otpChallenge.create({
       data: {
         phoneE164,
         purpose,
@@ -48,7 +61,13 @@ export class OtpService {
         requestIp: ip,
       },
     });
-    await this.sms.send(phoneE164, `รหัสยืนยัน ServiceFlow: ${code} (หมดอายุใน 5 นาที)`);
+    try {
+      await this.sms.send(phoneE164, otpMessage(code));
+    } catch {
+      // Not sent: drop the challenge so the cooldown doesn't stop an immediate retry.
+      await this.prisma.otpChallenge.delete({ where: { id: challenge.id } });
+      throw new ServiceUnavailableException('ส่ง SMS ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    }
   }
 
   /** Returns a short-lived phone-verification token. */

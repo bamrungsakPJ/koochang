@@ -66,6 +66,14 @@ describe.skipIf(!hasTestDb)('auth: owner signup / login', () => {
     expect(h.sms.sent).toHaveLength(1);
   });
 
+  it('reports an SMS failure and lets the user retry right away', async () => {
+    h.sms.failNext = true;
+    const res = await h.http().post('/api/v1/auth/otp/request').send({ phone: '0812345678', purpose: 'SIGNUP' }).expect(503);
+    expect(res.body.message).toContain('ส่ง SMS ไม่สำเร็จ');
+    await h.http().post('/api/v1/auth/otp/request').send({ phone: '0812345678', purpose: 'SIGNUP' }).expect(204);
+    expect(h.sms.sent).toHaveLength(1);
+  });
+
   it('does not send a reset SMS for an unknown number but answers the same', async () => {
     await h.http().post('/api/v1/auth/otp/request').send({ phone: '0899999999', purpose: 'RESET' }).expect(204);
     expect(h.sms.sent).toHaveLength(0);

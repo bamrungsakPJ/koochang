@@ -13,8 +13,13 @@ export const hasTestDb = Boolean(process.env.DATABASE_URL_TEST);
 
 export class FakeSms implements SmsSender {
   sent: { phone: string; message: string }[] = [];
+  failNext = false;
 
   async send(phone: string, message: string) {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error('provider down');
+    }
     this.sent.push({ phone, message });
   }
 
@@ -69,6 +74,7 @@ export async function createHarness(): Promise<Harness> {
     http: () => request(app.getHttpServer()),
     reset: async () => {
       sms.sent = [];
+      sms.failNext = false;
       limiter.reset();
       // Children first (FKs are NO ACTION).
       await prisma.domainEvent.deleteMany();

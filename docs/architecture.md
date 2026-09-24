@@ -13,7 +13,7 @@
 | D4 | Object Storage | MinIO (S3-compatible, self-hosted) ผ่าน `StorageAdapter` |
 | D5 | LINE | MVP ใช้ **LINE OA กลางของ ServiceFlow** สำหรับช่าง/Owner · OA ของร้านเอง (ฝั่งลูกค้า) = 0.2 |
 | D6 | Identity | **ไม่ใช้อีเมลทั้งระบบ** ใช้เบอร์โทร (เก็บ E.164 `+66…`) |
-| D7 | Owner | สมัคร = เบอร์ + **SMS OTP** + ตั้งรหัสผ่าน · login = เบอร์ + รหัสผ่าน · ลืมรหัส = OTP |
+| D7 | Owner | สมัคร = เบอร์ + **SMS OTP** + ตั้งรหัสผ่าน · login = เบอร์ + รหัสผ่าน · ลืมรหัส = OTP · OTP สร้าง/ตรวจโดยระบบเราเอง ส่งผ่าน **DEESMSX Send SMS API** (`SMS_MODE=deesmsx`) |
 | D8 | Technician | Owner ส่ง **invite link ทาง LINE ส่วนตัว** → ช่างเปิดใน LINE → ลงทะเบียนได้ทันที **ไม่ยืนยันเบอร์** · login ครั้งต่อไปด้วย LINE |
 | D9 | Customer | ลงทะเบียนด้วยเบอร์อย่างเดียว **ไม่มี OTP** · เบอร์อย่างเดียวไม่พอจะเปิดดูข้อมูลเดิม (ดู §7.3) |
 | D10 | AI | อยู่หลัง interface, มา Slice 5 · Nameplate = Vision LLM · Voice = Thai STT → LLM extraction · ต้องมี human confirm เสมอ |

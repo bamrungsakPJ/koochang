@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ConsoleSmsSender, SMS_SENDER } from '../adapters/sms';
+import { ConsoleSmsSender, DeeSmsxSender, SMS_SENDER } from '../adapters/sms';
 import { DevLineIdTokenVerifier, LINE_ID_TOKEN_VERIFIER, LineApiIdTokenVerifier } from '../adapters/line-auth';
 import { APP_CONFIG, AppConfig, loadConfig } from '../config/config';
 import { AuthGuard } from './auth/auth.guard';
@@ -17,7 +17,19 @@ import { RateLimiter } from './rate-limiter';
     TokenService,
     SessionCookie,
     RateLimiter,
-    { provide: SMS_SENDER, useClass: ConsoleSmsSender },
+    {
+      provide: SMS_SENDER,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) =>
+        config.SMS_MODE === 'deesmsx'
+          ? new DeeSmsxSender({
+              baseUrl: config.DEESMSX_BASE_URL,
+              apiKey: config.DEESMSX_API_KEY,
+              secretKey: config.DEESMSX_SECRET_KEY,
+              sender: config.DEESMSX_SENDER,
+            })
+          : new ConsoleSmsSender(),
+    },
     {
       provide: LINE_ID_TOKEN_VERIFIER,
       inject: [APP_CONFIG],
