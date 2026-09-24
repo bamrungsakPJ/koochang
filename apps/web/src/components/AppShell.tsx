@@ -4,6 +4,8 @@ import { roleLabel } from './ui';
 
 const nav = [
   { to: '/admin', label: 'หน้าหลัก', end: true },
+  { to: '/admin/jobs', label: 'งาน', end: false },
+  { to: '/admin/customers', label: 'ลูกค้า', end: false },
   { to: '/admin/team', label: 'ทีมงาน', end: false },
 ];
 

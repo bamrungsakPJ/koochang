@@ -94,6 +94,30 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   return (await res.json()) as T;
 }
 
+export interface UploadedMedia {
+  id: string;
+  kind: string;
+  url: string;
+}
+
+/** Multipart photo upload; the server checks the real file type. */
+export async function uploadMedia(file: Blob, kind: string): Promise<UploadedMedia> {
+  const send = () => {
+    const form = new FormData();
+    form.append('file', file);
+    return fetch(`/api/v1/media?kind=${encodeURIComponent(kind)}`, {
+      method: 'POST',
+      body: form,
+      headers: accessToken ? { authorization: `Bearer ${accessToken}` } : {},
+      credentials: 'same-origin',
+    });
+  };
+  let res = await send();
+  if (res.status === 401 && (await refreshSession())) res = await send();
+  if (!res.ok) throw await toError(res);
+  return (await res.json()) as UploadedMedia;
+}
+
 /** For endpoints that return a session (login, signup, invite accept…). */
 export async function apiSession(path: string, body?: unknown): Promise<Session> {
   const session = await api<Session>(path, { method: 'POST', body });

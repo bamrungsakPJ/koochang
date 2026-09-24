@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FormEvent, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { api, apiSession } from '../api/client';
+import { homePath } from '../auth/session';
 import { AuthShell, Button, Card, ErrorText, Field, Input, Spinner, errorMessage, roleLabel } from '../components/ui';
 import { getDevLineUserId, getLineIdToken, isDevLine, setDevLineUserId } from '../lib/line';
 
@@ -26,12 +27,12 @@ export function Join() {
     setBusy(true);
     try {
       if (isDevLine) setDevLineUserId(devUser);
-      await apiSession(`/public/invites/${token}/accept`, {
+      const session = await apiSession(`/public/invites/${token}/accept`, {
         lineIdToken: await getLineIdToken(displayName),
         displayName,
         phone: phone || undefined,
       });
-      navigate('/tech', { replace: true });
+      navigate(homePath(session), { replace: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {

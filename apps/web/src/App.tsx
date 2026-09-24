@@ -3,13 +3,22 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import { homePath, useSession } from './auth/session';
 import { AppShell } from './components/AppShell';
 import { AuthShell, Button, Spinner } from './components/ui';
+import { CustomerDetail } from './routes/admin/CustomerDetail';
+import { Customers } from './routes/admin/Customers';
+import { JobDetail } from './routes/admin/JobDetail';
+import { JobNew } from './routes/admin/JobNew';
+import { Jobs } from './routes/admin/Jobs';
 import { AdminHome } from './routes/AdminHome';
+import { AssetDetail } from './routes/AssetDetail';
+import { AssetNew } from './routes/AssetNew';
 import { Join } from './routes/Join';
 import { Login } from './routes/Login';
 import { ResetPassword } from './routes/ResetPassword';
 import { SelectShop } from './routes/SelectShop';
 import { Signup } from './routes/Signup';
 import { Team } from './routes/Team';
+import { TechJob } from './routes/tech/TechJob';
+import { TechLayout } from './routes/tech/TechLayout';
 import { TechHome } from './routes/TechHome';
 
 type Area = 'admin' | 'tech' | 'any';
@@ -59,12 +68,28 @@ const router = createBrowserRouter([
   { path: '/join/:token', element: <Join /> },
   { path: '/select-shop', element: <Protected area="any"><SelectShop /></Protected> },
   { path: '/no-shop', element: <Protected area="any"><NoShop /></Protected> },
-  { path: '/tech', element: <Protected area="tech"><TechHome /></Protected> },
+  {
+    path: '/tech',
+    element: <Protected area="tech"><TechLayout /></Protected>,
+    children: [
+      { index: true, element: <TechHome /> },
+      { path: 'jobs/:id', element: <TechJob /> },
+      { path: 'assets/new', element: <AssetNew basePath="/tech" /> },
+      { path: 'assets/:id', element: <AssetDetail basePath="/tech" /> },
+    ],
+  },
   {
     path: '/admin',
     element: <Protected area="admin"><AppShell /></Protected>,
     children: [
       { index: true, element: <AdminHome /> },
+      { path: 'jobs', element: <Jobs /> },
+      { path: 'jobs/new', element: <JobNew /> },
+      { path: 'jobs/:id', element: <JobDetail /> },
+      { path: 'customers', element: <Customers /> },
+      { path: 'customers/:id', element: <CustomerDetail /> },
+      { path: 'assets/new', element: <AssetNew basePath="/admin" /> },
+      { path: 'assets/:id', element: <AssetDetail basePath="/admin" /> },
       { path: 'team', element: <Team /> },
     ],
   },
