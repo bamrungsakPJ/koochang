@@ -63,6 +63,19 @@ const th = {
   featureRepeat: 'รู้ว่าเครื่องไหนถึงรอบดูแล ได้งานซ้ำง่ายขึ้น', haveAccount: 'มีบัญชีอยู่แล้ว?',
   pendingCount: 'รออนุมัติ', activeTechnicians: 'ช่างที่ใช้งาน', joinLinkHint: 'ส่งลิงก์ให้ช่าง หรือให้สแกน QR',
   shopOverview: 'ภาพรวมร้าน', manageTeam: 'จัดการทีมช่าง', comingSoon: 'เร็ว ๆ นี้', joiningOpen: 'รับคำขออยู่', joiningPaused: 'หยุดรับชั่วคราว',
+  SUBSCRIPTION_EXPIRED: 'แพ็กเกจของร้านหมดอายุ ยังดูข้อมูลได้ แต่ทำรายการนี้ไม่ได้', PLAN_LIMIT_REACHED: 'ใช้ครบโควตาของแพ็กเกจแล้ว',
+  ORGANIZATION_SUSPENDED: 'ร้านนี้ถูกระงับการใช้งาน กรุณาติดต่อทีมงาน',
+  'sub.trialing': 'ทดลองใช้', 'sub.active': 'ใช้งานอยู่', 'sub.past_due': 'เลยกำหนดชำระ', 'sub.expired': 'หมดอายุ',
+  'sub.ended': 'หยุดต่ออายุแล้ว', 'sub.pending_payment': 'รอชำระเงิน', 'sub.suspended': 'ถูกระงับ',
+  plan: 'แพ็กเกจ', daysLeft: 'เหลือ {days} วัน', periodEnds: 'ใช้ได้ถึง {date}', graceUntil: 'ใช้งานต่อได้ถึง {date}',
+  storageQuota: 'พื้นที่รูปภาพ', ocrQuota: 'อ่านป้ายเครื่อง (OCR)', seatsQuota: 'ช่างที่ใช้งาน',
+  renewHint: 'ต่ออายุหรือเปลี่ยนแพ็กเกจ ติดต่อทีมงาน ระบบชำระเงินในแอปจะเปิดในช่วงถัดไป',
+  cancelRenewal: 'หยุดต่ออายุเมื่อครบรอบ', resumeRenewal: 'ต่ออายุตามปกติ',
+  cancelRenewalConfirm: 'แพ็กเกจจะสิ้นสุดเมื่อครบรอบนี้ และจะไม่มีช่วงผ่อนผัน ต้องการหยุดต่ออายุหรือไม่',
+  renewalStopped: 'ตั้งให้หยุดต่ออายุเมื่อครบรอบแล้ว',
+  expiredBanner: 'แพ็กเกจหมดอายุ ยังดูข้อมูลได้ แต่สร้างงานใหม่หรืออนุมัติช่างไม่ได้',
+  pastDueBanner: 'เลยกำหนดชำระ ยังใช้งานได้ถึง {date}', pendingPaymentBanner: 'ร้านยังไม่มีแพ็กเกจที่ใช้งานได้',
+  techExpiredBanner: 'แพ็กเกจของร้านหมดอายุ บันทึกงานใหม่ไม่ได้ กรุณาติดต่อเจ้าของร้าน',
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
@@ -128,6 +141,19 @@ const en: Catalog = {
   featureRepeat: 'See which equipment is due and win repeat work', haveAccount: 'Already have an account?',
   pendingCount: 'Waiting', activeTechnicians: 'Active technicians', joinLinkHint: 'Send the link or let them scan the QR',
   shopOverview: 'Shop overview', manageTeam: 'Manage technicians', comingSoon: 'Coming soon', joiningOpen: 'Accepting', joiningPaused: 'Paused',
+  SUBSCRIPTION_EXPIRED: "The shop's plan has expired. You can still view data but not do this.", PLAN_LIMIT_REACHED: 'The plan quota is used up.',
+  ORGANIZATION_SUSPENDED: 'This shop is suspended. Please contact support.',
+  'sub.trialing': 'Trial', 'sub.active': 'Active', 'sub.past_due': 'Payment overdue', 'sub.expired': 'Expired',
+  'sub.ended': 'Renewal stopped', 'sub.pending_payment': 'Awaiting payment', 'sub.suspended': 'Suspended',
+  plan: 'Plan', daysLeft: '{days} days left', periodEnds: 'Valid until {date}', graceUntil: 'Usable until {date}',
+  storageQuota: 'Photo storage', ocrQuota: 'Nameplate reading (OCR)', seatsQuota: 'Active technicians',
+  renewHint: 'To renew or change plan, contact our team. In-app payment comes in a later stage.',
+  cancelRenewal: 'Stop renewing at period end', resumeRenewal: 'Keep renewing',
+  cancelRenewalConfirm: 'The plan will end at the end of this period with no grace days. Stop renewing?',
+  renewalStopped: 'Renewal will stop at the end of this period.',
+  expiredBanner: 'The plan has expired. You can view data but cannot create work or approve technicians.',
+  pastDueBanner: 'Payment overdue. Usable until {date}.', pendingPaymentBanner: 'This shop has no usable plan yet.',
+  techExpiredBanner: "The shop's plan has expired, so new work cannot be saved. Please contact the owner.",
 };
 export const catalogs = { th, en };
 export type TranslationKey = keyof Catalog;

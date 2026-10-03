@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, isThaiMobile, normalizePhone, type Language } from '@field-service/core';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, tokenFromLink, type Challenge } from '../api';
-import { Banner, Button, Card, colors, Field, fonts, Icon, Loading, Screen, Steps, Sub, Title, useErrorText, useT, type IconName } from '../ui';
+import { Banner, Button, Card, colors, Field, fonts, Icon, IconTile, Loading, Screen, Steps, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
 export function LanguageSwitch({ language, onChange }: { language: Language; onChange: (value: Language) => void }) {
   return <View style={styles.languages} accessibilityRole="radiogroup">
@@ -14,9 +14,9 @@ export function LanguageSwitch({ language, onChange }: { language: Language; onC
   </View>;
 }
 
-function Feature({ icon, text }: { icon: IconName; text: string }) {
+function Feature({ icon, tone, text }: { icon: IconName; tone: Tone; text: string }) {
   return <View style={styles.feature}>
-    <View style={styles.featureIcon}><Icon name={icon} size={20} color={colors.primary} /></View>
+    <IconTile icon={icon} tone={tone} />
     <Text style={styles.featureText}>{text}</Text>
   </View>;
 }
@@ -40,9 +40,9 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
     <Text style={styles.heroTitle}>{t('welcomeTitle')}</Text>
     <Sub>{t('welcomeBody')}</Sub>
     <Card>
-      <Feature icon="calendar" text={t('featureJobs')} />
-      <Feature icon="people" text={t('featureTeam')} />
-      <Feature icon="refresh-circle" text={t('featureRepeat')} />
+      <Feature icon="calendar" tone="amber" text={t('featureJobs')} />
+      <Feature icon="people" tone="blue" text={t('featureTeam')} />
+      <Feature icon="refresh-circle" tone="teal" text={t('featureRepeat')} />
     </Card>
   </Screen>;
 }
@@ -205,7 +205,6 @@ const styles = StyleSheet.create({
   brand: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.ink, flexShrink: 1 },
   heroTitle: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 46, color: colors.ink },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  featureIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   featureText: { flex: 1, fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink },
   signInRow: { alignItems: 'center', paddingVertical: 14 },
   signInText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.muted },

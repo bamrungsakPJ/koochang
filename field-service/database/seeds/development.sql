@@ -1,4 +1,20 @@
 BEGIN;
+-- Plans first: creating a shop starts its trial from the published trial plan.
+INSERT INTO billing.plans(id,code,name_th,name_en) VALUES
+ ('70000000-0000-0000-0000-000000000001','starter','เริ่มต้น','Starter'),
+ ('70000000-0000-0000-0000-000000000002','team','ทีม','Team') ON CONFLICT DO NOTHING;
+INSERT INTO billing.plan_versions(id,plan_id,version_no,technician_seats,storage_bytes,ocr_per_period,published_at) VALUES
+ ('71000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000001',1,3,10000000000,100,now()),
+ ('71000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000002',1,10,30000000000,300,now()) ON CONFLICT DO NOTHING;
+INSERT INTO billing.price_versions(id,plan_version_id,amount_minor,effective_from) VALUES
+ ('72000000-0000-0000-0000-000000000001','71000000-0000-0000-0000-000000000001',59000,now()),
+ ('72000000-0000-0000-0000-000000000002','71000000-0000-0000-0000-000000000002',129000,now()) ON CONFLICT DO NOTHING;
+INSERT INTO billing.plans(id,code,name_th,name_en,kind) VALUES
+ ('70000000-0000-0000-0000-000000000003','trial','ทดลองใช้','Trial','trial') ON CONFLICT DO NOTHING;
+INSERT INTO billing.plan_versions(id,plan_id,version_no,technician_seats,storage_bytes,ocr_per_period,trial_days,grace_days,published_at) VALUES
+ ('71000000-0000-0000-0000-000000000003','70000000-0000-0000-0000-000000000003',1,3,1000000000,20,14,0,now()) ON CONFLICT DO NOTHING;
+INSERT INTO billing.price_versions(id,plan_version_id,amount_minor,effective_from) VALUES
+ ('72000000-0000-0000-0000-000000000003','71000000-0000-0000-0000-000000000003',0,now()) ON CONFLICT DO NOTHING;
 INSERT INTO core.users(id,display_name,preferred_language) VALUES
  ('10000000-0000-0000-0000-000000000001','Demo Owner A','th'),
  ('10000000-0000-0000-0000-000000000002','Demo Owner B','en'),
@@ -19,14 +35,5 @@ INSERT INTO core.customer_locations(id,organization_id,customer_id,name) VALUES
 INSERT INTO core.equipment(id,organization_id,location_id,name) VALUES
  ('60000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','แอร์จำลอง A'),
  ('60000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002','50000000-0000-0000-0000-000000000002','Demo Equipment B') ON CONFLICT DO NOTHING;
-INSERT INTO billing.plans(id,code,name_th,name_en) VALUES
- ('70000000-0000-0000-0000-000000000001','starter','เริ่มต้น','Starter'),
- ('70000000-0000-0000-0000-000000000002','team','ทีม','Team') ON CONFLICT DO NOTHING;
-INSERT INTO billing.plan_versions(id,plan_id,version_no,technician_seats,storage_bytes,ocr_per_period,published_at) VALUES
- ('71000000-0000-0000-0000-000000000001','70000000-0000-0000-0000-000000000001',1,3,10000000000,100,now()),
- ('71000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000002',1,10,30000000000,300,now()) ON CONFLICT DO NOTHING;
-INSERT INTO billing.price_versions(id,plan_version_id,amount_minor,effective_from) VALUES
- ('72000000-0000-0000-0000-000000000001','71000000-0000-0000-0000-000000000001',59000,now()),
- ('72000000-0000-0000-0000-000000000002','71000000-0000-0000-0000-000000000002',129000,now()) ON CONFLICT DO NOTHING;
 INSERT INTO platform.roles(code) VALUES ('super_admin'),('platform_admin'),('billing_operator'),('billing_approver'),('support_agent'),('operations'),('auditor') ON CONFLICT DO NOTHING;
 COMMIT;

@@ -191,3 +191,34 @@ test('OTP requests are rate limited and validated', { skip }, async () => {
   const wrong = await call('POST', '/auth/otp/verify', { body: { challenge_id: randomUUID(), code: '000000' } });
   assert.equal(wrong.body.code, 'OTP_INVALID');
 });
+
+test('subscription: owner sees plan and limits, technician only the state; expired shop cannot approve', { skip }, async () => {
+  const owner = await signIn(newPhone(), 'Owner S');
+  const created = (await call('POST', '/organizations', { token: owner.access_token, body: { name: 'Plan Shop' } })).body;
+  const shopId = created.organization.id;
+  const token = created.join_link.url.split('/').at(-1);
+  const sub = await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token });
+  assert.equal(sub.status, 200);
+  assert.equal(sub.body.state, 'trialing');
+  assert.equal(sub.body.plan.code, 'trial');
+  assert.deepEqual(sub.body.limits, { technician_seats: 3, storage_bytes: 1_000_000_000, ocr_per_period: 20 });
+
+  const tech = await signIn(newPhone(), 'Tech S');
+  const joined = (await call('POST', '/join-requests', { token: tech.access_token, body: { token, display_name: 'Tech S' } })).body;
+  const team = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body;
+  const member = team.members.find(m => m.member_id === joined.member_id);
+  assert.equal((await call('POST', `/organizations/${shopId}/members/${member.member_id}/approve`, { token: owner.access_token, body: { expected_version: member.version } })).status, 200);
+  const techView = await call('GET', `/organizations/${shopId}/subscription`, { token: tech.access_token });
+  assert.deepEqual(techView.body, { state: 'trialing', writable: true });
+  assert.equal((await call('POST', `/organizations/${shopId}/subscription/cancel-renewal`, { token: tech.access_token })).status, 403);
+
+  const late = await signIn(newPhone(), 'Late S');
+  const lateJoin = (await call('POST', '/join-requests', { token: late.access_token, body: { token, display_name: 'Late S' } })).body;
+  await db.query("UPDATE billing.subscription_periods SET start_at = start_at - interval '15 days', end_at = end_at - interval '15 days' WHERE organization_id = $1", [shopId]);
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.state, 'expired');
+  const lateMember = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members.find(m => m.member_id === lateJoin.member_id);
+  const refused = await call('POST', `/organizations/${shopId}/members/${lateMember.member_id}/approve`, { token: owner.access_token, body: { expected_version: lateMember.version } });
+  assert.equal(refused.status, 403);
+  assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED');
+  assert.equal((await call('GET', `/organizations/${shopId}`, { token: tech.access_token })).status, 200, 'reading stays allowed');
+});

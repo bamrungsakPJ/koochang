@@ -85,8 +85,39 @@ export class OrganizationsController {
       case 'version_conflict': throw apiError(409, 'VERSION_CONFLICT', { latest_version: row.version });
       case 'invalid_transition': throw apiError(422, 'INVALID_STATE_TRANSITION', { latest_version: row.version });
       case 'seat_limit_reached': throw apiError(409, 'SEAT_LIMIT_REACHED');
+      case 'subscription_inactive': throw apiError(403, 'SUBSCRIPTION_EXPIRED');
       default: throw apiError(403, 'TENANT_ACCESS_DENIED');
     }
+  }
+
+  // subscription ----------------------------------------------------------------------------
+  /** Effective entitlement computed from server time. Technicians only learn whether work can be saved. */
+  @Get(':organizationId/subscription') @UseGuards(TenantGuard)
+  async subscription(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
+    const row = await this.database.identity(async client => (await client.query(
+      `SELECT role, state, writable, source, plan_code, name_th, name_en, technician_seats, storage_bytes, ocr_per_period,
+        period_end, grace_until, cancel_at_period_end, active_technicians, storage_used, ocr_used
+       FROM auth.subscription_summary($1,$2)`, [session.userId, tenant.organizationId])).rows[0]);
+    if (!row) throw apiError(403, 'TENANT_ACCESS_DENIED');
+    if (row.role !== 'owner') return { state: row.state, writable: row.writable };
+    return {
+      state: row.state, writable: row.writable, source: row.source,
+      plan: row.plan_code ? { code: row.plan_code, name_th: row.name_th, name_en: row.name_en } : null,
+      period_end: row.period_end, grace_until: row.grace_until, cancel_at_period_end: row.cancel_at_period_end,
+      limits: { technician_seats: row.technician_seats, storage_bytes: Number(row.storage_bytes), ocr_per_period: row.ocr_per_period },
+      usage: { technician_seats: row.active_technicians, storage_bytes: Number(row.storage_used), ocr: Number(row.ocr_used) },
+    };
+  }
+
+  @Post(':organizationId/subscription/:action') @HttpCode(200) @UseGuards(TenantGuard)
+  async changeRenewal(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @RequestId() requestId: string, @Param('action') action: string) {
+    this.ownerOnly(tenant);
+    if (action !== 'cancel-renewal' && action !== 'resume-renewal') throw apiError(404, 'RESOURCE_NOT_FOUND');
+    const row = await this.database.identity(async client => (await client.query('SELECT outcome FROM auth.set_cancel_at_period_end($1,$2,$3,$4)',
+      [session.userId, tenant.organizationId, action === 'cancel-renewal', requestId])).rows[0]);
+    if (row?.outcome === 'not_found') throw apiError(404, 'RESOURCE_NOT_FOUND');
+    if (row?.outcome !== 'ok') throw apiError(403, 'TENANT_ACCESS_DENIED');
+    return this.subscription(session, tenant);
   }
 
   // join link -------------------------------------------------------------------------------

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Image, Share, StyleSheet, Text, View } from 'react-native';
-import { formatPhone, type Language } from '@field-service/core';
-import { api, type JoinLink, type Me, type Membership, type Team, type TeamMember } from '../api';
-import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
+import { formatPhone, type Language, type SubscriptionState } from '@field-service/core';
+import { formatDate } from '@field-service/i18n';
+import { api, type JoinLink, type Me, type Membership, type Subscription, type Team, type TeamMember } from '../api';
+import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, IconTile, LanguageContext, Loading, tones, type Tone, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 import { LanguageSwitch } from './onboarding';
 
+const memberTone = (status: string): Tone => status === 'active' ? 'green' : status === 'pending' ? 'amber' : status === 'suspended' ? 'rose' : 'sky';
 const statusTone = (status: string) => status === 'active' ? 'ok' : status === 'pending' ? 'warn' : status === 'suspended' ? 'danger' : 'neutral';
 
 function JoinLinkCard({ link, shopName, onChange }: { link: JoinLink; shopName: string; onChange?: (action: 'open' | 'close' | 'rotate') => Promise<void> }) {
@@ -80,44 +82,113 @@ export function NoShop({ onCreate, onJoin }: { onCreate: () => void; onJoin: () 
     <StatusIcon icon="storefront" tone="info" />
     <Title>{t('noShopYet')}</Title>
     <Card padded={false}>
-      <Row icon="add-circle" title={t('createShop')} subtitle={t('createShopHint')} onPress={onCreate} />
-      <Row icon="link" title={t('joinShop')} subtitle={t('joinShopHint')} onPress={onJoin} last />
+      <Row icon="add-circle" tone="green" title={t('createShop')} subtitle={t('createShopHint')} onPress={onCreate} />
+      <Row icon="link" tone="sky" title={t('joinShop')} subtitle={t('joinShopHint')} onPress={onJoin} last />
     </Card>
   </Screen>;
 }
 
-function Stat({ icon, label, value, tone = colors.primary }: { icon: IconName; label: string; value: string; tone?: string }) {
-  return <View style={styles.stat}>
-    <Icon name={icon} size={20} color={tone} />
+function Stat({ icon, label, value, tone }: { icon: IconName; label: string; value: string; tone: Tone }) {
+  return <View style={[styles.stat, { backgroundColor: tones[tone][0] }]}>
+    <Icon name={icon} size={22} color={tones[tone][1]} />
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
   </View>;
+}
+
+const subTone = (state: SubscriptionState) => state === 'trialing' ? 'info' : state === 'active' ? 'ok' : state === 'past_due' ? 'warn' : 'danger';
+const daysUntil = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
+const gb = (bytes: number) => `${(bytes / 1e9).toLocaleString(undefined, { maximumFractionDigits: 1 })} GB`;
+
+function Meter({ label, used, limit, text, tone }: { label: string; used: number; limit: number; text: string; tone: Tone }) {
+  const ratio = limit > 0 ? Math.min(1, used / limit) : 1;
+  return <View style={styles.meter}>
+    <View style={styles.meterHead}><Text style={styles.meterLabel}>{label}</Text><Text style={styles.meterValue}>{text}</Text></View>
+    <View style={styles.seatBar}><View style={[styles.seatFill, { width: `${ratio * 100}%`, backgroundColor: tones[tone][1] }, ratio >= 0.95 ? { backgroundColor: colors.danger } : ratio >= 0.8 ? { backgroundColor: colors.warn } : null]} /></View>
+  </View>;
+}
+
+/** Banner for any member when the shop cannot save new work, or the owner must pay soon. */
+function SubscriptionBanner({ sub, owner }: { sub: Subscription; owner: boolean }) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  if (sub.state === 'past_due' && owner && sub.grace_until) return <Banner tone="info" text={t('pastDueBanner', { date: formatDate(new Date(sub.grace_until), language) })} />;
+  if (sub.writable) return null;
+  if (!owner) return <Banner text={t('techExpiredBanner')} />;
+  return <Banner text={sub.state === 'pending_payment' ? t('pendingPaymentBanner') : sub.state === 'suspended' ? t('ORGANIZATION_SUSPENDED') : t('expiredBanner')} />;
+}
+
+function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organizationId: string; onChanged: (next: Subscription) => void }) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  const errorText = useErrorText();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = sub.plan ? (language === 'th' ? sub.plan.name_th : sub.plan.name_en) : t('plan');
+  const end = sub.state === 'past_due' ? sub.grace_until : sub.period_end;
+  async function toggleRenewal() {
+    const cancel = !sub.cancel_at_period_end;
+    if (cancel && !await confirm(t('cancelRenewalConfirm'), t('cancelRenewal'), t('cancel'))) return;
+    setBusy(true); setError(null);
+    try { onChanged(await api.changeRenewal(organizationId, cancel ? 'cancel-renewal' : 'resume-renewal')); }
+    catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+  return <Card>
+    <View style={styles.linkHead}>
+      <IconTile icon="ribbon" tone="amber" size={44} />
+      <View style={{ flex: 1 }}>
+        <Strong>{name}</Strong>
+        {end && sub.writable ? <Sub>{sub.state === 'trialing' ? t('daysLeft', { days: daysUntil(end) })
+          : t(sub.state === 'past_due' ? 'graceUntil' : 'periodEnds', { date: formatDate(new Date(end), language) })}</Sub> : null}
+      </View>
+      <Badge text={t(`sub.${sub.state}`)} tone={subTone(sub.state)} />
+    </View>
+    {sub.limits && sub.usage ? <>
+      <Meter tone="blue" label={t('seatsQuota')} used={sub.usage.technician_seats} limit={sub.limits.technician_seats} text={`${sub.usage.technician_seats}/${sub.limits.technician_seats}`} />
+      <Meter tone="teal" label={t('storageQuota')} used={sub.usage.storage_bytes} limit={sub.limits.storage_bytes} text={`${gb(sub.usage.storage_bytes)} / ${gb(sub.limits.storage_bytes)}`} />
+      <Meter tone="violet" label={t('ocrQuota')} used={sub.usage.ocr} limit={sub.limits.ocr_per_period} text={`${sub.usage.ocr}/${sub.limits.ocr_per_period}`} />
+    </> : null}
+    {sub.cancel_at_period_end ? <Banner tone="info" text={t('renewalStopped')} /> : null}
+    <Banner text={error} />
+    <Sub>{t('renewHint')}</Sub>
+    {sub.source === 'paid' ? <View style={{ marginTop: 12 }}><Button small kind="secondary" icon={sub.cancel_at_period_end ? 'refresh' : 'stop-circle-outline'}
+      title={sub.cancel_at_period_end ? t('resumeRenewal') : t('cancelRenewal')} busy={busy} onPress={toggleRenewal} /></View> : null}
+  </Card>;
 }
 
 export function Home({ me, membership, onTeam }: { me: Me; membership: Membership; onTeam: () => void }) {
   const t = useT();
   const owner = membership.role === 'owner';
   const [team, setTeam] = useState<Team | null>(null);
-  useEffect(() => { if (owner) api.team(membership.organization_id).then(setTeam, () => setTeam(null)); }, [owner, membership.organization_id]);
+  const [sub, setSub] = useState<Subscription | null>(null);
+  useEffect(() => {
+    api.subscription(membership.organization_id).then(setSub, () => setSub(null));
+    if (owner) api.team(membership.organization_id).then(setTeam, () => setTeam(null));
+  }, [owner, membership.organization_id]);
   const pending = team?.members.filter(m => m.status === 'pending').length ?? 0;
   return <Screen>
-    <View style={styles.homeHead}>
-      <View style={{ flex: 1 }}><Text style={styles.shopLine}>{membership.organization_name}</Text><Title>{owner ? t('shopOverview') : t('today')}</Title></View>
-      <Avatar name={me.user.display_name} />
+    <View style={styles.hero}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.heroShop}>{membership.organization_name}</Text>
+        <Text style={styles.heroTitle}>{owner ? t('shopOverview') : t('today')}</Text>
+        <Text style={styles.heroSub}>{t(`role.${membership.role}`)}</Text>
+      </View>
+      <View style={styles.heroAvatar}><Avatar name={me.user.display_name} /></View>
     </View>
+    {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
     {owner ? <>
       <View style={styles.stats}>
-        <Stat icon="people" label={t('activeTechnicians')} value={team ? `${team.seats.active_technicians}/${team.seats.seat_limit}` : '–'} />
-        <Stat icon="time" label={t('pendingCount')} value={team ? String(pending) : '–'} tone={pending ? colors.warn : colors.primary} />
+        <Stat icon="people" tone="teal" label={t('activeTechnicians')} value={team ? `${team.seats.active_technicians}/${team.seats.seat_limit}` : '–'} />
+        <Stat icon="time" label={t('pendingCount')} value={team ? String(pending) : '–'} tone={pending ? 'rose' : 'amber'} />
       </View>
-      {pending ? <Banner tone="info" text={`${t('pendingRequests')}: ${pending}`} /> : null}
-      <Card padded={false}><Row icon="people" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
+      <Card padded={false}><Row icon="people" tone="blue" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
+      {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} /></> : null}
     </> : null}
     <Section>{t('comingSoon')}</Section>
     <Card padded={false}>
-      <Row icon="briefcase-outline" title={t('jobs')} trailing={<Badge text={t('comingSoon')} />} />
-      <Row icon="person-outline" title={t('customers')} trailing={<Badge text={t('comingSoon')} />} />
-      <Row icon="hardware-chip-outline" title={t('equipment')} trailing={<Badge text={t('comingSoon')} />} last />
+      <Row icon="briefcase" tone="amber" title={t('jobs')} trailing={<Badge text={t('comingSoon')} />} />
+      <Row icon="person" tone="violet" title={t('customers')} trailing={<Badge text={t('comingSoon')} />} />
+      <Row icon="hardware-chip" tone="teal" title={t('equipment')} trailing={<Badge text={t('comingSoon')} />} last />
     </Card>
     <Sub>{t('notBuiltYet')}</Sub>
   </Screen>;
@@ -128,12 +199,12 @@ export function ShopPicker({ me, onPick, onCreate, onJoin, onBack }: { me: Me; o
   return <Screen onBack={onBack}>
     <Title>{t('myShops')}</Title>
     <Card padded={false}>
-      {me.memberships.map((m, i) => <Row key={m.member_id} icon="storefront" title={m.organization_name ?? '—'}
+      {me.memberships.map((m, i) => <Row key={m.member_id} icon="storefront" tone="amber" title={m.organization_name ?? '—'}
         subtitle={`${t(`role.${m.role}`)} · ${t(`member.${m.status}`)}`} onPress={() => onPick(m.organization_id)} last={i === me.memberships.length - 1} />)}
     </Card>
     <Card padded={false}>
-      <Row icon="add-circle" title={t('createShop')} onPress={onCreate} />
-      <Row icon="link" title={t('joinShop')} onPress={onJoin} last />
+      <Row icon="add-circle" tone="green" title={t('createShop')} onPress={onCreate} />
+      <Row icon="link" tone="sky" title={t('joinShop')} onPress={onJoin} last />
     </Card>
   </Screen>;
 }
@@ -149,8 +220,8 @@ export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack 
         <View style={{ flex: 1 }}><Strong>{me.user.display_name.startsWith('+') ? formatPhone(me.user.display_name) : me.user.display_name}</Strong><Sub>{formatPhone(me.user.phone_e164)}</Sub></View></View>
     </Card>
     <Card padded={false}>
-      <Row icon="language" title={t('language')} trailing={<LanguageSwitch language={language} onChange={onLanguage} />} last={!onSwitch} />
-      {onSwitch ? <Row icon="swap-horizontal" title={t('myShops')} onPress={onSwitch} last /> : null}
+      <Row icon="language" tone="violet" title={t('language')} trailing={<LanguageSwitch language={language} onChange={onLanguage} />} last={!onSwitch} />
+      {onSwitch ? <Row icon="swap-horizontal" tone="sky" title={t('myShops')} onPress={onSwitch} last /> : null}
     </Card>
     <Button title={t('signOut')} kind="danger" icon="log-out-outline" onPress={onSignOut} />
   </Screen>;
@@ -160,7 +231,7 @@ function MemberRow({ member, actions, last }: { member: TeamMember; actions: Rea
   const t = useT();
   return <View style={[styles.member, !last && styles.memberLine]}>
     <View style={styles.memberHead}>
-      <Avatar name={member.display_name} />
+      <Avatar name={member.display_name} tone={memberTone(member.status)} />
       <View style={{ flex: 1 }}>
         <Text style={styles.memberName}>{member.display_name}</Text>
         {member.phone_e164 ? <Text style={styles.memberPhone}>{formatPhone(member.phone_e164)}</Text> : null}
@@ -225,7 +296,7 @@ export function TeamScreen({ membership }: { membership: Membership }) {
     <Section action={pending.length ? <Badge text={String(pending.length)} tone="warn" /> : undefined}>{t('pendingRequests')}</Section>
     {full && pending.length ? <Banner tone="info" text={t('SEAT_LIMIT_REACHED')} /> : null}
     <Card padded={false}>
-      {pending.length === 0 ? <Row icon="mail-open-outline" title={t('noPending')} last />
+      {pending.length === 0 ? <Row icon="mail-open" tone="sky" title={t('noPending')} last />
         : pending.map((m, i) => <MemberRow key={m.member_id} member={m} last={i === pending.length - 1}
           actions={<>{small(m, 'approve', 'primary', 'checkmark', full)}{small(m, 'reject', 'secondary', 'close')}</>} />)}
     </Card>
@@ -254,7 +325,12 @@ const styles = StyleSheet.create({
   homeHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
   shopLine: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.primary },
   stats: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  stat: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 16, gap: 4, shadowColor: '#0F172A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  stat: { flex: 1, borderRadius: 16, padding: 16, gap: 4 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, backgroundColor: '#1E3A8A', borderRadius: 20, padding: 20 },
+  heroShop: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: '#BFDBFE' },
+  heroTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: '#FFFFFF' },
+  heroSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: '#C7D2FE' },
+  heroAvatar: { borderRadius: 26, borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)' },
   statValue: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 36, color: colors.ink },
   statLabel: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -267,4 +343,9 @@ const styles = StyleSheet.create({
   memberName: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 23, color: colors.ink },
   memberPhone: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.muted },
   memberActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  planIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  meter: { marginTop: 14 },
+  meterHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  meterLabel: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
+  meterValue: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.ink },
 });

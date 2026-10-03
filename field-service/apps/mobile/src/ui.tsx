@@ -12,6 +12,13 @@ export const colors = {
   danger: '#DC2626', dangerSoft: '#FEE2E2',
 };
 
+/** Secondary tones: [soft background, strong foreground]. Blue stays the action colour. */
+export const tones = {
+  blue: ['#EFF4FF', '#1D4ED8'], teal: ['#CCFBF1', '#0F766E'], amber: ['#FEF3C7', '#B45309'], violet: ['#EDE9FE', '#6D28D9'],
+  rose: ['#FFE4E6', '#BE123C'], sky: ['#E0F2FE', '#0369A1'], green: ['#DCFCE7', '#15803D'],
+} as const;
+export type Tone = keyof typeof tones;
+
 /** Noto Sans Thai per weight (Android ignores fontWeight with custom fonts). */
 export const fonts = {
   regular: 'NotoSansThai_400Regular', medium: 'NotoSansThai_500Medium', semibold: 'NotoSansThai_600SemiBold', bold: 'NotoSansThai_700Bold',
@@ -22,6 +29,12 @@ const text = (family: keyof typeof fonts, size: number, color: string, lineHeigh
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 export const Icon = ({ name, size = 20, color = colors.ink }: { name: IconName; size?: number; color?: string }) =>
   <Ionicons name={name} size={size} color={color} />;
+
+/** Rounded square with a coloured icon. */
+export const IconTile = ({ icon, tone = 'blue', size = 40 }: { icon: IconName; tone?: Tone; size?: number }) =>
+  <View style={[styles.tile, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: tones[tone][0] }]}>
+    <Icon name={icon} size={size * 0.5} color={tones[tone][1]} />
+  </View>;
 
 export const LanguageContext = createContext<Language>('th');
 export function useT() {
@@ -111,18 +124,19 @@ export function Badge({ text, tone = 'neutral' }: { text: string; tone?: 'neutra
 }
 
 /** Circle with the first letter of a name; a person icon when the name is only a phone number. */
-export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 44, tone = 'blue' }: { name: string; size?: number; tone?: Tone }) {
   const first = Array.from(name.trim())[0];
-  return <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
-    {!first || /[+d]/.test(first) ? <Icon name="person" size={size * 0.5} color={colors.primary} />
-      : <Text style={[styles.avatarText, { fontSize: size * 0.4, lineHeight: size * 0.6 }]}>{first.toUpperCase()}</Text>}
+  const [bg, fg] = tones[tone];
+  return <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
+    {!first || /[+\d]/.test(first) ? <Icon name="person" size={size * 0.5} color={fg} />
+      : <Text style={[styles.avatarText, { fontSize: size * 0.4, lineHeight: size * 0.6, color: fg }]}>{first.toUpperCase()}</Text>}
   </View>;
 }
 
 /** Tappable or plain row: icon, title, subtitle, trailing content. */
-export function Row({ icon, title, subtitle, trailing, onPress, last }: { icon?: IconName | ReactNode; title: string; subtitle?: string; trailing?: ReactNode; onPress?: () => void; last?: boolean }) {
+export function Row({ icon, tone = 'blue', title, subtitle, trailing, onPress, last }: { icon?: IconName | ReactNode; tone?: Tone; title: string; subtitle?: string; trailing?: ReactNode; onPress?: () => void; last?: boolean }) {
   const body = <>
-    {typeof icon === 'string' ? <View style={styles.rowIcon}><Icon name={icon as IconName} size={20} color={colors.primary} /></View> : icon}
+    {typeof icon === 'string' ? <IconTile icon={icon as IconName} tone={tone} /> : icon}
     <View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text>{subtitle ? <Text style={styles.rowSub}>{subtitle}</Text> : null}</View>
     {trailing ? <View style={{ alignSelf: 'center' }}>{trailing}</View> : (onPress ? <Icon name="chevron-forward" size={18} color={colors.faint} /> : null)}
   </>;
@@ -200,7 +214,7 @@ const styles = StyleSheet.create({
   avatarText: { fontFamily: fonts.semibold, color: colors.primary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },
   rowLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  rowIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  tile: { alignItems: 'center', justifyContent: 'center' },
   rowTitle: text('medium', 16, colors.ink, 23),
   rowSub: text('regular', 13, colors.muted, 19),
   tabBar: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 10 },

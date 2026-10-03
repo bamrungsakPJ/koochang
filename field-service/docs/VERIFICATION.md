@@ -53,3 +53,25 @@ Not done / remaining:
 - Expo web reaches the API only from origins listed in `ADMIN_ORIGIN`.
 
 How to run locally: `.env` from `.env.example` (OTP_SECRET, JOIN_LINK_KEY, JOIN_LINK_BASE_URL, SMS_PROVIDER=development), `pnpm db:migrate`, `pnpm dev:api`, `pnpm dev:admin`, `pnpm dev:mobile` (set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to an address the phone can reach). The OTP code appears in the API log as `[development SMS]`.
+
+# A03 subscription rules — 2026-10-04
+
+Decisions: [DECISIONS_A03.md](DECISIONS_A03.md). Migration `003_entitlements.sql`.
+
+Done:
+- Trial started by a trigger when a shop is created (once per shop); effective entitlement from server time with trialing / active / past_due (grace) / expired / ended / pending_payment / suspended; grants; shop suspension overrides everything.
+- Seat limit from the plan; approving or reactivating a technician needs a writable subscription (403 `SUBSCRIPTION_EXPIRED`).
+- Paid period rules for C01: continue from the old end before expiry and within grace, start on confirmation after grace, idempotent per invoice, no overlap under concurrency, 31st anchor.
+- Storage / OCR reservations with consume-once and release.
+- API: `GET /v1/organizations/:id/subscription` (owner: plan, period, limits, usage; technician: state only), `POST …/subscription/cancel-renewal|resume-renewal` (owner).
+- Mobile: plan card on the owner home (state, days left, seat / storage / OCR meters, stop/resume renewal for paid plans), banners for past due / expired / pending payment, technician banner when work cannot be saved.
+- Dev database on server2: migrated; trial plan added and trials started for the 4 existing shops.
+
+Tests (`pnpm test`, 66 total):
+- PostgreSQL 16.15 (server2 test cluster): 66 passed.
+- PGlite: 56 passed, 10 skipped (need a real PostgreSQL connection).
+- New: trial once (link reset does not restart it), no trial plan → pending_payment, trial expiry without grace, paid period after trial, the commercial-policy renewal example (before expiry / in grace / after grace), 31st anchor and leap year, stop renewal → ended without grace, upgrade to Team → 10 seats, pilot grant, suspension over grant, runtime role cannot create periods or call billing functions, owner vs technician summary, reservations (limit, same key, consume once, release), 30 concurrent OCR reservations → exactly 20, two concurrent renewals chain without overlap, HTTP: expired shop approve → 403 SUBSCRIPTION_EXPIRED while reading still works.
+
+Checked by hand: owner home on Expo web shows "ทดลองใช้ · เหลือ 14 วัน", seats 1/3, storage 0/1 GB, OCR 0/20.
+
+Remaining: payment and invoices (C01), platform publishing/grants/suspension UI (C02), expiry notifications (worker), 24-hour late submission (B04), B-module endpoints must call `auth.require_writable`.

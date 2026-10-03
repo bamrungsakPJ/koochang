@@ -1,4 +1,4 @@
-import type { FieldErrors, Language, MemberStatus } from '@field-service/core';
+import type { FieldErrors, Language, MemberStatus, SubscriptionState } from '@field-service/core';
 import { keys, storage } from './storage';
 
 export const apiBaseUrl = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
@@ -21,6 +21,14 @@ export interface TeamMember {
   phone_e164: string | null; version: number; requested_at: string; open_jobs: number;
 }
 export interface Team { members: TeamMember[]; seats: { active_technicians: number; seat_limit: number }; }
+/** Owners get the full object; technicians only state and writable. */
+export interface Subscription {
+  state: SubscriptionState; writable: boolean; source?: 'trial' | 'paid' | 'complimentary' | 'grant' | null;
+  plan?: { code: string; name_th: string; name_en: string } | null;
+  period_end?: string | null; grace_until?: string | null; cancel_at_period_end?: boolean;
+  limits?: { technician_seats: number; storage_bytes: number; ocr_per_period: number };
+  usage?: { technician_seats: number; storage_bytes: number; ocr: number };
+}
 interface Tokens { access_token: string; refresh_token: string; }
 
 /** Thin client for the A02 API. Attaches the access token, refreshes it once on
@@ -74,6 +82,8 @@ export class Api {
   changeMember(organizationId: string, memberId: string, action: string, expectedVersion: number) {
     return this.call('POST', `/organizations/${organizationId}/members/${memberId}/${action}`, { expected_version: expectedVersion });
   }
+  subscription(organizationId: string) { return this.call<Subscription>('GET', `/organizations/${organizationId}/subscription`); }
+  changeRenewal(organizationId: string, action: 'cancel-renewal' | 'resume-renewal') { return this.call<Subscription>('POST', `/organizations/${organizationId}/subscription/${action}`); }
   joinLink(organizationId: string) { return this.call<JoinLink>('GET', `/organizations/${organizationId}/join-link`); }
   changeJoinLink(organizationId: string, action: 'open' | 'close' | 'rotate') { return this.call<JoinLink>('POST', `/organizations/${organizationId}/join-link/${action}`); }
 

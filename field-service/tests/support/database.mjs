@@ -56,7 +56,7 @@ async function openPostgres(name) {
     await admin.query(`CREATE DATABASE ${databaseName}`);
   } finally { await admin.end(); }
   const url = new URL(base); url.pathname = `/${databaseName}`;
-  const pool = new Pool({ connectionString: url.toString(), max: 20 });
+  const pool = new Pool({ connectionString: url.toString(), max: 40 });
   const main = await pool.connect();
   const run = (sql, params) => main.query(sql, params);
   return {

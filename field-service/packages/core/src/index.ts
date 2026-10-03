@@ -25,7 +25,7 @@ export const errorCodes = [
   'AUTHENTICATION_REQUIRED', 'SESSION_EXPIRED', 'TENANT_ACCESS_DENIED', 'MEMBERSHIP_INACTIVE',
   'VALIDATION_ERROR', 'RESOURCE_NOT_FOUND', 'VERSION_CONFLICT', 'INVALID_STATE_TRANSITION', 'RATE_LIMITED',
   'OTP_INVALID', 'OTP_EXPIRED', 'OTP_ATTEMPTS_EXCEEDED', 'ACCOUNT_DISABLED',
-  'JOIN_LINK_INVALID', 'JOIN_LINK_CLOSED', 'SEAT_LIMIT_REACHED',
+  'JOIN_LINK_INVALID', 'JOIN_LINK_CLOSED', 'SEAT_LIMIT_REACHED', 'SUBSCRIPTION_EXPIRED', 'PLAN_LIMIT_REACHED', 'ORGANIZATION_SUSPENDED',
   'TEMPORARILY_UNAVAILABLE', 'DATABASE_UNAVAILABLE', 'INVALID_REQUEST', 'INTERNAL_ERROR',
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];
@@ -56,3 +56,5 @@ export function formatPhone(e164: string): string {
   if (m) return `0${m[1]}-${m[2]}-${m[3]}`;
   return e164.startsWith('+66') ? `0${e164.slice(3)}` : e164;
 }
+export const subscriptionStates = ['trialing', 'active', 'past_due', 'expired', 'ended', 'pending_payment', 'suspended'] as const;
+export type SubscriptionState = (typeof subscriptionStates)[number];
