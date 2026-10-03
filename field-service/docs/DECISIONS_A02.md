@@ -1,0 +1,20 @@
+# A02 decisions — identity, shop, team (2026-10-03)
+
+Choices the spec left open, decided for A02. Change them deliberately, not silently.
+
+| # | Topic | Decision | Why |
+|---|---|---|---|
+| 1 | Login method | Phone + SMS OTP for owners **and** technicians. No passwords, no email. | Spec: technicians must not be forced to set a password, but access needs an identity that can be proven and recovered. A verified phone covers both; recovery = sign in again on the new phone. |
+| 2 | Same phone twice | One user per verified phone (`users.phone_e164` unique). Signing up again returns the same user. | "Signing up twice must not duplicate". |
+| 3 | OTP policy | 6 digits from CSPRNG, 5 min, 5 wrong attempts, 60 s resend cooldown, 5 codes/hour per phone, 20/hour per client address. Only the newest code for a phone is valid. Code stored as HMAC(`OTP_SECRET`, challenge id + code), never in logs except the development SMS adapter. | Spec asks for rate limit, expiry, attempt limit, replay protection. Limits are enforced in the database under a per-phone lock. |
+| 4 | SMS provider | Not chosen. `SmsSender` interface; `development` adapter prints the code to the API log and refuses to exist when `NODE_ENV=production`. Production without a provider answers 503 (fail closed). | CLAUDE.md: interface + dev adapter, no fake verification in production. |
+| 5 | Sessions | Opaque random tokens (256-bit). Access 30 min, refresh 60 days, refresh rotates on every use; reusing an old refresh token revokes the whole session. Only SHA-256 hashes are stored. | "Do not log in every day", revocable server-side, no role cached in tokens. |
+| 6 | Where identity logic lives | `auth.*` SECURITY DEFINER functions (migration 002). `fs_api` can execute them but has no grants on `auth` tables and no new write grants on `core` tables. Tenant data still goes through `withTenant` + RLS. | Identity work happens before a tenant context exists; keeps RLS deny-by-default for everything else. |
+| 7 | Membership check | Every tenant request reads the membership again (`TenantGuard`) and `withTenant` checks it again inside the transaction. | Suspend/remove must apply immediately. |
+| 8 | Join link | One current link per shop (active or closed). Token: 256-bit random; DB keeps SHA-256 for lookup and an AES-256-GCM copy (`JOIN_LINK_KEY` outside the DB) so the owner can share the same link again. Reset revokes the old link and creates generation n+1; pending requests stay. | Spec §3.4 of the DB design. |
+| 9 | Re-joining | Rejected or removed member asking again through an active link → back to pending (same membership row, so history still points at it). Suspended member asking again stays suspended. Active member opening the link → just enters the shop. | No duplicates; suspension cannot be bypassed. |
+| 10 | Seat limit | Active technicians only (owner, pending, suspended, removed not counted). Approve/reactivate lock the shop row first, so concurrent approvals are serialized. Limit comes from the shop's subscription plan version; **until A03 there is no subscription, so the trial baseline of 3 applies.** | Commercial policy: trial 3 technicians. A03 replaces the fallback. |
+| 11 | Retries of team actions | `expected_version` required. A retry whose result is already in place returns ok; otherwise a stale version → 409 VERSION_CONFLICT with `latest_version`. | Idempotent mobile retries without silent overwrite. |
+| 12 | Owner membership | Owner row cannot be suspended or removed through team actions (one active owner per shop already enforced by index). Ownership transfer is out of scope for A02. | Spec: last owner must be protected. |
+| 13 | Join URL | `JOIN_LINK_BASE_URL/<token>` (admin web `/join/<token>` shows the shop name and an "Open in app" button for `fieldservice://join/<token>`). The app also accepts a pasted link. Deferred deep links (install → return to the same shop) need store links and are not done. | Works without app store setup. |
+| 14 | Admin web scope | Admin web only gets the public join landing page in A02. Platform admin login is C02 and stays separate from shop identities. | Spec: platform identity is separate. |

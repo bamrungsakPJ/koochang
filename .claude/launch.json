@@ -12,6 +12,24 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "@serviceflow/web"],
       "port": 5173
+    },
+    {
+      "name": "fs-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "field-service", "dev:api"],
+      "port": 4000
+    },
+    {
+      "name": "fs-mobile-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "field-service/apps/mobile", "exec", "expo", "start", "--web", "--port", "8081"],
+      "port": 8081
+    },
+    {
+      "name": "fs-admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "field-service", "dev:admin"],
+      "port": 3000
     }
   ]
 }

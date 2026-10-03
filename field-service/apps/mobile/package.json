@@ -1,0 +1,25 @@
+{
+  "name": "@field-service/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@field-service/core": "workspace:*",
+    "@field-service/i18n": "workspace:*",
+    "expo": "57.0.26",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-web": "0.21.2",
+    "expo-localization": "57.0.2",
+    "expo-secure-store": "57.0.4"
+  },
+  "devDependencies": {},
+  "main": "index.js"
+}

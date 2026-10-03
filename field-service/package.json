@@ -1,0 +1,31 @@
+{
+  "name": "field-service-foundation",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:packages": "pnpm --filter @field-service/core build && pnpm --filter @field-service/i18n build",
+    "typecheck": "pnpm build:packages && pnpm -r --if-present typecheck",
+    "build": "pnpm build:packages && pnpm --filter @field-service/api build && pnpm --filter @field-service/admin build",
+    "dev:api": "pnpm build:packages && pnpm --filter @field-service/api build && pnpm --filter @field-service/api dev",
+    "dev:admin": "pnpm build:packages && pnpm --filter @field-service/admin dev",
+    "dev:mobile": "pnpm build:packages && pnpm --filter @field-service/mobile start",
+    "test": "pnpm build:packages && pnpm --filter @field-service/api build && node --test --test-concurrency=1 tests/*.test.mjs",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
+    "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "mobile:check": "pnpm --filter @field-service/mobile exec expo install --check",
+    "mobile:export": "pnpm build:packages && pnpm --filter @field-service/mobile exec expo export --platform android --platform ios"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "@electric-sql/pglite": "0.5.8",
+    "pg": "8.23.1"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24.15.0 <25",
+    "pnpm": ">=11 <12"
+  }
+}

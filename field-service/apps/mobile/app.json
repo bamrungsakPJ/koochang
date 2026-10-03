@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Field Service Foundation",
+    "slug": "field-service-foundation",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.example.fieldservicefoundation"
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "autolinkingModuleResolution": true
+    },
+    "scheme": "fieldservice"
+  }
+}

@@ -1,0 +1,8 @@
+\set ON_ERROR_STOP on
+\getenv migration_password MIGRATION_DB_PASSWORD
+\getenv api_password API_DB_PASSWORD
+CREATE ROLE fs_migrator LOGIN PASSWORD :'migration_password' NOSUPERUSER NOBYPASSRLS;
+CREATE ROLE fs_api LOGIN PASSWORD :'api_password' NOSUPERUSER NOBYPASSRLS;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT CONNECT, CREATE ON DATABASE field_service TO fs_migrator;
+GRANT CONNECT ON DATABASE field_service TO fs_api;

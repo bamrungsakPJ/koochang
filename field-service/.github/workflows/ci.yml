@@ -1,0 +1,29 @@
+name: Foundation checks
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: field_service_test
+          POSTGRES_PASSWORD: test-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d field_service_test"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24.19.0, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:test-only-password@127.0.0.1:5432/field_service_test
+      - run: pnpm mobile:check
+      - run: pnpm mobile:export
