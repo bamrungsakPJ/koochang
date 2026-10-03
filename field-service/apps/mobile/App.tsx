@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { Linking, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
 import { Language, normalizeLanguage } from '@field-service/core';
 import { api, tokenFromLink, type Challenge, type JoinLink, type Me } from './src/api';
 import { keys, storage } from './src/storage';
-import { Banner, Button, colors, Field, LanguageContext, Loading, Screen, Sub, Title, useErrorText, useT } from './src/ui';
+import { Banner, Button, colors, Field, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
+import { translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
 
@@ -25,6 +27,7 @@ const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => 
 });
 
 export default function App() {
+  const [fontsLoaded] = useFonts({ NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold });
   const [language, setLanguage] = useState<Language>('th');
   const [route, setRoute] = useState<Route>({ screen: 'boot' });
   const [me, setMe] = useState<Me | null>(null);
@@ -124,18 +127,31 @@ export default function App() {
     case 'shopReady': content = <ShopReady shopName={route.shopName} link={route.link} onDone={() => setRoute({ screen: 'shop' })} />; break;
     case 'shops': content = me ? <ShopPicker me={me} onBack={() => setRoute({ screen: 'shop' })} onCreate={() => setRoute({ screen: 'register' })}
       onJoin={() => setRoute({ screen: 'joinEntry' })} onPick={async id => { await selectOrganization(id); setRoute({ screen: 'shop' }); }} /> : <Loading />; break;
-    case 'account': content = me ? <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut} onBack={() => setRoute({ screen: 'shop' })} /> : <Loading />; break;
-    case 'team': content = membership?.role === 'owner' && membership.status === 'active'
-      ? <TeamScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })} /> : <Loading />; break;
-    case 'shop':
-      if (!me) content = <Loading />;
-      else if (!membership) content = <NoShop onCreate={() => setRoute({ screen: 'register' })} onJoin={() => setRoute({ screen: 'joinEntry' })} onAccount={() => setRoute({ screen: 'account' })} />;
-      else if (membership.status !== 'active') content = <MembershipStatus membership={membership} onCheck={async () => { await loadMe(membership.organization_id); }}
+    case 'shop': case 'team': case 'account': {
+      if (!me) { content = <Loading />; break; }
+      const active = membership?.status === 'active';
+      // Tabs only for an active membership; pending/suspended/no shop never show business menus.
+      if (route.screen === 'shop' && !membership) content = <NoShop onCreate={() => setRoute({ screen: 'register' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />;
+      else if (route.screen === 'shop' && membership && !active) content = <MembershipStatus membership={membership} onCheck={async () => { await loadMe(membership.organization_id); }}
         onSwitch={several ? () => setRoute({ screen: 'shops' }) : undefined} onSignOut={signOut} />;
-      else content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onAccount={() => setRoute({ screen: 'account' })}
-        onSwitch={several ? () => setRoute({ screen: 'shops' }) : undefined} />;
+      else if (route.screen === 'team' && membership?.role === 'owner' && active) content = <TeamScreen membership={membership} />;
+      else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
+        onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} />;
+      else content = <Loading />;
+      if (membership && active) {
+        const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);
+        const tabs = [
+          { key: 'shop' as const, label: membership.role === 'owner' ? tr('home') : tr('today'), icon: 'home' as const },
+          ...(membership.role === 'owner' ? [{ key: 'team' as const, label: tr('team'), icon: 'people' as const }] : []),
+          { key: 'account' as const, label: tr('account'), icon: 'person-circle' as const },
+        ];
+        content = <View style={styles.root}><View style={styles.root}>{content}</View><TabBar tabs={tabs} active={route.screen} onChange={screen => setRoute({ screen })} /></View>;
+      }
       break;
+    }
   }
+  if (!fontsLoaded) content = <Loading />;
   return <LanguageContext.Provider value={language}>
     <SafeAreaView style={styles.root}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView>
   </LanguageContext.Provider>;

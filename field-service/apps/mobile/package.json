@@ -10,16 +10,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/noto-sans-thai": "0.4.2",
+    "@expo/vector-icons": "15.1.1",
     "@field-service/core": "workspace:*",
     "@field-service/i18n": "workspace:*",
     "expo": "57.0.26",
+    "expo-font": "57.0.4",
+    "expo-localization": "57.0.2",
+    "expo-secure-store": "57.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-web": "0.21.2",
-    "expo-localization": "57.0.2",
-    "expo-secure-store": "57.0.4"
+    "react-native-web": "0.21.2"
   },
-  "devDependencies": {},
   "main": "index.js"
 }

@@ -3,14 +3,21 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, isThaiMobile, normalizePhone, type Language } from '@field-service/core';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, tokenFromLink, type Challenge } from '../api';
-import { Banner, Button, colors, Field, Panel, Screen, Steps, Sub, Title, useErrorText, useT } from '../ui';
+import { Banner, Button, Card, colors, Field, fonts, Icon, Loading, Screen, Steps, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 
 export function LanguageSwitch({ language, onChange }: { language: Language; onChange: (value: Language) => void }) {
-  return <View style={styles.languages}>
-    {(['th', 'en'] as const).map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: language === value }}
+  return <View style={styles.languages} accessibilityRole="radiogroup">
+    {(['th', 'en'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: language === value }}
       onPress={() => onChange(value)} style={[styles.language, language === value && styles.languageOn]}>
-      <Text style={styles.languageText}>{value === 'th' ? 'ไทย' : 'English'}</Text>
+      <Text style={[styles.languageText, language === value && styles.languageTextOn]}>{value === 'th' ? 'ไทย' : 'EN'}</Text>
     </Pressable>)}
+  </View>;
+}
+
+function Feature({ icon, text }: { icon: IconName; text: string }) {
+  return <View style={styles.feature}>
+    <View style={styles.featureIcon}><Icon name={icon} size={20} color={colors.primary} /></View>
+    <Text style={styles.featureText}>{text}</Text>
   </View>;
 }
 
@@ -18,15 +25,25 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
   language: Language; onLanguage: (value: Language) => void; onCreate: () => void; onSignIn: () => void; onJoin: () => void;
 }) {
   const t = useT();
-  return <Screen>
-    <View style={styles.brandRow}><View style={styles.brandMark} /><Text style={styles.brand}>{t('appName')}</Text></View>
-    <View style={styles.hero}><Text style={styles.heroTitle}>{t('welcomeTitle')}</Text><Text style={styles.heroBody}>{t('welcomeBody')}</Text></View>
-    <Button title={t('createShop')} onPress={onCreate} />
-    <Sub center>{t('createShopHint')}</Sub>
-    <Button title={t('joinShop')} kind="secondary" onPress={onJoin} />
-    <Sub center>{t('joinShopHint')}</Sub>
-    <Button title={t('signIn')} kind="link" onPress={onSignIn} />
-    <LanguageSwitch language={language} onChange={onLanguage} />
+  return <Screen footer={<>
+    <Button title={t('createShop')} icon="storefront" onPress={onCreate} />
+    <Button title={t('joinShop')} icon="link" kind="secondary" onPress={onJoin} />
+    <Pressable accessibilityRole="button" onPress={onSignIn} style={styles.signInRow}>
+      <Text style={styles.signInText}>{t('haveAccount')} <Text style={styles.signInLink}>{t('signIn')}</Text></Text>
+    </Pressable>
+  </>}>
+    <View style={styles.topRow}>
+      <View style={styles.brandRow}><View style={styles.logo}><Icon name="construct" size={20} color={colors.onPrimary} /></View>
+        <Text style={styles.brand}>{t('appName')}</Text></View>
+      <LanguageSwitch language={language} onChange={onLanguage} />
+    </View>
+    <Text style={styles.heroTitle}>{t('welcomeTitle')}</Text>
+    <Sub>{t('welcomeBody')}</Sub>
+    <Card>
+      <Feature icon="calendar" text={t('featureJobs')} />
+      <Feature icon="people" text={t('featureTeam')} />
+      <Feature icon="refresh-circle" text={t('featureRepeat')} />
+    </Card>
   </Screen>;
 }
 
@@ -60,15 +77,14 @@ export function PhoneForm({ mode, shopPreview, onBack, onCodeSent, initialName }
     } finally { setBusy(false); }
   }
 
-  return <Screen onBack={onBack}>
+  return <Screen onBack={onBack} footer={<Button title={t('next')} icon="arrow-forward" onPress={submit} busy={busy} />}>
     <Sub>{mode === 'register' ? t('createShopHint') : mode === 'join' ? shopPreview : t('signInHint')}</Sub>
     <Title>{mode === 'register' ? t('createShop') : mode === 'join' ? t('joinPreviewTitle') : t('signIn')}</Title>
     {mode !== 'signin' ? <Steps step={1} total={2} /> : null}
-    {mode === 'register' ? <Field label={t('shopName')} value={name} onChangeText={setName} error={errors.name} autoComplete="organization" maxLength={120} /> : null}
-    {mode === 'join' ? <Field label={t('yourName')} value={name} onChangeText={setName} error={errors.name} hint={t('yourNameHint')} autoComplete="name" maxLength={80} /> : null}
-    <Field label={t('phone')} value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder="08x-xxx-xxxx" />
+    {mode === 'register' ? <Field label={t('shopName')} icon="storefront-outline" value={name} onChangeText={setName} error={errors.name} autoComplete="organization" maxLength={120} /> : null}
+    {mode === 'join' ? <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={errors.name} hint={t('yourNameHint')} autoComplete="name" maxLength={80} /> : null}
+    <Field label={t('phone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder="08x-xxx-xxxx" />
     <Banner text={failure} />
-    <Button title={t('next')} onPress={submit} busy={busy} />
   </Screen>;
 }
 
@@ -88,10 +104,10 @@ export function OtpForm({ phone, challenge: initial, onBack, onVerify }: {
     return () => clearTimeout(timer);
   }, [wait]);
 
-  async function verify() {
-    if (!/^\d{6}$/.test(code)) { setError(t('field.code')); return; }
+  async function verify(value = code) {
+    if (!/^\d{6}$/.test(value)) { setError(t('field.code')); return; }
     setBusy(true); setError(null);
-    try { await onVerify(challenge.challenge_id, code); }
+    try { await onVerify(challenge.challenge_id, value); }
     catch (failure) { setError(errorText(failure)); }
     finally { setBusy(false); }
   }
@@ -104,16 +120,19 @@ export function OtpForm({ phone, challenge: initial, onBack, onVerify }: {
     } finally { setBusy(false); }
   }
 
-  return <Screen onBack={onBack}>
+  return <Screen onBack={onBack} footer={<Button title={t('confirm')} icon="checkmark" onPress={() => verify()} busy={busy} />}>
+    <View style={styles.otpIcon}><Icon name="chatbubble-ellipses" size={28} color={colors.primary} /></View>
     <Title>{t('otpTitle')}</Title>
     <Sub>{t('otpSentTo', { phone: formatPhone(phone) })}</Sub>
-    <Steps step={2} total={2} />
-    <Field label={t('otpCode')} value={code} onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, 6))} error={error ?? undefined}
-      keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6} autoFocus />
+    <Field label={t('otpCode')} big value={code} error={error ?? undefined} keyboardType="number-pad" autoComplete="one-time-code"
+      textContentType="oneTimeCode" maxLength={6} autoFocus placeholder="••••••"
+      onChangeText={value => { const digits = value.replace(/\D/g, '').slice(0, 6); setCode(digits); if (digits.length === 6 && !busy) void verify(digits); }} />
     {challenge.delivery === 'development' ? <Banner tone="info" text={t('devOtpNotice')} /> : null}
-    <Button title={t('confirm')} onPress={verify} busy={busy} />
-    {wait > 0 ? <Sub center>{t('resendIn', { seconds: wait })}</Sub> : <Button title={t('resend')} kind="link" onPress={resend} disabled={busy} />}
-    <Button title={t('changePhone')} kind="link" onPress={onBack} />
+    <View style={styles.resendRow}>
+      {wait > 0 ? <Text style={styles.resendWait}>{t('resendIn', { seconds: wait })}</Text>
+        : <Pressable accessibilityRole="button" onPress={resend} disabled={busy}><Text style={styles.link}>{t('resend')}</Text></Pressable>}
+      <Pressable accessibilityRole="button" onPress={onBack}><Text style={styles.link}>{t('changePhone')}</Text></Pressable>
+    </View>
   </Screen>;
 }
 
@@ -122,11 +141,11 @@ export function JoinEntry({ onBack, onToken }: { onBack: () => void; onToken: (t
   const t = useT();
   const [text, setText] = useState('');
   const [error, setError] = useState<string>();
-  return <Screen onBack={onBack}>
+  const next = () => { const token = tokenFromLink(text); if (token) onToken(token); else setError(t('JOIN_LINK_INVALID')); };
+  return <Screen onBack={onBack} footer={<Button title={t('next')} icon="arrow-forward" onPress={next} />}>
     <Title>{t('joinShop')}</Title>
     <Sub>{t('joinPasteHint')}</Sub>
-    <Field label={t('joinPasteLabel')} value={text} onChangeText={setText} error={error} autoCapitalize="none" autoCorrect={false} placeholder="https://…/join/…" />
-    <Button title={t('next')} onPress={() => { const token = tokenFromLink(text); if (token) onToken(token); else setError(t('JOIN_LINK_INVALID')); }} />
+    <Field label={t('joinPasteLabel')} icon="link-outline" value={text} onChangeText={setText} error={error} autoCapitalize="none" autoCorrect={false} placeholder="https://…/join/…" />
   </Screen>;
 }
 
@@ -139,15 +158,22 @@ export function JoinPreview({ token, onBack, onContinue }: { token: string; onBa
   const load = () => { setError(null); api.previewJoinLink(token).then(setState, failure => setError(errorText(failure))); };
   useEffect(load, [token]);
 
-  if (error) return <Screen onBack={onBack}><Banner text={error} /><Button title={t('retry')} onPress={load} /></Screen>;
-  if (!state) return <Screen onBack={onBack}><Sub>…</Sub></Screen>;
+  if (error) return <Screen onBack={onBack} footer={<Button title={t('retry')} icon="refresh" onPress={load} />}><Banner text={error} /></Screen>;
+  if (!state) return <Loading />;
   if (state.state !== 'active') return <Screen onBack={onBack}>
+    <View style={[styles.otpIcon, { backgroundColor: colors.dangerSoft }]}><Icon name="unlink" size={28} color={colors.danger} /></View>
     <Title>{t('linkInvalidTitle')}</Title>
     <Sub>{state.state === 'closed' ? t('linkClosedBody') : t('linkInvalidBody')}</Sub>
   </Screen>;
-  return <Screen onBack={onBack}>
-    <Panel><Sub>{t('joinPreviewTitle')}</Sub><Text style={styles.shopName}>{state.organization_name}</Text></Panel>
-    <Button title={t('next')} onPress={() => onContinue(state.organization_name ?? '')} />
+  return <Screen onBack={onBack} footer={<Button title={t('requestJoin')} icon="arrow-forward" onPress={() => onContinue(state.organization_name ?? '')} />}>
+    <Sub>{t('joinPreviewTitle')}</Sub>
+    <Card>
+      <View style={styles.shopRow}>
+        <View style={styles.shopIcon}><Icon name="storefront" size={26} color={colors.primary} /></View>
+        <Text style={styles.shopName}>{state.organization_name}</Text>
+      </View>
+    </Card>
+    <Sub>{t('joinWebBody')}</Sub>
   </Screen>;
 }
 
@@ -164,25 +190,36 @@ export function JoinName({ shopName, onBack, onSubmit, initialName }: { shopName
     setBusy(true); setFailure(null);
     try { await onSubmit(name.trim()); } catch (e) { setFailure(errorText(e)); } finally { setBusy(false); }
   }
-  return <Screen onBack={onBack}>
+  return <Screen onBack={onBack} footer={<Button title={t('requestJoin')} icon="send" onPress={submit} busy={busy} />}>
     <Sub>{shopName}</Sub>
     <Title>{t('joinPreviewTitle')}</Title>
-    <Field label={t('yourName')} value={name} onChangeText={setName} error={error} hint={t('yourNameHint')} maxLength={80} />
+    <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={error} hint={t('yourNameHint')} maxLength={80} />
     <Banner text={failure} />
-    <Button title={t('requestJoin')} onPress={submit} busy={busy} />
   </Screen>;
 }
 
 const styles = StyleSheet.create({
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.accent },
-  brand: { fontSize: 15, fontWeight: '600', color: colors.accent },
-  hero: { backgroundColor: colors.hero, borderRadius: 24, padding: 24, marginTop: 24, marginBottom: 20 },
-  heroTitle: { color: '#ffffff', fontSize: 28, lineHeight: 38, fontWeight: '700' },
-  heroBody: { color: '#d2eee4', fontSize: 15, lineHeight: 24, marginTop: 10 },
-  languages: { flexDirection: 'row', gap: 10, marginTop: 24, justifyContent: 'center' },
-  language: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: '#e8eeea' },
-  languageOn: { backgroundColor: colors.lime },
-  languageText: { color: colors.ink, fontSize: 15 },
-  shopName: { fontSize: 24, fontWeight: '700', color: colors.ink, marginTop: 4 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 36 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  logo: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  brand: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.ink, flexShrink: 1 },
+  heroTitle: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 46, color: colors.ink },
+  feature: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  featureIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  featureText: { flex: 1, fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink },
+  signInRow: { alignItems: 'center', paddingVertical: 14 },
+  signInText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.muted },
+  signInLink: { fontFamily: fonts.semibold, color: colors.primary },
+  languages: { flexDirection: 'row', backgroundColor: colors.line, borderRadius: 10, padding: 3 },
+  language: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
+  languageOn: { backgroundColor: colors.surface },
+  languageText: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: colors.muted },
+  languageTextOn: { color: colors.ink },
+  otpIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  resendWait: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
+  link: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.primary },
+  shopRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  shopIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  shopName: { flex: 1, fontFamily: fonts.bold, fontSize: 22, lineHeight: 32, color: colors.ink },
 });

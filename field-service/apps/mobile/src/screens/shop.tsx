@@ -1,44 +1,57 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Image, Share, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, type Language } from '@field-service/core';
-import { api, ApiFailure, type JoinLink, type Me, type Membership, type Team, type TeamMember } from '../api';
-import { Badge, Banner, Button, colors, confirm, Loading, Panel, Screen, Section, Sub, Title, useErrorText, useT } from '../ui';
+import { api, type JoinLink, type Me, type Membership, type Team, type TeamMember } from '../api';
+import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 import { LanguageSwitch } from './onboarding';
 
-function JoinLinkPanel({ link, shopName, onChange }: { link: JoinLink; shopName: string; onChange?: (action: 'open' | 'close' | 'rotate') => Promise<void> }) {
+const statusTone = (status: string) => status === 'active' ? 'ok' : status === 'pending' ? 'warn' : status === 'suspended' ? 'danger' : 'neutral';
+
+function JoinLinkCard({ link, shopName, onChange }: { link: JoinLink; shopName: string; onChange?: (action: 'open' | 'close' | 'rotate') => Promise<void> }) {
   const t = useT();
   const [qr, setQr] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const share = () => { void Share.share({ message: t('shareMessage', { shop: shopName, url: link.url }) }); };
   async function run(action: 'open' | 'close' | 'rotate') {
     if (!onChange) return;
     if (action === 'rotate' && !await confirm(t('resetConfirm'), t('resetLink'), t('cancel'))) return;
     setBusy(action);
     try { await onChange(action); } finally { setBusy(null); }
   }
-  return <Panel>
-    <Text style={styles.panelLabel}>{t('joinLink')}</Text>
-    <Text selectable style={styles.link}>{link.url}</Text>
-    {link.status === 'closed' ? <Banner tone="info" text={t('joiningClosed')} /> : null}
-    <Button title={t('share')} kind="secondary" onPress={() => { void Share.share({ message: t('shareMessage', { shop: shopName, url: link.url }) }); }} />
-    <Button title={qr ? t('hideQr') : t('showQr')} kind="secondary" onPress={() => setQr(!qr)} />
+  return <Card>
+    <View style={styles.linkHead}>
+      <View style={{ flex: 1 }}><Strong>{t('joinLink')}</Strong><Sub>{t('joinLinkHint')}</Sub></View>
+      <Badge text={link.status === 'active' ? t('joiningOpen') : t('joiningPaused')} tone={link.status === 'active' ? 'ok' : 'neutral'} />
+    </View>
+    <View style={styles.linkBox}>
+      <Icon name="link" size={18} color={colors.muted} />
+      <Text selectable numberOfLines={1} style={styles.linkText}>{link.url}</Text>
+      <IconButton icon="share-social" label={t('share')} onPress={share} />
+      <IconButton icon={qr ? 'close' : 'qr-code'} label={qr ? t('hideQr') : t('showQr')} onPress={() => setQr(!qr)} />
+    </View>
     {qr ? <View style={styles.qrBox}><Image source={{ uri: link.qr_png }} style={styles.qr} accessibilityLabel={t('qrHint')} /><Sub center>{t('qrHint')}</Sub></View> : null}
-    {onChange ? <>
-      <Button title={link.status === 'active' ? t('closeJoining') : t('openJoining')} kind="link" busy={busy === 'open' || busy === 'close'}
-        onPress={() => run(link.status === 'active' ? 'close' : 'open')} />
-      <Button title={t('resetLink')} kind="danger" busy={busy === 'rotate'} onPress={() => run('rotate')} />
-    </> : null}
-  </Panel>;
+    {link.status === 'closed' ? <Banner tone="info" text={t('joiningClosed')} /> : null}
+    {onChange ? <View style={styles.linkActions}>
+      <View style={{ flex: 1 }}><Button small kind="secondary" icon={link.status === 'active' ? 'pause' : 'play'} title={link.status === 'active' ? t('closeJoining') : t('openJoining')}
+        busy={busy === 'open' || busy === 'close'} onPress={() => run(link.status === 'active' ? 'close' : 'open')} /></View>
+      <View style={{ flex: 1 }}><Button small kind="danger" icon="refresh" title={t('resetLink')} busy={busy === 'rotate'} onPress={() => run('rotate')} /></View>
+    </View> : null}
+  </Card>;
+}
+
+function StatusIcon({ icon, tone }: { icon: IconName; tone: 'ok' | 'warn' | 'danger' | 'info' }) {
+  const [bg, fg] = { ok: [colors.successSoft, colors.success], warn: [colors.warnSoft, colors.warn], danger: [colors.dangerSoft, colors.danger], info: [colors.primarySoft, colors.primary] }[tone];
+  return <View style={[styles.statusIcon, { backgroundColor: bg }]}><Icon name={icon} size={32} color={fg} /></View>;
 }
 
 export function ShopReady({ shopName, link, onDone }: { shopName: string; link: JoinLink | null; onDone: () => void }) {
   const t = useT();
-  return <Screen>
-    <View style={styles.successMark}><Text style={styles.successTick}>✓</Text></View>
+  return <Screen footer={<Button title={t('goToShop')} icon="arrow-forward" onPress={onDone} />}>
+    <StatusIcon icon="checkmark" tone="ok" />
     <Title>{t('shopReadyTitle')}</Title>
     <Sub>{shopName}</Sub>
     <Sub>{t('shopReadyBody')}</Sub>
-    {link ? <JoinLinkPanel link={link} shopName={shopName} /> : null}
-    <Button title={t('goToShop')} onPress={onDone} />
+    {link ? <JoinLinkCard link={link} shopName={shopName} /> : null}
   </Screen>;
 }
 
@@ -47,43 +60,66 @@ export function MembershipStatus({ membership, onCheck, onSwitch, onSignOut }: {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const shop = membership.organization_name ?? '';
-  const body = membership.status === 'pending' ? t('pendingBody', { shop }) : membership.status === 'suspended' ? t('suspendedBody', { shop }) : t('rejectedBody', { shop });
-  return <Screen>
-    <View style={styles.successMark}><Text style={styles.successTick}>{membership.status === 'pending' ? '…' : '!'}</Text></View>
-    <Title>{membership.status === 'pending' ? t('pendingTitle') : t(`member.${membership.status}`)}</Title>
+  const pending = membership.status === 'pending';
+  const body = pending ? t('pendingBody', { shop }) : membership.status === 'suspended' ? t('suspendedBody', { shop }) : t('rejectedBody', { shop });
+  return <Screen footer={<>
+    <Button title={t('checkStatus')} icon="refresh" busy={busy} onPress={async () => { setBusy(true); try { await onCheck(); } finally { setBusy(false); } }} />
+    {onSwitch ? <Button title={t('switchShop')} kind="ghost" icon="swap-horizontal" onPress={onSwitch} /> : null}
+    <Button title={t('signOut')} kind="ghost" icon="log-out-outline" onPress={onSignOut} />
+  </>}>
+    <StatusIcon icon={pending ? 'time' : membership.status === 'suspended' ? 'ban' : 'close-circle'} tone={pending ? 'warn' : 'danger'} />
+    <Title>{pending ? t('pendingTitle') : t(`member.${membership.status}`)}</Title>
     <Sub>{membership.display_name}{shop ? ` · ${shop}` : ''}</Sub>
-    <Panel><Sub>{body}</Sub></Panel>
-    <Button title={t('checkStatus')} kind="secondary" busy={busy} onPress={async () => { setBusy(true); try { await onCheck(); } finally { setBusy(false); } }} />
-    {onSwitch ? <Button title={t('switchShop')} kind="link" onPress={onSwitch} /> : null}
-    <Button title={t('signOut')} kind="link" onPress={onSignOut} />
+    <Card><Sub>{body}</Sub></Card>
   </Screen>;
 }
 
-export function NoShop({ onCreate, onJoin, onAccount }: { onCreate: () => void; onJoin: () => void; onAccount: () => void }) {
+export function NoShop({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
   const t = useT();
   return <Screen>
+    <StatusIcon icon="storefront" tone="info" />
     <Title>{t('noShopYet')}</Title>
-    <Button title={t('createShop')} onPress={onCreate} />
-    <Button title={t('joinShop')} kind="secondary" onPress={onJoin} />
-    <Button title={t('account')} kind="link" onPress={onAccount} />
+    <Card padded={false}>
+      <Row icon="add-circle" title={t('createShop')} subtitle={t('createShopHint')} onPress={onCreate} />
+      <Row icon="link" title={t('joinShop')} subtitle={t('joinShopHint')} onPress={onJoin} last />
+    </Card>
   </Screen>;
 }
 
-export function Home({ me, membership, onTeam, onAccount, onSwitch }: { me: Me; membership: Membership; onTeam: () => void; onAccount: () => void; onSwitch?: () => void }) {
+function Stat({ icon, label, value, tone = colors.primary }: { icon: IconName; label: string; value: string; tone?: string }) {
+  return <View style={styles.stat}>
+    <Icon name={icon} size={20} color={tone} />
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>;
+}
+
+export function Home({ me, membership, onTeam }: { me: Me; membership: Membership; onTeam: () => void }) {
   const t = useT();
   const owner = membership.role === 'owner';
+  const [team, setTeam] = useState<Team | null>(null);
+  useEffect(() => { if (owner) api.team(membership.organization_id).then(setTeam, () => setTeam(null)); }, [owner, membership.organization_id]);
+  const pending = team?.members.filter(m => m.status === 'pending').length ?? 0;
   return <Screen>
-    <Text style={styles.shopLine}>{membership.organization_name}</Text>
-    <Title>{owner ? t('home') : t('today')}</Title>
-    <Sub>{me.user.display_name} · {t(`role.${membership.role}`)}</Sub>
-    {owner ? <Panel>
-      <Text style={styles.panelTitle}>{t('team')}</Text>
-      <Sub>{t('shopReadyBody')}</Sub>
-      <Button title={t('team')} kind="secondary" onPress={onTeam} />
-    </Panel> : null}
-    <Panel><Sub>{t('notBuiltYet')}</Sub></Panel>
-    {onSwitch ? <Button title={t('switchShop')} kind="link" onPress={onSwitch} /> : null}
-    <Button title={t('account')} kind="link" onPress={onAccount} />
+    <View style={styles.homeHead}>
+      <View style={{ flex: 1 }}><Text style={styles.shopLine}>{membership.organization_name}</Text><Title>{owner ? t('shopOverview') : t('today')}</Title></View>
+      <Avatar name={me.user.display_name} />
+    </View>
+    {owner ? <>
+      <View style={styles.stats}>
+        <Stat icon="people" label={t('activeTechnicians')} value={team ? `${team.seats.active_technicians}/${team.seats.seat_limit}` : '–'} />
+        <Stat icon="time" label={t('pendingCount')} value={team ? String(pending) : '–'} tone={pending ? colors.warn : colors.primary} />
+      </View>
+      {pending ? <Banner tone="info" text={`${t('pendingRequests')}: ${pending}`} /> : null}
+      <Card padded={false}><Row icon="people" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
+    </> : null}
+    <Section>{t('comingSoon')}</Section>
+    <Card padded={false}>
+      <Row icon="briefcase-outline" title={t('jobs')} trailing={<Badge text={t('comingSoon')} />} />
+      <Row icon="person-outline" title={t('customers')} trailing={<Badge text={t('comingSoon')} />} />
+      <Row icon="hardware-chip-outline" title={t('equipment')} trailing={<Badge text={t('comingSoon')} />} last />
+    </Card>
+    <Sub>{t('notBuiltYet')}</Sub>
   </Screen>;
 }
 
@@ -91,29 +127,53 @@ export function ShopPicker({ me, onPick, onCreate, onJoin, onBack }: { me: Me; o
   const t = useT();
   return <Screen onBack={onBack}>
     <Title>{t('myShops')}</Title>
-    {me.memberships.map(m => <Panel key={m.member_id}>
-      <Text style={styles.panelTitle}>{m.organization_name ?? '—'}</Text>
-      <View style={styles.row}><Badge text={t(`role.${m.role}`)} /><Badge text={t(`member.${m.status}`)} tone={m.status === 'active' ? 'ok' : m.status === 'pending' ? 'warn' : 'danger'} /></View>
-      <Button title={t('goToShop')} kind="secondary" onPress={() => onPick(m.organization_id)} />
-    </Panel>)}
-    <Button title={t('createShop')} kind="link" onPress={onCreate} />
-    <Button title={t('joinShop')} kind="link" onPress={onJoin} />
+    <Card padded={false}>
+      {me.memberships.map((m, i) => <Row key={m.member_id} icon="storefront" title={m.organization_name ?? '—'}
+        subtitle={`${t(`role.${m.role}`)} · ${t(`member.${m.status}`)}`} onPress={() => onPick(m.organization_id)} last={i === me.memberships.length - 1} />)}
+    </Card>
+    <Card padded={false}>
+      <Row icon="add-circle" title={t('createShop')} onPress={onCreate} />
+      <Row icon="link" title={t('joinShop')} onPress={onJoin} last />
+    </Card>
   </Screen>;
 }
 
-export function Account({ me, language, onLanguage, onSignOut, onBack }: { me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onBack: () => void }) {
+export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack }: {
+  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void;
+}) {
   const t = useT();
   return <Screen onBack={onBack}>
     <Title>{t('account')}</Title>
-    <Panel><Text style={styles.panelTitle}>{me.user.display_name}</Text><Sub>{formatPhone(me.user.phone_e164)}</Sub></Panel>
-    <Section>{t('language')}</Section>
-    <LanguageSwitch language={language} onChange={onLanguage} />
-    <Button title={t('signOut')} kind="danger" onPress={onSignOut} />
+    <Card>
+      <View style={styles.profile}><Avatar name={me.user.display_name} size={56} />
+        <View style={{ flex: 1 }}><Strong>{me.user.display_name.startsWith('+') ? formatPhone(me.user.display_name) : me.user.display_name}</Strong><Sub>{formatPhone(me.user.phone_e164)}</Sub></View></View>
+    </Card>
+    <Card padded={false}>
+      <Row icon="language" title={t('language')} trailing={<LanguageSwitch language={language} onChange={onLanguage} />} last={!onSwitch} />
+      {onSwitch ? <Row icon="swap-horizontal" title={t('myShops')} onPress={onSwitch} last /> : null}
+    </Card>
+    <Button title={t('signOut')} kind="danger" icon="log-out-outline" onPress={onSignOut} />
   </Screen>;
 }
 
-/** Owner team screen: join link, pending requests, members and seat usage. */
-export function TeamScreen({ membership, onBack }: { membership: Membership; onBack: () => void }) {
+function MemberRow({ member, actions, last }: { member: TeamMember; actions: ReactNode; last?: boolean }) {
+  const t = useT();
+  return <View style={[styles.member, !last && styles.memberLine]}>
+    <View style={styles.memberHead}>
+      <Avatar name={member.display_name} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.memberName}>{member.display_name}</Text>
+        {member.phone_e164 ? <Text style={styles.memberPhone}>{formatPhone(member.phone_e164)}</Text> : null}
+      </View>
+      <Badge text={t(`member.${member.status}`)} tone={statusTone(member.status)} />
+    </View>
+    {member.open_jobs > 0 ? <Banner tone="info" text={t('openJobsWarning', { count: member.open_jobs })} /> : null}
+    <View style={styles.memberActions}>{actions}</View>
+  </View>;
+}
+
+/** Owner team screen: join link, seat usage, pending requests and members. */
+export function TeamScreen({ membership }: { membership: Membership }) {
   const t = useT();
   const errorText = useErrorText();
   const organizationId = membership.organization_id;
@@ -145,55 +205,66 @@ export function TeamScreen({ membership, onBack }: { membership: Membership; onB
     try { setLink(await api.changeJoinLink(organizationId, action)); } catch (failure) { setError(errorText(failure)); }
   }
 
-  if (!team || !link) return error ? <Screen onBack={onBack}><Banner text={error} /><Button title={t('retry')} onPress={load} /></Screen> : <Loading />;
+  if (!team || !link) return error ? <Screen><Banner text={error} /><Button title={t('retry')} icon="refresh" onPress={load} /></Screen> : <Loading />;
   const technicians = team.members.filter(m => m.role === 'technician');
   const pending = technicians.filter(m => m.status === 'pending');
   const others = technicians.filter(m => m.status !== 'pending');
-  const full = team.seats.active_technicians >= team.seats.seat_limit;
-  return <Screen onBack={onBack}>
+  const { active_technicians: active, seat_limit: limit } = team.seats;
+  const full = active >= limit;
+  const small = (m: TeamMember, action: Parameters<typeof act>[1], kind: 'primary' | 'secondary' | 'danger', icon: IconName, disabled = false) =>
+    <View style={{ flex: 1 }}><Button small kind={kind} icon={icon} title={t(action)} disabled={disabled} busy={busy === `${m.member_id}:${action}`} onPress={() => act(m, action)} /></View>;
+
+  return <Screen>
     <Title>{t('team')}</Title>
-    <Sub>{t('seatUsage', { active: team.seats.active_technicians, limit: team.seats.seat_limit })}</Sub>
+    <View style={styles.seatRow}><Sub>{t('seatUsage', { active, limit })}</Sub></View>
+    <View style={styles.seatBar}><View style={[styles.seatFill, { width: `${Math.min(100, (active / limit) * 100)}%` }, full && { backgroundColor: colors.warn }]} /></View>
     <Banner text={error} />
     <Banner tone="info" text={notice} />
-    <JoinLinkPanel link={link} shopName={membership.organization_name ?? ''} onChange={changeLink} />
+    <JoinLinkCard link={link} shopName={membership.organization_name ?? ''} onChange={changeLink} />
 
-    <Section>{t('pendingRequests')}</Section>
-    {pending.length === 0 ? <Sub>{t('noPending')}</Sub> : pending.map(m => <Panel key={m.member_id}>
-      <Text style={styles.panelTitle}>{m.display_name}</Text>
-      {m.phone_e164 ? <Sub>{formatPhone(m.phone_e164)}</Sub> : null}
-      {full ? <Banner tone="info" text={t('SEAT_LIMIT_REACHED')} /> : null}
-      <View style={styles.actions}>
-        <View style={styles.action}><Button title={t('approve')} disabled={full} busy={busy === `${m.member_id}:approve`} onPress={() => act(m, 'approve')} /></View>
-        <View style={styles.action}><Button title={t('reject')} kind="secondary" busy={busy === `${m.member_id}:reject`} onPress={() => act(m, 'reject')} /></View>
-      </View>
-    </Panel>)}
+    <Section action={pending.length ? <Badge text={String(pending.length)} tone="warn" /> : undefined}>{t('pendingRequests')}</Section>
+    {full && pending.length ? <Banner tone="info" text={t('SEAT_LIMIT_REACHED')} /> : null}
+    <Card padded={false}>
+      {pending.length === 0 ? <Row icon="mail-open-outline" title={t('noPending')} last />
+        : pending.map((m, i) => <MemberRow key={m.member_id} member={m} last={i === pending.length - 1}
+          actions={<>{small(m, 'approve', 'primary', 'checkmark', full)}{small(m, 'reject', 'secondary', 'close')}</>} />)}
+    </Card>
 
-    <Section>{t('members')}</Section>
-    {others.map(m => <Panel key={m.member_id}>
-      <Text style={styles.panelTitle}>{m.display_name}</Text>
-      <Badge text={t(`member.${m.status}`)} tone={m.status === 'active' ? 'ok' : m.status === 'suspended' ? 'danger' : 'neutral'} />
-      {m.open_jobs > 0 ? <Sub>{t('openJobsWarning', { count: m.open_jobs })}</Sub> : null}
-      <View style={styles.actions}>
-        {m.status === 'active' ? <View style={styles.action}><Button title={t('suspend')} kind="secondary" busy={busy === `${m.member_id}:suspend`} onPress={() => act(m, 'suspend')} /></View> : null}
-        {m.status === 'suspended' ? <View style={styles.action}><Button title={t('reactivate')} kind="secondary" disabled={full} busy={busy === `${m.member_id}:reactivate`} onPress={() => act(m, 'reactivate')} /></View> : null}
-        <View style={styles.action}><Button title={t('remove')} kind="danger" busy={busy === `${m.member_id}:remove`} onPress={() => act(m, 'remove')} /></View>
-      </View>
-    </Panel>)}
+    {others.length ? <>
+      <Section>{t('members')}</Section>
+      <Card padded={false}>
+        {others.map((m, i) => <MemberRow key={m.member_id} member={m} last={i === others.length - 1} actions={<>
+          {m.status === 'active' ? small(m, 'suspend', 'secondary', 'pause') : null}
+          {m.status === 'suspended' ? small(m, 'reactivate', 'secondary', 'play', full) : null}
+          {small(m, 'remove', 'danger', 'trash-outline')}
+        </>} />)}
+      </Card>
+    </> : null}
   </Screen>;
 }
 
-export function isAuthFailure(error: unknown) { return error instanceof ApiFailure && error.status === 401; }
-
 const styles = StyleSheet.create({
-  panelLabel: { fontSize: 13, color: colors.muted },
-  panelTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, marginBottom: 4 },
-  link: { fontSize: 15, color: colors.ink, marginTop: 6 },
-  qrBox: { alignItems: 'center', marginTop: 12 },
+  linkHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  linkBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, backgroundColor: colors.bg, borderRadius: 12, padding: 8, paddingLeft: 12 },
+  linkText: { flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
+  linkActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  qrBox: { alignItems: 'center', marginTop: 14 },
   qr: { width: 220, height: 220 },
-  successMark: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center', marginBottom: 16, marginTop: 24 },
-  successTick: { fontSize: 30, color: colors.limeInk, fontWeight: '700' },
-  shopLine: { fontSize: 15, fontWeight: '600', color: colors.accent },
-  row: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  actions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  action: { flexGrow: 1, flexBasis: 120 },
+  statusIcon: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 16, marginTop: 16 },
+  homeHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
+  shopLine: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.primary },
+  stats: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  stat: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 16, gap: 4, shadowColor: '#0F172A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  statValue: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 36, color: colors.ink },
+  statLabel: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  seatRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  seatBar: { height: 8, borderRadius: 4, backgroundColor: colors.line, marginTop: 8, overflow: 'hidden' },
+  seatFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
+  member: { padding: 16 },
+  memberLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
+  memberHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  memberName: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 23, color: colors.ink },
+  memberPhone: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.muted },
+  memberActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
 });

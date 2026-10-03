@@ -59,6 +59,10 @@ const th = {
   networkError: 'เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่',
   joinWebTitle: 'เข้าร่วมร้าน {shop}', joinWebBody: 'เปิดลิงก์นี้ในแอปบนมือถือเพื่อส่งคำขอเข้าร่วม เจ้าของร้านจะอนุมัติให้',
   openInApp: 'เปิดในแอป', joinWebInstall: 'ยังไม่มีแอป ติดตั้งแอปแล้วกดลิงก์เดิมอีกครั้ง',
+  featureJobs: 'นัดงานและส่งช่างได้ในไม่กี่แตะ', featureTeam: 'ช่างขอเข้าร่วมด้วยลิงก์เดียว คุณอนุมัติเอง',
+  featureRepeat: 'รู้ว่าเครื่องไหนถึงรอบดูแล ได้งานซ้ำง่ายขึ้น', haveAccount: 'มีบัญชีอยู่แล้ว?',
+  pendingCount: 'รออนุมัติ', activeTechnicians: 'ช่างที่ใช้งาน', joinLinkHint: 'ส่งลิงก์ให้ช่าง หรือให้สแกน QR',
+  shopOverview: 'ภาพรวมร้าน', manageTeam: 'จัดการทีมช่าง', comingSoon: 'เร็ว ๆ นี้', joiningOpen: 'รับคำขออยู่', joiningPaused: 'หยุดรับชั่วคราว',
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
@@ -120,6 +124,10 @@ const en: Catalog = {
   networkError: 'Cannot reach the service. Check your connection and try again.',
   joinWebTitle: 'Join {shop}', joinWebBody: 'Open this link in the mobile app to ask to join. The shop owner approves your request.',
   openInApp: 'Open in the app', joinWebInstall: 'No app yet? Install it, then open this link again.',
+  featureJobs: 'Book jobs and send technicians in a few taps', featureTeam: 'Technicians join with one link, you approve',
+  featureRepeat: 'See which equipment is due and win repeat work', haveAccount: 'Already have an account?',
+  pendingCount: 'Waiting', activeTechnicians: 'Active technicians', joinLinkHint: 'Send the link or let them scan the QR',
+  shopOverview: 'Shop overview', manageTeam: 'Manage technicians', comingSoon: 'Coming soon', joiningOpen: 'Accepting', joiningPaused: 'Paused',
 };
 export const catalogs = { th, en };
 export type TranslationKey = keyof Catalog;
