@@ -34,9 +34,9 @@ test('migration is replayable and has a recorded checksum',async()=>{
   }
   finally { await db.exec('RESET ROLE'); }
 });
-test('all 41 foundation tables exist',async()=>{
+test('41 foundation tables plus A04 notification_deliveries exist',async()=>{
   const r=await db.query("SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema IN ('core','billing','platform','ops')");
-  assert.equal(r.rows[0].n,41);
+  assert.equal(r.rows[0].n,42);
 });
 test('missing tenant context reveals no customers',async()=>{
   await db.exec('BEGIN; SET LOCAL ROLE fs_api;');

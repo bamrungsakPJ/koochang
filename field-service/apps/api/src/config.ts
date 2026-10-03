@@ -46,3 +46,29 @@ export function loadAuthSettings(env: NodeJS.ProcessEnv = process.env): AuthSett
 }
 
 export const AUTH_SETTINGS = Symbol('AUTH_SETTINGS');
+
+/** File storage and background providers (A04). Production must configure them explicitly. */
+export interface MediaSettings {
+  production: boolean;
+  /** Private directory for stored files (LocalDiskStorage). */
+  mediaDir?: string;
+  /** HMAC key for short-lived download URLs. */
+  urlSecret?: Buffer;
+  urlTtlSeconds: number;
+  maxUploadBytes: number;
+  maxStoredBytes: number;
+}
+
+export function loadMediaSettings(env: NodeJS.ProcessEnv = process.env): MediaSettings {
+  const production = env.NODE_ENV === 'production';
+  return {
+    production,
+    mediaDir: env.MEDIA_DIR || (production ? undefined : '.media'),
+    urlSecret: secret(env.MEDIA_URL_SECRET, 32) ?? (production ? undefined : Buffer.from('development-only-media-url-secret-change-me')),
+    urlTtlSeconds: int(env.MEDIA_URL_TTL_SECONDS, 300),
+    maxUploadBytes: int(env.MAX_UPLOAD_BYTES, 12_000_000),
+    maxStoredBytes: 5_000_000,
+  };
+}
+
+export const MEDIA_SETTINGS = Symbol('MEDIA_SETTINGS');

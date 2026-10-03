@@ -9,6 +9,7 @@ import { Banner, Button, colors, Field, LanguageContext, Loading, Screen, Sub, T
 import { translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
+import { NotificationsScreen } from './src/screens/notifications';
 
 type Next =
   | { kind: 'register'; shopName: string; idempotencyKey: string }
@@ -20,7 +21,7 @@ type Route =
   | { screen: 'joinPhone'; token: string; shopName: string } | { screen: 'joinName'; token: string; shopName: string }
   | { screen: 'otp'; phone: string; challenge: Challenge; next: Next; back: Route }
   | { screen: 'shopReady'; shopName: string; link: JoinLink | null }
-  | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' };
+  | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' };
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
@@ -68,7 +69,8 @@ export default function App() {
       let next: Route = { screen: 'welcome' };
       if (await api.restore()) {
         try { const loaded = await loadMe(); next = { screen: 'shop' }; if (loaded.user.preferred_language !== initial) { setLanguage(loaded.user.preferred_language); api.language = loaded.user.preferred_language; } }
-        catch { next = { screen: 'welcome' }; }
+        // Still signed in but the service is unreachable: offer a retry instead of the welcome page.
+        catch { next = api.signedIn ? { screen: 'offline' } : { screen: 'welcome' }; }
       }
       const token = pendingToken.current; pendingToken.current = null;
       setRoute(token ? { screen: 'joinPreview', token } : next);
@@ -106,6 +108,10 @@ export default function App() {
   let content;
   switch (route.screen) {
     case 'boot': content = <Loading />; break;
+    case 'offline': content = <Screen><Banner text={translate(language, 'networkError')} />
+      <Button title={translate(language, 'retry')} icon="refresh" onPress={async () => {
+        try { await loadMe(); setRoute({ screen: 'shop' }); } catch { if (!api.signedIn) setRoute({ screen: 'welcome' }); }
+      }} /></Screen>; break;
     case 'welcome': content = <Welcome language={language} onLanguage={changeLanguage}
       onCreate={() => setRoute({ screen: 'register' })} onSignIn={() => setRoute({ screen: 'signin' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />; break;
     case 'register': content = api.signedIn
@@ -125,6 +131,9 @@ export default function App() {
     case 'otp': content = <OtpForm phone={route.phone} challenge={route.challenge} onBack={() => setRoute(route.back)}
       onVerify={(id, code) => afterVerify(route.next, id, code)} />; break;
     case 'shopReady': content = <ShopReady shopName={route.shopName} link={route.link} onDone={() => setRoute({ screen: 'shop' })} />; break;
+    case 'notifications': content = membership?.status === 'active'
+      ? <NotificationsScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })}
+        onOpen={item => setRoute({ screen: item.template_key === 'join_request' && membership.role === 'owner' ? 'team' : 'shop' })} /> : <Loading />; break;
     case 'shops': content = me ? <ShopPicker me={me} onBack={() => setRoute({ screen: 'shop' })} onCreate={() => setRoute({ screen: 'register' })}
       onJoin={() => setRoute({ screen: 'joinEntry' })} onPick={async id => { await selectOrganization(id); setRoute({ screen: 'shop' }); }} /> : <Loading />; break;
     case 'shop': case 'team': case 'account': {
@@ -137,7 +146,7 @@ export default function App() {
       else if (route.screen === 'team' && membership?.role === 'owner' && active) content = <TeamScreen membership={membership} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} />;
       else content = <Loading />;
       if (membership && active) {
         const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);

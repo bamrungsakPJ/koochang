@@ -13,7 +13,8 @@
     "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "mobile:check": "pnpm --filter @field-service/mobile exec expo install --check",
-    "mobile:export": "pnpm build:packages && pnpm --filter @field-service/mobile exec expo export --platform android --platform ios"
+    "mobile:export": "pnpm build:packages && pnpm --filter @field-service/mobile exec expo export --platform android --platform ios",
+    "dev:worker": "pnpm build:packages && pnpm --filter @field-service/api build && pnpm --filter @field-service/api dev:worker"
   },
   "dependencies": {},
   "devDependencies": {

@@ -1,0 +1,18 @@
+# A04 decisions — files, OCR, notifications, worker (2026-10-04)
+
+| # | Topic | Decision | Why |
+|---|---|---|---|
+| 1 | Storage | `ObjectStorage` interface. `LocalDiskStorage` writes to `MEDIA_DIR` (private, not served, in backups). Production must set `MEDIA_DIR` and `MEDIA_URL_SECRET` explicitly or uploads answer 503. An S3/MinIO adapter can replace it later. | Self-hosted on our own server; provider not chosen yet. |
+| 2 | Downloads | Only short-lived signed URLs (`/v1/files/<token>`, HMAC, 5 min) issued after the permission check. No public URLs. | DB §6.3, §8.2. |
+| 3 | Upload flow | `POST …/media` reserves storage for the declared size and registers a pending file (same request key → same file). `PUT …/media/:id/content` sends the bytes. Retrying a finished upload returns the ready file; failures release the reservation. | Spec: reservation, retry, no double count. |
+| 4 | Processing | Done in the API request with sharp: must decode as JPEG/PNG/WebP, EXIF orientation applied, **all metadata incl. GPS removed** by re-encoding, max 2560 px, JPEG ≤ 5 MB (quality steps 82/72/60), 400 px thumbnail, sha256 checksum. Storage is counted at the stored size (image + thumbnail), never more than reserved. | Commercial §3 (≤ 1 MB target / 5 MB max), DB §6.3 GPS stripping. |
+| 5 | Who sees a file | Owner: any file of the shop. Technician: only files they uploaded until jobs exist (B modules will widen this to files of their assigned work). Other shops: 403. | Least privilege until job scope exists. |
+| 6 | OCR | Request reserves 1 OCR and queues; the worker reads it. Success consumes 1; temporary errors retry up to 3 attempts; failures release (not counted). Suggestions are stored only — never written to equipment. No provider in production → 503 and the app continues with manual entry. Development adapter returns empty suggestions. | Commercial §3 OCR counting, Functional: OCR never blocks. |
+| 7 | Worker | Separate process (`pnpm dev:worker`) and DB role `fs_worker` that can only execute `worker.*` functions. Jobs claimed with `FOR UPDATE SKIP LOCKED`, finished idempotently; stale running OCR is requeued after 10 min. | DB §15: worker role separate from API. |
+| 8 | Notifications | Stored as template key + parameters, rendered by the app in the reader's language. Deduplicated by event key per shop and recipient. A restrictive RLS policy limits members to their own inbox. | Spec: system text translated, user data not. |
+| 9 | Events now | Join request → owners; approval/reactivation → technician; trial ending (3 days), renewal (7/3 days), overdue, expired, ended → owners (worker scan, once per period); storage 80%/95% → owners. Maintenance due reminders come with B modules. | Commercial §3–4. |
+| 10 | Push | `PushSender` interface; development adapter logs. No production provider yet → deliveries marked `skipped`, inbox still complete. Invalid tokens are revoked. App-side token registration needs a development build (Expo Go cannot receive push), so the app does not register yet; `POST /v1/me/devices` exists. | Provider and app build not chosen. |
+| 11 | Housekeeping | Worker every 15 min: expire stale reservations, delete OTP challenges older than 2 days, delete sessions 30 days after expiry/revocation. | Keeps auth tables small. |
+| 12 | App session | A failed token refresh caused by network or server trouble no longer signs the user out; at start-up an unreachable API shows a retry screen instead of the welcome page. | Found while testing: an API restart cleared a valid session on the web build. |
+
+Not in A04: camera/photo picker screens (come with equipment and service screens, B02/B04), offline upload queue on the device, S3 adapter, real OCR and push providers.

@@ -15,6 +15,7 @@ export async function openTestDatabase(name) {
   await db.exec(`DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fs_api') THEN CREATE ROLE fs_api NOSUPERUSER NOBYPASSRLS; END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fs_migrator') THEN CREATE ROLE fs_migrator NOSUPERUSER NOBYPASSRLS; END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fs_worker') THEN CREATE ROLE fs_worker NOSUPERUSER NOBYPASSRLS; END IF;
   END $$;`);
   const database = (await db.query('SELECT current_database() AS name')).rows[0].name;
   await db.exec(`GRANT CREATE ON DATABASE "${database.replaceAll('"', '""')}" TO fs_migrator; SET ROLE fs_migrator;`);

@@ -1,10 +1,11 @@
 import { useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Image, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, type Language, type SubscriptionState } from '@field-service/core';
 import { formatDate } from '@field-service/i18n';
 import { api, type JoinLink, type Me, type Membership, type Subscription, type Team, type TeamMember } from '../api';
 import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, IconTile, LanguageContext, Loading, tones, type Tone, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 import { LanguageSwitch } from './onboarding';
+import { useUnread } from './notifications';
 
 const memberTone = (status: string): Tone => status === 'active' ? 'green' : status === 'pending' ? 'amber' : status === 'suspended' ? 'rose' : 'sky';
 const statusTone = (status: string) => status === 'active' ? 'ok' : status === 'pending' ? 'warn' : status === 'suspended' ? 'danger' : 'neutral';
@@ -156,7 +157,8 @@ function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organ
   </Card>;
 }
 
-export function Home({ me, membership, onTeam }: { me: Me; membership: Membership; onTeam: () => void }) {
+export function Home({ me, membership, onTeam, onNotifications }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void }) {
+  const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
   const [team, setTeam] = useState<Team | null>(null);
@@ -173,6 +175,10 @@ export function Home({ me, membership, onTeam }: { me: Me; membership: Membershi
         <Text style={styles.heroTitle}>{owner ? t('shopOverview') : t('today')}</Text>
         <Text style={styles.heroSub}>{t(`role.${membership.role}`)}</Text>
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t('notifications')} ${unread}`} onPress={onNotifications} style={styles.bell} hitSlop={8}>
+        <Icon name="notifications" size={22} color="#FFFFFF" />
+        {unread ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View> : null}
+      </Pressable>
       <View style={styles.heroAvatar}><Avatar name={me.user.display_name} /></View>
     </View>
     {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
@@ -330,6 +336,9 @@ const styles = StyleSheet.create({
   heroShop: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: '#BFDBFE' },
   heroTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: '#FFFFFF' },
   heroSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: '#C7D2FE' },
+  bell: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#F43F5E', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  bellBadgeText: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, color: '#FFFFFF' },
   heroAvatar: { borderRadius: 26, borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)' },
   statValue: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 36, color: colors.ink },
   statLabel: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted },

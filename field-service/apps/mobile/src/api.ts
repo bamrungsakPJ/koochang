@@ -21,6 +21,8 @@ export interface TeamMember {
   phone_e164: string | null; version: number; requested_at: string; open_jobs: number;
 }
 export interface Team { members: TeamMember[]; seats: { active_technicians: number; seat_limit: number }; }
+export interface InboxItem { id: string; template_key: string; parameters: Record<string, string | number>; target_type: string | null; target_id: string | null; created_at: string; read_at: string | null; }
+export interface Inbox { items: InboxItem[]; unread: number; }
 /** Owners get the full object; technicians only state and writable. */
 export interface Subscription {
   state: SubscriptionState; writable: boolean; source?: 'trial' | 'paid' | 'complimentary' | 'grant' | null;
@@ -37,7 +39,7 @@ export class Api {
   language: Language = 'th';
   private access: string | null = null;
   private refreshToken: string | null = null;
-  private refreshing: Promise<boolean> | null = null;
+  private refreshing: Promise<'ok' | 'rejected' | 'unavailable'> | null = null;
   onSignedOut: () => void = () => {};
 
   async restore(): Promise<boolean> {
@@ -82,6 +84,8 @@ export class Api {
   changeMember(organizationId: string, memberId: string, action: string, expectedVersion: number) {
     return this.call('POST', `/organizations/${organizationId}/members/${memberId}/${action}`, { expected_version: expectedVersion });
   }
+  notifications(organizationId: string) { return this.call<Inbox>('GET', `/organizations/${organizationId}/notifications`); }
+  markRead(organizationId: string, ids?: string[]) { return this.call<Inbox>('POST', `/organizations/${organizationId}/notifications/read`, ids ? { ids } : {}); }
   subscription(organizationId: string) { return this.call<Subscription>('GET', `/organizations/${organizationId}/subscription`); }
   changeRenewal(organizationId: string, action: 'cancel-renewal' | 'resume-renewal') { return this.call<Subscription>('POST', `/organizations/${organizationId}/subscription/${action}`); }
   joinLink(organizationId: string) { return this.call<JoinLink>('GET', `/organizations/${organizationId}/join-link`); }
@@ -102,22 +106,30 @@ export class Api {
     if (response.ok) return data as T;
     const failure = new ApiFailure(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {}, data?.retry_after);
     if (auth && response.status === 401) {
-      if (failure.code === 'SESSION_EXPIRED' && !retried && await this.refresh()) return this.call<T>(method, path, body, auth, headers, true);
+      if (failure.code === 'SESSION_EXPIRED' && !retried) {
+        const refreshed = await this.refresh();
+        if (refreshed === 'ok') return this.call<T>(method, path, body, auth, headers, true);
+        // Network or server trouble while refreshing is not a reason to sign out: keep the
+        // tokens and let the user retry once the service is reachable.
+        if (refreshed === 'unavailable') throw new ApiFailure(0, 'NETWORK_ERROR', '');
+      }
       await this.setTokens(null);
       this.onSignedOut();
     }
     throw failure;
   }
 
-  private refresh(): Promise<boolean> {
+  /** ok: new tokens stored; rejected: the server refused the refresh token; unavailable: try later. */
+  private refresh(): Promise<'ok' | 'rejected' | 'unavailable'> {
     this.refreshing ??= (async () => {
       try {
-        if (!this.refreshToken) return false;
+        if (!this.refreshToken) return 'rejected' as const;
         const tokens = await this.call<Tokens>('POST', '/auth/refresh', { refresh_token: this.refreshToken }, false);
         await this.setTokens(tokens);
-        return true;
-      } catch { return false; }
-      finally { this.refreshing = null; }
+        return 'ok' as const;
+      } catch (error) {
+        return error instanceof ApiFailure && error.status === 401 ? 'rejected' as const : 'unavailable' as const;
+      } finally { this.refreshing = null; }
     })();
     return this.refreshing;
   }

@@ -5,13 +5,18 @@ import { createServer } from 'node:net';
 import { once } from 'node:events';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import pg from 'pg';
 import { openTestDatabase } from './support/database.mjs';
 
 // End-to-end through HTTP against a real PostgreSQL. The API connects as fs_api, exactly as in
 // production; SMS uses the development adapter and the test reads the code from the API log.
 const skip = process.env.TEST_DATABASE_URL ? false : 'needs PostgreSQL (TEST_DATABASE_URL) so the API can connect as fs_api';
-let db, child, base;
+let db, child, base, mediaDir, workerUrl;
 const codes = new Map();
 
 before(async () => {
@@ -20,6 +25,10 @@ before(async () => {
   const password = randomBytes(18).toString('hex');
   await db.exec(`ALTER ROLE fs_api LOGIN PASSWORD '${password}'`);
   const url = new URL(db.url); url.username = 'fs_api'; url.password = password;
+  const workerPassword = randomBytes(18).toString('hex');
+  await db.exec(`ALTER ROLE fs_worker LOGIN PASSWORD '${workerPassword}'`);
+  const worker = new URL(db.url); worker.username = 'fs_worker'; worker.password = workerPassword; workerUrl = worker.toString();
+  mediaDir = await mkdtemp(join(tmpdir(), 'fs-media-'));
 
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
@@ -28,7 +37,8 @@ before(async () => {
   child = spawn(process.execPath, [fileURLToPath(new URL('../apps/api/dist/main.js', import.meta.url))], {
     env: { ...env, NODE_ENV: 'test', PORT: String(port), HOST: '127.0.0.1', DATABASE_URL: url.toString(),
       OTP_SECRET: randomBytes(32).toString('base64'), JOIN_LINK_KEY: randomBytes(32).toString('base64'),
-      JOIN_LINK_BASE_URL: 'https://join.example.test/join', SMS_PROVIDER: 'development' },
+      JOIN_LINK_BASE_URL: 'https://join.example.test/join', SMS_PROVIDER: 'development',
+      MEDIA_DIR: mediaDir, MEDIA_URL_SECRET: randomBytes(32).toString('base64'), OCR_PROVIDER: 'development' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   let buffer = '';
@@ -46,6 +56,7 @@ before(async () => {
 after(async () => {
   if (child && child.exitCode === null) { child.kill(); await once(child, 'exit'); }
   await db?.close();
+  if (mediaDir) await rm(mediaDir, { recursive: true, force: true });
 });
 
 async function call(method, path, { token, body, headers = {} } = {}) {
@@ -221,4 +232,86 @@ test('subscription: owner sees plan and limits, technician only the state; expir
   assert.equal(refused.status, 403);
   assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED');
   assert.equal((await call('GET', `/organizations/${shopId}`, { token: tech.access_token })).status, 200, 'reading stays allowed');
+});
+
+async function sharp() {
+  return (await import(pathToFileURL(createRequire(new URL('../apps/api/package.json', import.meta.url)).resolve('sharp')).href)).default;
+}
+async function put(path, token, bytes, type = 'image/jpeg') {
+  const response = await fetch(`${base}${path}`, { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': type, 'accept-language': 'en' }, body: bytes });
+  return { status: response.status, body: await response.json() };
+}
+
+test('photo upload: quota reserved, GPS stripped, signed download, retry-safe, private to the shop', { skip }, async () => {
+  const s = await sharp();
+  const owner = await signIn(newPhone(), 'Owner M');
+  const shopId = (await call('POST', '/organizations', { token: owner.access_token, body: { name: 'Media Shop' } })).body.organization.id;
+  const photo = await s({ create: { width: 1600, height: 1200, channels: 3, background: '#336699' } })
+    .withExif({ IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '13/1 45/1 0/1', GPSLongitudeRef: 'E', GPSLongitude: '100/1 30/1 0/1' } }).jpeg().toBuffer();
+  const requestKey = randomUUID();
+  const created = await call('POST', `/organizations/${shopId}/media`, { token: owner.access_token, body: { request_key: requestKey, mime_type: 'image/jpeg', byte_size: photo.length, purpose: 'nameplate' } });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.status, 'pending_upload');
+  const again = await call('POST', `/organizations/${shopId}/media`, { token: owner.access_token, body: { request_key: requestKey, mime_type: 'image/jpeg', byte_size: photo.length } });
+  assert.equal(again.body.id, created.body.id, 'same request key returns the same file');
+
+  const uploaded = await put(`/organizations/${shopId}/media/${created.body.id}/content`, owner.access_token, photo);
+  assert.equal(uploaded.status, 200, JSON.stringify(uploaded.body));
+  assert.equal(uploaded.body.status, 'ready');
+  const retry = await put(`/organizations/${shopId}/media/${created.body.id}/content`, owner.access_token, photo);
+  assert.equal(retry.body.status, 'ready', 'a retried upload does not fail or count twice');
+
+  const file = await fetch(uploaded.body.url);
+  assert.equal(file.status, 200);
+  const stored = Buffer.from(await file.arrayBuffer());
+  assert.equal((await s(stored).metadata()).exif, undefined, 'downloaded image has no EXIF/GPS');
+  assert.equal((await fetch(uploaded.body.thumbnail_url)).status, 200);
+  assert.equal((await fetch(uploaded.body.url.replace(/.$/, c => c === 'A' ? 'B' : 'A'))).status, 404, 'tampered link');
+
+  const sub = (await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body;
+  assert.equal(sub.usage.storage_bytes, uploaded.body.size_bytes, 'storage counted once at the stored size');
+
+  const other = await signIn(newPhone(), 'Other M');
+  await call('POST', '/organizations', { token: other.access_token, body: { name: 'Other Shop' } });
+  assert.equal((await call('GET', `/organizations/${shopId}/media/${created.body.id}`, { token: other.access_token })).status, 403);
+
+  const bad = await call('POST', `/organizations/${shopId}/media`, { token: owner.access_token, body: { request_key: randomUUID(), mime_type: 'image/jpeg', byte_size: 20 } });
+  const rejected = await put(`/organizations/${shopId}/media/${bad.body.id}/content`, owner.access_token, Buffer.from('this is not a picture'));
+  assert.equal(rejected.status, 400);
+  assert.equal((await call('GET', `/organizations/${shopId}/media/${bad.body.id}`, { token: owner.access_token })).body.status, 'failed');
+  const tooBig = await call('POST', `/organizations/${shopId}/media`, { token: owner.access_token, body: { request_key: randomUUID(), mime_type: 'image/jpeg', byte_size: 999_000_000 } });
+  assert.equal(tooBig.status, 400);
+
+  // OCR: queued by the API, read by the worker, counted once.
+  const ocr = await call('POST', `/organizations/${shopId}/ocr-requests`, { token: owner.access_token, body: { request_key: randomUUID(), media_asset_id: created.body.id } });
+  assert.equal(ocr.status, 201, JSON.stringify(ocr.body));
+  assert.equal(ocr.body.status, 'queued');
+  const { runOcr, verifyWorkerRole } = await import('../apps/api/dist/worker.js');
+  const { LocalDiskStorage } = await import('../apps/api/dist/media/object-storage.js');
+  const { DevelopmentOcrProvider } = await import('../apps/api/dist/ocr/ocr.provider.js');
+  const pool = new pg.Pool({ connectionString: workerUrl, max: 2 });
+  try {
+    await verifyWorkerRole(pool);
+    await runOcr({ pool, storage: new LocalDiskStorage(mediaDir), ocr: new DevelopmentOcrProvider(false), push: null });
+  } finally { await pool.end(); }
+  const done = await call('GET', `/organizations/${shopId}/ocr-requests/${ocr.body.id}`, { token: owner.access_token });
+  assert.equal(done.body.status, 'succeeded');
+  assert.deepEqual(done.body.suggestions.fields, {});
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.usage.ocr, 1);
+});
+
+test('notification inbox: owner sees the join request and marks it read; a pending member has none', { skip }, async () => {
+  const owner = await signIn(newPhone(), 'Owner N');
+  const created = (await call('POST', '/organizations', { token: owner.access_token, body: { name: 'Inbox Shop' } })).body;
+  const shopId = created.organization.id;
+  const tech = await signIn(newPhone(), 'Tech N');
+  await call('POST', '/join-requests', { token: tech.access_token, body: { token: created.join_link.url.split('/').at(-1), display_name: 'Tech N' } });
+  const inbox = await call('GET', `/organizations/${shopId}/notifications`, { token: owner.access_token });
+  assert.equal(inbox.body.unread, 1);
+  assert.equal(inbox.body.items[0].template_key, 'join_request');
+  assert.deepEqual(inbox.body.items[0].parameters, { name: 'Tech N' });
+  const read = await call('POST', `/organizations/${shopId}/notifications/read`, { token: owner.access_token, body: {} });
+  assert.equal(read.body.unread, 0);
+  assert.equal((await call('GET', `/organizations/${shopId}/notifications`, { token: tech.access_token })).status, 403);
+  assert.equal((await call('POST', '/me/devices', { token: owner.access_token, body: { token: `ExponentPushToken[${randomUUID()}]`, platform: 'android' } })).status, 204);
 });

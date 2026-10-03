@@ -76,6 +76,12 @@ const th = {
   expiredBanner: 'แพ็กเกจหมดอายุ ยังดูข้อมูลได้ แต่สร้างงานใหม่หรืออนุมัติช่างไม่ได้',
   pastDueBanner: 'เลยกำหนดชำระ ยังใช้งานได้ถึง {date}', pendingPaymentBanner: 'ร้านยังไม่มีแพ็กเกจที่ใช้งานได้',
   techExpiredBanner: 'แพ็กเกจของร้านหมดอายุ บันทึกงานใหม่ไม่ได้ กรุณาติดต่อเจ้าของร้าน',
+  'field.image': 'ไฟล์นี้ไม่ใช่รูปที่ใช้ได้ หรือใหญ่เกินไป',
+  'notify.join_request': '{name} ขอเข้าร่วมร้าน', 'notify.member_approved': 'คุณได้รับอนุมัติให้เข้าร่วมร้านแล้ว',
+  'notify.trial_ending': 'ช่วงทดลองใช้จะหมดวันที่ {date}', 'notify.renewal_due': 'แพ็กเกจจะครบกำหนดต่ออายุวันที่ {date}',
+  'notify.payment_overdue': 'เลยกำหนดชำระ ยังใช้งานได้ถึงวันที่ {date}', 'notify.subscription_expired': 'แพ็กเกจหมดอายุแล้ว',
+  'notify.subscription_ended': 'แพ็กเกจสิ้นสุดตามที่ตั้งหยุดต่ออายุไว้', 'notify.storage_threshold': 'ใช้พื้นที่รูปภาพไปแล้ว {percent}%',
+  notifications: 'การแจ้งเตือน', noNotifications: 'ยังไม่มีการแจ้งเตือน', markAllRead: 'อ่านทั้งหมดแล้ว',
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
@@ -154,6 +160,12 @@ const en: Catalog = {
   expiredBanner: 'The plan has expired. You can view data but cannot create work or approve technicians.',
   pastDueBanner: 'Payment overdue. Usable until {date}.', pendingPaymentBanner: 'This shop has no usable plan yet.',
   techExpiredBanner: "The shop's plan has expired, so new work cannot be saved. Please contact the owner.",
+  'field.image': 'This file is not a usable image or is too large.',
+  'notify.join_request': '{name} asked to join the shop', 'notify.member_approved': 'You have been approved to join the shop.',
+  'notify.trial_ending': 'The trial ends on {date}', 'notify.renewal_due': 'The plan renews on {date}',
+  'notify.payment_overdue': 'Payment overdue. Usable until {date}', 'notify.subscription_expired': 'The plan has expired.',
+  'notify.subscription_ended': 'The plan ended because renewal was stopped.', 'notify.storage_threshold': '{percent}% of photo storage is used',
+  notifications: 'Notifications', noNotifications: 'No notifications yet', markAllRead: 'Mark all as read',
 };
 export const catalogs = { th, en };
 export type TranslationKey = keyof Catalog;

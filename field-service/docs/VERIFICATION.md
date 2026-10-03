@@ -75,3 +75,22 @@ Tests (`pnpm test`, 66 total):
 Checked by hand: owner home on Expo web shows "ทดลองใช้ · เหลือ 14 วัน", seats 1/3, storage 0/1 GB, OCR 0/20.
 
 Remaining: payment and invoices (C01), platform publishing/grants/suspension UI (C02), expiry notifications (worker), 24-hour late submission (B04), B-module endpoints must call `auth.require_writable`.
+
+# A04 files, OCR, notifications, worker — 2026-10-04
+
+Decisions: [DECISIONS_A04.md](DECISIONS_A04.md). Migration `004_media_notifications.sql` (adds `ops.notification_deliveries`, `auth.device_tokens`, schema `worker`; needs role `fs_worker`, see `infra/postgres/00-roles.sql`).
+
+Done:
+- API: `POST/GET /organizations/:id/media`, `PUT …/media/:id/content` (raw image bytes), `GET /v1/files/<signed token>`, `POST/GET …/ocr-requests`, `GET …/notifications`, `POST …/notifications/read`, `POST /me/devices`, `POST /me/devices/remove`.
+- Image processing (sharp): type check by decoding, EXIF rotation, metadata/GPS removed, ≤ 2560 px, ≤ 5 MB, 400 px thumbnail, checksum; storage counted once at stored size.
+- Worker process (`pnpm dev:worker`, role fs_worker): OCR queue with retry, push deliveries, subscription reminders, housekeeping.
+- Notifications: join request, approval, trial ending, renewal due, overdue, expired/ended, storage 80/95%.
+- Mobile: bell with unread count on the home header, notifications screen (text rendered in the reader's language, opening a join request goes to the team tab), offline retry screen at start-up, token refresh no longer signs out on network errors.
+- Dev on server2: role fs_worker created, migration 004 applied; the worker runs against the dev database with development OCR/push.
+
+Tests (`pnpm test`, 81 total):
+- PostgreSQL 16.15 (server2 test cluster): 81 passed.
+- PGlite: 69 passed, 12 skipped (need a real PostgreSQL connection).
+- New: worker role isolation, OCR counted once / retries not counted / stale job requeued, notifications once per event and only visible to the recipient, push queue and invalid-token revocation, reminders once per period, storage 80% warning and capped consumption, housekeeping; unit: GPS/EXIF removed, resize, thumbnail, non-image and GIF rejected, signed URL expiry and forgery, storage path traversal, production refuses development OCR/push and missing media secrets; HTTP: upload → ready → signed download without EXIF → tampered link 404 → other shop 403 → bad bytes → failed, OCR through the worker counted once, inbox read/mark read.
+
+Not done: photo picker/camera screens (B02/B04), on-device upload queue, real OCR / push / S3 providers, push token registration in the app (needs a development build).
