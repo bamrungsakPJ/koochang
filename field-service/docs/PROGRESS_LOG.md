@@ -11,6 +11,7 @@
 
 - **Console `/console` ครบตามขอบเขต MVP และ commit แล้ว** (migration 017–020, 64 ตาราง) ทีมผู้ดูแล/คำเชิญ/กู้บัญชี, แพ็กเกจและราคาแบบอนุมัติสองคน, นโยบายระบบ, ประกาศ/เหตุขัดข้อง, เครื่องมือคิว, คำขอข้อมูล/ส่งออก/ปิดร้าน/ลบข้อมูล, รายงานการเงิน, แบ่งหน้ารายการ ดู [CONSOLE.md](CONSOLE.md)
 - ผลตรวจ: PostgreSQL 16 **164/164 ผ่าน**, PGlite 137 ผ่าน 27 ข้าม 0 ล้มเหลว, typecheck ทุก workspace และ Next production build ผ่าน, ตรวจหน้าจอในเบราว์เซอร์ด้วยข้อมูลสังเคราะห์ (th/en, 320px)
+- **Staging บน server2 ติดตั้งแล้ว** (ใช้ภายใน LAN: http://192.168.1.127:3200/console) ดู [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
 - OCR ป้ายเครื่องเลือก **Claude API** แล้ว โค้ดพร้อม รอ `ANTHROPIC_API_KEY` และทดสอบกับรูปจริง ดู [OCR_CLAUDE.md](OCR_CLAUDE.md)
 - ยังไม่ใช่ production: ยังไม่ได้ใช้ migration กับเครื่องจริง ไม่มี provider keys/เงินจริง/UAT และต้องกำหนดที่เก็บ `ERASURE_REGISTRY_FILE` นอก backup ตอน deploy
 
@@ -41,7 +42,8 @@
 8. ผู้ให้บริการ Push (ยังไม่เลือก ตอนนี้ใช้กล่องแจ้งเตือนในแอปแทน)
 9. ข้อความนโยบายความเป็นส่วนตัวสำหรับร้าน: แจ้งว่ารูปป้ายเครื่องถูกส่งให้บริการ AI (Anthropic) อ่าน
 
-**B. งานติดตั้งระบบ (ทีม) — เลือก server2, เริ่ม staging ก่อน ดู [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)**
+**B. งานติดตั้งระบบ (ทีม) — staging บน server2 ติดตั้งแล้ว (LAN) ดู [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)**
+0. ต่อจาก staging: สร้างบัญชี console 2 คน (เจ้าของบัญชีรันเองบน server2), สร้างแพ็กเกจ trial/รายเดือนใน console, ชี้แอปมือถือไปที่ staging, ตั้งชื่อระบบ + โดเมน แล้วเปิดผ่าน Cloudflare Tunnel
 1. เซิร์ฟเวอร์ production + PostgreSQL 16, สร้าง roles ตาม `infra/postgres/00-roles.sql`, ใช้ migration 001–020 (ไม่ใส่ seed)
 2. โดเมน HTTPS สำหรับ API, console, เว็บร้าน และลิงก์เข้าร่วม (`JOIN_LINK_BASE_URL`, `ADMIN_ORIGIN`, `OWNER_WEB_URL`)
 3. ตั้ง `PLATFORM_DATABASE_URL`, `PLATFORM_SECRET_KEY`, `PAYMENT_DATABASE_URL`/`SLIP_DATABASE_URL` (fs_worker), worker เป็น service
@@ -85,6 +87,22 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-04 (ดึก) — ติดตั้ง staging บน server2 (ใช้ภายใน LAN)
+
+**ทำอะไร:** ผู้ใช้อนุมัติให้ติดตั้ง ยังไม่มีชื่อระบบและโดเมน จึงติดตั้งแบบใช้ภายใน LAN ก่อน: Node 24 ใน /opt/node-24, pnpm 11.25, PostgreSQL cluster ใหม่ 16/staging พอร์ต 5434, ไฟล์ค่าลับสร้างบน server (`infra/deploy/staging-setup.sh`), migration 001–020 (68 ตาราง ไม่มี seed), pm2 3 บริการ (`infra/deploy/staging.ecosystem.config.cjs`), backup รายวัน + ตรวจกู้คืนรายสัปดาห์ (ทดสอบแล้ว RESTORE OK) รายละเอียด [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
+
+**1. Build บน server ล้มเหลว: หา module 'express' ไม่เจอ**
+- สาเหตุ: `privacy.controller.ts` import ชนิดจาก express ซึ่ง api ไม่ได้ประกาศเป็น dependency; บนเครื่อง dev ผ่านเพราะ Node หาเจอใน node_modules ของโปรเจกต์ ServiceFlow เดิมที่โฟลเดอร์แม่
+- แก้: ใช้ชนิด Response แบบสั้นที่ประกาศเองเหมือน controller อื่น (d60b4ec) ✅
+
+**2. Worker ขึ้น online แต่ไม่ทำงาน**
+- สาเหตุ: worker เช็กว่าถูกรันตรงจาก `process.argv[1]` แต่ pm2 รันผ่านตัวห่อ จึงไม่เข้า main()
+- แก้: ใช้ `pm_exec_path` ของ pm2 ก่อน (d9b25a6); ตรวจแล้ว worker ต่อฐานข้อมูลและเปิดทะเบียนการลบ ✅
+
+**การตัดสินใจ:** staging รอบแรกรัน `NODE_ENV=development` (OTP อยู่ใน log, OCR จำลอง) เพราะยังไม่มี HTTPS และ DeeSMSx key; ฟังเฉพาะ IP วง LAN 192.168.1.127; backup สำเนาไป /data3 จนกว่าจะมีปลายทางนอกเครื่อง; บัญชี console ให้เจ้าของบัญชีสร้างเองบน server (ผมไม่สร้างบัญชีหรือดูรหัสผ่านบนเครื่องจริง)
+
+**ผลตรวจ:** `/v1/ready` ready, หน้า /console และ /shop ตอบ 200, CORS จาก :3200 ผ่าน, login ผิดได้ LOGIN_FAILED ตามคาด, backup + restore-check ผ่าน
 
 ### 2026-10-04 (ค่ำ) — เลือก server2 สำหรับติดตั้ง staging/pilot
 

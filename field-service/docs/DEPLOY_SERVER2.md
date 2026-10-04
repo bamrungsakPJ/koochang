@@ -59,6 +59,37 @@ mobile app's `EXPO_PUBLIC_API_URL=https://api-staging.<domain>`.
 8. Daily backup cron (`DB_PORT=5434`) + `restore-check.sh`; record evidence in the console.
 9. Mobile: Expo Go against the staging API for the device tests; later an APK.
 
+## Status — installed 2026-10-04 (internal staging, LAN only)
+
+No domain or product name yet, so this first install is reachable only on the home/office LAN:
+
+| What | Where |
+|---|---|
+| API | http://192.168.1.127:4100 (`/v1/ready` → ready) |
+| Console / owner web / join page | http://192.168.1.127:3200/console · /shop · /join/… |
+| Mode | `NODE_ENV=development` with real random secrets: OTP codes appear only in the API log (`pm2 logs fs-staging-api`), OCR = development (empty suggestions), Stripe test mode only |
+| Database | cluster 16/staging :5434 (localhost), database `field_service`, migrations 001–020, 68 tables, **no seed, no plans yet** |
+| Processes | pm2 (ton07): fs-staging-api, fs-staging-worker, fs-staging-web; `pm2 save` done (starts on boot via pm2-ton07) |
+| Secrets | /etc/field-service/staging.env (root:ton07 0640), generated on the server by `infra/deploy/staging-setup.sh` |
+| Backups | /etc/cron.d/field-service-staging: daily 02:30 dump + media → /data/field-service/staging/backups, copy to /data3/field-service-backups; restore check Sundays 03:30. First run: RESTORE OK (68 tables, 2 s) |
+| Code | /opt/field-service/staging (git bundle of `field-service-a02`, no remote yet), Node 24.19.0 in /opt/node-24, pnpm 11.25.0 |
+
+Update procedure (until a git remote exists): on the dev PC `git bundle create fs.bundle field-service-a02`, copy to
+server2 `/tmp`, then in /opt/field-service/staging `git fetch /tmp/fs.bundle field-service-a02 && git reset --hard FETCH_HEAD`,
+`NEXT_PUBLIC_API_URL=http://192.168.1.127:4100 pnpm build`, run `node --env-file=/etc/field-service/staging.env scripts/migrate.mjs`,
+`pm2 restart fs-staging-api fs-staging-worker fs-staging-web`.
+
+### Still to do on staging
+
+1. **Console accounts** — the people who will use them run, on server2:
+   `cd /opt/field-service/staging/field-service && /opt/node-24/bin/node --env-file=/etc/field-service/staging.env scripts/platform-account.mjs create --email … --name "…" --roles super_admin`
+   (password and authenticator secret are shown once, to that person; at least two people because approvals need a second person).
+2. **Plans** — no plans exist (no seed). In the console: Plans and prices → trial plan + paid plans → a second person approves.
+   Until a trial plan is published, new shops start in "pending payment".
+3. Mobile testing against staging: `EXPO_PUBLIC_API_URL=http://192.168.1.127:4100` in apps/mobile/.env.local.
+4. When a domain exists: tunnel hostnames, `HOST=127.0.0.1`, https origins in the env file, rebuild the web with the https API URL;
+   with DeeSMSx keys switch to `NODE_ENV=production`.
+
 ## Open points
 
 - **Domain**: which Cloudflare domain to use for the two staging hostnames, and who adds them in
