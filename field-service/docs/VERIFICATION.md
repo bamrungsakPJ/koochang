@@ -230,3 +230,13 @@ Checked by hand:
 - Console Overview with pilot indicators.
 
 Not done (needs people or decisions, see the runbook): production SMS/OCR/push providers, receiving bank account and receipt format, HTTPS domains, off-host backup target, physical Android/iOS testing, staging deployment.
+
+# Follow-up: join account clarity — 2026-10-04
+
+- Join preview now shows the signed-in account phone in th/en and offers sign-out to use another phone. The shop link token is retained after sign-out; joining still uses verified identity and owner approval.
+- `pnpm typecheck`: passed for all workspaces.
+- `pnpm test` (PGlite): 74 passed, 25 skipped, 0 failed.
+- `node --env-file=.env --test --test-concurrency=1 tests/*.test.mjs` on the isolated PostgreSQL 16.15 test endpoint: 99 passed, 0 skipped, 0 failed. Includes shop creation/join/approval, concurrency, service idempotency, and the HTTP pilot journey.
+- `pnpm mobile:export`: Android and iOS Hermes bundles exported successfully.
+- These checks do not verify the new UI, safe-area layout, camera/gallery, GPS, draft restoration, or API-restart session behavior on a physical phone. Prior Android Expo Go testing is recorded in PROGRESS_LOG.md; those remaining device checks still need confirmation.
+- No Git remote is configured; push/PR and production providers/settings remain pending.

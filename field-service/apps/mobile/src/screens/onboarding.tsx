@@ -150,11 +150,21 @@ export function JoinEntry({ onBack, onToken }: { onBack: () => void; onToken: (t
 }
 
 /** Shows which shop the link belongs to before anything is sent. */
-export function JoinPreview({ token, onBack, onContinue }: { token: string; onBack: () => void; onContinue: (shopName: string) => void }) {
+export function JoinPreview({ token, onBack, onContinue, signedInPhone, onUseAnotherPhone }: {
+  token: string; onBack: () => void; onContinue: (shopName: string) => void;
+  signedInPhone?: string; onUseAnotherPhone: () => Promise<void>;
+}) {
   const t = useT();
   const errorText = useErrorText();
   const [state, setState] = useState<{ state: string; organization_name: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  async function useAnotherPhone() {
+    setSwitching(true); setError(null);
+    try { await onUseAnotherPhone(); }
+    catch (failure) { setError(errorText(failure)); }
+    finally { setSwitching(false); }
+  }
   const load = () => { setError(null); api.previewJoinLink(token).then(setState, failure => setError(errorText(failure))); };
   useEffect(load, [token]);
 
@@ -165,7 +175,10 @@ export function JoinPreview({ token, onBack, onContinue }: { token: string; onBa
     <Title>{t('linkInvalidTitle')}</Title>
     <Sub>{state.state === 'closed' ? t('linkClosedBody') : t('linkInvalidBody')}</Sub>
   </Screen>;
-  return <Screen onBack={onBack} footer={<Button title={t('requestJoin')} icon="arrow-forward" onPress={() => onContinue(state.organization_name ?? '')} />}>
+  return <Screen onBack={onBack} footer={<>
+    <Button title={t('requestJoin')} icon="arrow-forward" disabled={switching} onPress={() => onContinue(state.organization_name ?? '')} />
+    {signedInPhone ? <Button title={t('joinUseAnotherPhone')} kind="secondary" busy={switching} onPress={useAnotherPhone} /> : null}
+  </>}>
     <Sub>{t('joinPreviewTitle')}</Sub>
     <Card>
       <View style={styles.shopRow}>
@@ -174,6 +187,7 @@ export function JoinPreview({ token, onBack, onContinue }: { token: string; onBa
       </View>
     </Card>
     <Sub>{t('joinWebBody')}</Sub>
+    {signedInPhone ? <Banner tone="info" text={t('joinCurrentAccount', { phone: formatPhone(signedInPhone) })} /> : null}
   </Screen>;
 }
 
