@@ -4,7 +4,8 @@ import { keys, storage } from './storage';
 export const apiBaseUrl = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
 export class ApiFailure extends Error {
-  constructor(readonly status: number, readonly code: string, message: string, readonly fieldErrors: FieldErrors = {}, readonly retryAfter?: number) {
+  constructor(readonly status: number, readonly code: string, message: string, readonly fieldErrors: FieldErrors = {}, readonly retryAfter?: number,
+    readonly candidates: { id: string; name: string | null; phone_normalized: string | null }[] = []) {
     super(message);
   }
 }
@@ -21,6 +22,32 @@ export interface TeamMember {
   phone_e164: string | null; version: number; requested_at: string; open_jobs: number;
 }
 export interface Team { members: TeamMember[]; seats: { active_technicians: number; seat_limit: number }; }
+export interface CustomerSummary { id: string; name: string | null; phone_normalized: string | null; customer_type: string; location_count: number; located_count: number; version: number; }
+export interface CustomerLocation {
+  id: string; label: string; address: string | null; travel_note: string | null; latitude: number | null; longitude: number | null;
+  accuracy_m: number | null; capture_method: string | null; location_captured_at: string | null; version: number;
+}
+export interface Customer { id: string; name: string | null; phone_normalized: string | null; customer_type: string; note: string | null; version: number; locations: CustomerLocation[]; }
+export interface Media { id: string; status: string; url: string | null; thumbnail_url: string | null; size_bytes: number; }
+export interface OcrRequest { id: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; suggestions: { fields?: { brand?: string; model?: string; serial_number?: string } } | null; }
+export interface EquipmentInput { category: string; name?: string | null; brand?: string | null; model?: string | null; serial_number?: string | null; note?: string | null; }
+export interface EquipmentSummary { id: string; name: string | null; category: string; brand: string | null; model: string | null; serial_number: string | null; thumbnail_url: string | null; version: number; }
+export interface Equipment extends EquipmentSummary {
+  location_id: string; customer_id: string; note: string | null; installed_on: string | null;
+  photos: { id: string; photo_type: string; media_asset_id: string; url: string | null; thumbnail_url: string | null }[];
+}
+export type JobStatus = 'unassigned' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export interface JobSummary {
+  id: string; status: JobStatus; job_type: string; description: string | null; scheduled_start: string | null; scheduled_end: string | null;
+  estimated_equipment_count: number | null; version: number; customer_id: string; customer_name: string | null; customer_phone: string | null;
+  location_id: string; location_label: string | null; location_address: string | null; current_assignee_id: string | null; assignee_name: string | null; equipment_count: number;
+}
+export interface Job extends JobSummary {
+  cancellation_reason: string | null; started_at: string | null; completed_at: string | null; travel_note: string | null;
+  latitude: number | null; longitude: number | null;
+  equipment: { id: string; name: string | null; category: string; brand: string | null; model: string | null; serial_number: string | null }[];
+  history: { from_status: string | null; to_status: string; reason: string | null; created_at: string; actor: string | null }[];
+}
 export interface InboxItem { id: string; template_key: string; parameters: Record<string, string | number>; target_type: string | null; target_id: string | null; created_at: string; read_at: string | null; }
 export interface Inbox { items: InboxItem[]; unread: number; }
 /** Owners get the full object; technicians only state and writable. */
@@ -84,6 +111,58 @@ export class Api {
   changeMember(organizationId: string, memberId: string, action: string, expectedVersion: number) {
     return this.call('POST', `/organizations/${organizationId}/members/${memberId}/${action}`, { expected_version: expectedVersion });
   }
+  customers(organizationId: string, q: string) { return this.call<{ items: CustomerSummary[] }>('GET', `/organizations/${organizationId}/customers?q=${encodeURIComponent(q)}`); }
+  customer(organizationId: string, id: string) { return this.call<Customer>('GET', `/organizations/${organizationId}/customers/${id}`); }
+  createCustomer(organizationId: string, body: { request_key: string; name?: string; phone?: string; note?: string; customer_type?: string; confirm_duplicate?: boolean;
+    location?: { label: string; address?: string; travel_note?: string } }) { return this.call<Customer>('POST', `/organizations/${organizationId}/customers`, body); }
+  updateCustomer(organizationId: string, id: string, body: { expected_version: number; name?: string; phone?: string; note?: string }) {
+    return this.call<Customer>('PATCH', `/organizations/${organizationId}/customers/${id}`, body);
+  }
+  archiveCustomer(organizationId: string, id: string) { return this.call('POST', `/organizations/${organizationId}/customers/${id}/archive`); }
+  addLocation(organizationId: string, customerId: string, body: { request_key: string; label: string; address?: string; travel_note?: string }) {
+    return this.call<Customer>('POST', `/organizations/${organizationId}/customers/${customerId}/locations`, body);
+  }
+  updateLocation(organizationId: string, id: string, body: { expected_version: number; label?: string; address?: string | null; travel_note?: string | null }) {
+    return this.call<Customer>('PATCH', `/organizations/${organizationId}/locations/${id}`, body);
+  }
+  saveCoordinates(organizationId: string, id: string, body: { expected_version: number; latitude: number; longitude: number; accuracy_m?: number | null; method: 'current_location' | 'manual_pin'; replace_existing?: boolean }) {
+    return this.call<Customer>('PUT', `/organizations/${organizationId}/locations/${id}/coordinates`, body);
+  }
+  // files, OCR, equipment ---------------------------------------------------------------
+  createMedia(organizationId: string, body: { request_key: string; mime_type: string; byte_size: number; purpose: string }) {
+    return this.call<Media>('POST', `/organizations/${organizationId}/media`, body);
+  }
+  uploadMedia(organizationId: string, assetId: string, data: Blob, mimeType: string) {
+    return this.call<Media>('PUT', `/organizations/${organizationId}/media/${assetId}/content`, data, true, { 'content-type': mimeType });
+  }
+  requestOcr(organizationId: string, mediaAssetId: string, requestKey: string) {
+    return this.call<OcrRequest>('POST', `/organizations/${organizationId}/ocr-requests`, { media_asset_id: mediaAssetId, request_key: requestKey });
+  }
+  ocr(organizationId: string, id: string) { return this.call<OcrRequest>('GET', `/organizations/${organizationId}/ocr-requests/${id}`); }
+  equipmentList(organizationId: string, locationId: string) { return this.call<{ items: EquipmentSummary[] }>('GET', `/organizations/${organizationId}/locations/${locationId}/equipment`); }
+  equipment(organizationId: string, id: string) { return this.call<Equipment>('GET', `/organizations/${organizationId}/equipment/${id}`); }
+  createEquipment(organizationId: string, locationId: string, body: EquipmentInput & { request_key: string; photos: { media_asset_id: string; photo_type: string }[]; ocr_request_id?: string; confirm_duplicate?: boolean }) {
+    return this.call<Equipment>('POST', `/organizations/${organizationId}/locations/${locationId}/equipment`, body);
+  }
+  updateEquipment(organizationId: string, id: string, body: Partial<EquipmentInput> & { expected_version: number }) {
+    return this.call<Equipment>('PATCH', `/organizations/${organizationId}/equipment/${id}`, body);
+  }
+  addEquipmentPhotos(organizationId: string, id: string, photos: { media_asset_id: string; photo_type: string }[]) {
+    return this.call<Equipment>('POST', `/organizations/${organizationId}/equipment/${id}/photos`, { photos });
+  }
+  // jobs ------------------------------------------------------------------------------------
+  jobs(organizationId: string, query: { from?: string; to?: string; status?: string; assignee?: string } = {}) {
+    const q = Object.entries(query).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&');
+    return this.call<{ items: JobSummary[] }>('GET', `/organizations/${organizationId}/jobs${q ? `?${q}` : ''}`);
+  }
+  job(organizationId: string, id: string) { return this.call<Job>('GET', `/organizations/${organizationId}/jobs/${id}`); }
+  createJob(organizationId: string, body: { request_key: string; customer_id: string; location_id: string; job_type: string; description?: string; scheduled_start?: string | null;
+    scheduled_end?: string | null; estimated_equipment_count?: number | null; equipment_ids?: string[]; assignee_member_id?: string | null }) {
+    return this.call<{ job: Job; conflicts: { id: string }[] }>('POST', `/organizations/${organizationId}/jobs`, body);
+  }
+  jobAction(organizationId: string, id: string, action: 'assign' | 'unassign' | 'reschedule' | 'cancel' | 'start', body: Record<string, unknown>) {
+    return this.call<Job | { job: Job; conflicts: { id: string }[] }>('POST', `/organizations/${organizationId}/jobs/${id}/${action}`, body);
+  }
   notifications(organizationId: string) { return this.call<Inbox>('GET', `/organizations/${organizationId}/notifications`); }
   markRead(organizationId: string, ids?: string[]) { return this.call<Inbox>('POST', `/organizations/${organizationId}/notifications/read`, ids ? { ids } : {}); }
   subscription(organizationId: string) { return this.call<Subscription>('GET', `/organizations/${organizationId}/subscription`); }
@@ -94,18 +173,22 @@ export class Api {
   // transport ---------------------------------------------------------------------------------
   private async call<T = unknown>(method: string, path: string, body?: unknown, auth = true, headers: Record<string, string> = {}, retried = false): Promise<T> {
     let response: Response;
+    const usedAccess = this.access;
     try {
       response = await fetch(`${apiBaseUrl}/v1${path}`, {
         method,
         headers: { 'content-type': 'application/json', 'accept-language': this.language, ...(auth && this.access ? { authorization: `Bearer ${this.access}` } : {}), ...headers },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : typeof Blob !== 'undefined' && body instanceof Blob ? body : JSON.stringify(body),
       });
     } catch { throw new ApiFailure(0, 'NETWORK_ERROR', ''); }
     const text = await response.text();
     const data = text ? safeJson(text) : null;
     if (response.ok) return data as T;
-    const failure = new ApiFailure(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {}, data?.retry_after);
+    const failure = new ApiFailure(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {}, data?.retry_after, data?.candidates ?? []);
     if (auth && response.status === 401) {
+      // Another client instance (second tab, hot reload) may have rotated the tokens meanwhile:
+      // use the stored ones before concluding the session is gone.
+      if (!retried && await this.adoptStoredTokens(usedAccess)) return this.call<T>(method, path, body, auth, headers, true);
       if (failure.code === 'SESSION_EXPIRED' && !retried) {
         const refreshed = await this.refresh();
         if (refreshed === 'ok') return this.call<T>(method, path, body, auth, headers, true);
@@ -119,16 +202,29 @@ export class Api {
     throw failure;
   }
 
+  private async adoptStoredTokens(usedAccess: string | null): Promise<boolean> {
+    const access = await storage.get(keys.access);
+    if (!access || access === usedAccess) return false;
+    this.access = access;
+    this.refreshToken = await storage.get(keys.refresh);
+    return true;
+  }
+
   /** ok: new tokens stored; rejected: the server refused the refresh token; unavailable: try later. */
   private refresh(): Promise<'ok' | 'rejected' | 'unavailable'> {
     this.refreshing ??= (async () => {
+      const usedRefresh = this.refreshToken;
       try {
         if (!this.refreshToken) return 'rejected' as const;
         const tokens = await this.call<Tokens>('POST', '/auth/refresh', { refresh_token: this.refreshToken }, false);
         await this.setTokens(tokens);
         return 'ok' as const;
       } catch (error) {
-        return error instanceof ApiFailure && error.status === 401 ? 'rejected' as const : 'unavailable' as const;
+        if (!(error instanceof ApiFailure && error.status === 401)) return 'unavailable' as const;
+        // Someone else refreshed first: their tokens are in storage.
+        const stored = await storage.get(keys.refresh);
+        if (stored && stored !== usedRefresh) { this.refreshToken = stored; this.access = await storage.get(keys.access); return 'ok' as const; }
+        return 'rejected' as const;
       } finally { this.refreshing = null; }
     })();
     return this.refreshing;

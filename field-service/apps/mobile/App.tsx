@@ -3,7 +3,10 @@ import { Linking, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
 import { Language, normalizeLanguage } from '@field-service/core';
-import { api, tokenFromLink, type Challenge, type JoinLink, type Me } from './src/api';
+import { api, tokenFromLink, type Challenge, type CustomerLocation, type JoinLink, type Me } from './src/api';
+import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './src/screens/customers';
+import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
+import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens/jobs';
 import { keys, storage } from './src/storage';
 import { Banner, Button, colors, Field, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
 import { translate } from '@field-service/i18n';
@@ -21,7 +24,11 @@ type Route =
   | { screen: 'joinPhone'; token: string; shopName: string } | { screen: 'joinName'; token: string; shopName: string }
   | { screen: 'otp'; phone: string; challenge: Challenge; next: Next; back: Route }
   | { screen: 'shopReady'; shopName: string; link: JoinLink | null }
-  | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' };
+  | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' }
+  | { screen: 'customers' } | { screen: 'customer'; id: string } | { screen: 'customerNew'; search: string }
+  | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
+  | { screen: 'equipmentNew'; customerId: string; locationId: string } | { screen: 'equipment'; customerId: string; id: string }
+  | { screen: 'jobs' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
@@ -133,10 +140,37 @@ export default function App() {
     case 'shopReady': content = <ShopReady shopName={route.shopName} link={route.link} onDone={() => setRoute({ screen: 'shop' })} />; break;
     case 'notifications': content = membership?.status === 'active'
       ? <NotificationsScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })}
-        onOpen={item => setRoute({ screen: item.template_key === 'join_request' && membership.role === 'owner' ? 'team' : 'shop' })} /> : <Loading />; break;
+        onOpen={item => setRoute(item.target_type === 'job' && item.target_id ? { screen: 'job', id: item.target_id }
+          : { screen: item.template_key === 'join_request' && membership.role === 'owner' ? 'team' : 'shop' })} /> : <Loading />; break;
+    case 'customer': content = membership?.status === 'active'
+      ? <CustomerDetail key={route.id} membership={membership} customerId={route.id} onBack={() => setRoute({ screen: 'customers' })}
+        onAddLocation={() => setRoute({ screen: 'locationNew', customerId: route.id })}
+        onEditLocation={location => setRoute({ screen: 'locationEdit', customerId: route.id, location })}
+        onAddEquipment={locationId => setRoute({ screen: 'equipmentNew', customerId: route.id, locationId })}
+        onOpenEquipment={id => setRoute({ screen: 'equipment', customerId: route.id, id })}
+        onCreateJob={locationId => setRoute({ screen: 'jobNew', customerId: route.id, locationId })} /> : <Loading />; break;
+    case 'jobPick': content = membership?.status === 'active'
+      ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'jobs' })} onPicked={(customerId, locationId) => setRoute({ screen: 'jobNew', customerId, locationId })} /> : <Loading />; break;
+    case 'jobNew': content = membership?.status === 'active'
+      ? <JobForm membership={membership} me={{ memberId: membership.member_id }} customerId={route.customerId} locationId={route.locationId}
+        onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onCreated={(id, conflicts) => setRoute({ screen: 'job', id, conflicts })} /> : <Loading />; break;
+    case 'job': content = membership?.status === 'active'
+      ? <JobDetail key={route.id} membership={membership} jobId={route.id} conflicts={route.conflicts}
+        onBack={() => setRoute({ screen: membership.role === 'owner' ? 'jobs' : 'shop' })} onOpenCustomer={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
+    case 'equipmentNew': content = membership?.status === 'active'
+      ? <EquipmentForm membership={membership} locationId={route.locationId} onBack={() => setRoute({ screen: 'customer', id: route.customerId })}
+        onDone={() => setRoute({ screen: 'customer', id: route.customerId })} onOpenExisting={id => setRoute({ screen: 'equipment', customerId: route.customerId, id })} /> : <Loading />; break;
+    case 'equipment': content = membership?.status === 'active'
+      ? <EquipmentDetail key={route.id} membership={membership} equipmentId={route.id} onBack={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;
+    case 'customerNew': content = membership?.status === 'active'
+      ? <CustomerForm membership={membership} initialSearch={route.search} onBack={() => setRoute({ screen: 'customers' })}
+        onSaved={id => setRoute({ screen: 'customer', id })} onOpenExisting={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
+    case 'locationNew': case 'locationEdit': content = membership?.status === 'active'
+      ? <LocationForm membership={membership} customerId={route.customerId} location={route.screen === 'locationEdit' ? route.location : undefined}
+        onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onSaved={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;
     case 'shops': content = me ? <ShopPicker me={me} onBack={() => setRoute({ screen: 'shop' })} onCreate={() => setRoute({ screen: 'register' })}
       onJoin={() => setRoute({ screen: 'joinEntry' })} onPick={async id => { await selectOrganization(id); setRoute({ screen: 'shop' }); }} /> : <Loading />; break;
-    case 'shop': case 'team': case 'account': {
+    case 'shop': case 'team': case 'account': case 'customers': case 'jobs': {
       if (!me) { content = <Loading />; break; }
       const active = membership?.status === 'active';
       // Tabs only for an active membership; pending/suspended/no shop never show business menus.
@@ -144,14 +178,20 @@ export default function App() {
       else if (route.screen === 'shop' && membership && !active) content = <MembershipStatus membership={membership} onCheck={async () => { await loadMe(membership.organization_id); }}
         onSwitch={several ? () => setRoute({ screen: 'shops' }) : undefined} onSignOut={signOut} />;
       else if (route.screen === 'team' && membership?.role === 'owner' && active) content = <TeamScreen membership={membership} />;
+      else if (route.screen === 'jobs' && membership?.role === 'owner' && active) content = <JobsScreen membership={membership}
+        onOpen={id => setRoute({ screen: 'job', id })} onCreate={() => setRoute({ screen: 'jobPick' })} />;
+      else if (route.screen === 'customers' && membership && active) content = <CustomersScreen membership={membership}
+        onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} />;
       else content = <Loading />;
       if (membership && active) {
         const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);
         const tabs = [
           { key: 'shop' as const, label: membership.role === 'owner' ? tr('home') : tr('today'), icon: 'home' as const },
+          ...(membership.role === 'owner' ? [{ key: 'jobs' as const, label: tr('jobs'), icon: 'briefcase' as const }] : []),
+          { key: 'customers' as const, label: tr('customers'), icon: 'person' as const },
           ...(membership.role === 'owner' ? [{ key: 'team' as const, label: tr('team'), icon: 'people' as const }] : []),
           { key: 'account' as const, label: tr('account'), icon: 'person-circle' as const },
         ];

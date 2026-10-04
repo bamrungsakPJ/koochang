@@ -38,7 +38,9 @@ before(async () => {
     env: { ...env, NODE_ENV: 'test', PORT: String(port), HOST: '127.0.0.1', DATABASE_URL: url.toString(),
       OTP_SECRET: randomBytes(32).toString('base64'), JOIN_LINK_KEY: randomBytes(32).toString('base64'),
       JOIN_LINK_BASE_URL: 'https://join.example.test/join', SMS_PROVIDER: 'development',
-      MEDIA_DIR: mediaDir, MEDIA_URL_SECRET: randomBytes(32).toString('base64'), OCR_PROVIDER: 'development' },
+      MEDIA_DIR: mediaDir, MEDIA_URL_SECRET: randomBytes(32).toString('base64'), OCR_PROVIDER: 'development',
+      // Every test signs in from 127.0.0.1; the per-client OTP limit is tested separately.
+      OTP_CLIENT_HOURLY_LIMIT: '1000' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   let buffer = '';
@@ -314,4 +316,247 @@ test('notification inbox: owner sees the join request and marks it read; a pendi
   assert.equal(read.body.unread, 0);
   assert.equal((await call('GET', `/organizations/${shopId}/notifications`, { token: tech.access_token })).status, 403);
   assert.equal((await call('POST', '/me/devices', { token: owner.access_token, body: { token: `ExponentPushToken[${randomUUID()}]`, platform: 'android' } })).status, 204);
+});
+
+async function shopWithTechnician(label) {
+  const owner = await signIn(newPhone(), `Owner ${label}`);
+  const created = (await call('POST', '/organizations', { token: owner.access_token, body: { name: `${label} Shop` } })).body;
+  const shopId = created.organization.id;
+  const tech = await signIn(newPhone(), `Tech ${label}`);
+  const joined = (await call('POST', '/join-requests', { token: tech.access_token, body: { token: created.join_link.url.split('/').at(-1), display_name: `Tech ${label}` } })).body;
+  const member = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members.find(m => m.member_id === joined.member_id);
+  await call('POST', `/organizations/${shopId}/members/${member.member_id}/approve`, { token: owner.access_token, body: { expected_version: member.version } });
+  return { owner, tech, shopId };
+}
+
+test('customers: phone-first create with first location, retry-safe, duplicate warning, search', { skip }, async () => {
+  const { owner, shopId } = await shopWithTechnician('Cust');
+  const path = `/organizations/${shopId}/customers`;
+  const key = randomUUID();
+  const body = { request_key: key, phone: '081-555-1234', location: { label: 'บ้าน', address: '12/3 ซอยสุขุมวิท 50', travel_note: 'ประตูสีเขียว' } };
+  const first = await call('POST', path, { token: owner.access_token, body });
+  assert.equal(first.status, 201, JSON.stringify(first.body));
+  assert.equal(first.body.name, null, 'no invented name');
+  assert.equal(first.body.phone_normalized, '+66815551234');
+  assert.equal(first.body.locations.length, 1);
+  assert.equal(first.body.locations[0].latitude, null, 'no coordinates until someone saves them');
+  const retry = await call('POST', path, { token: owner.access_token, body });
+  assert.equal(retry.body.id, first.body.id, 'same request key → same customer');
+
+  const dup = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Somsri', phone: '0815551234' } });
+  assert.equal(dup.status, 409);
+  assert.equal(dup.body.code, 'DUPLICATE_WARNING');
+  assert.equal(dup.body.candidates[0].id, first.body.id);
+  const second = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Somsri', phone: '0815551234', confirm_duplicate: true } });
+  assert.equal(second.status, 201, 'shared numbers are allowed after confirmation');
+
+  assert.equal((await call('GET', `${path}?q=555-12`, { token: owner.access_token })).body.items.length, 2);
+  assert.equal((await call('GET', `${path}?q=somsri`, { token: owner.access_token })).body.items.length, 1);
+  assert.equal((await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID() } })).status, 400, 'name or phone required');
+});
+
+test('locations: version conflicts, explicit coordinate capture, replacing needs confirmation and is audited', { skip }, async () => {
+  const { owner, shopId } = await shopWithTechnician('Loc');
+  const customer = (await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Lek', phone: '0899000111' } })).body;
+  const withLocation = (await call('POST', `/organizations/${shopId}/customers/${customer.id}/locations`, { token: owner.access_token, body: { request_key: randomUUID(), label: 'โกดัง' } })).body;
+  const location = withLocation.locations[0];
+  const coordinates = `/organizations/${shopId}/locations/${location.id}/coordinates`;
+
+  const saved = await call('PUT', coordinates, { token: owner.access_token, body: { expected_version: location.version, latitude: 13.7563, longitude: 100.5018, accuracy_m: 12, method: 'current_location' } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const after = saved.body.locations[0];
+  assert.deepEqual([after.latitude, after.longitude, after.accuracy_m, after.capture_method], [13.7563, 100.5018, 12, 'current_location']);
+
+  const again = await call('PUT', coordinates, { token: owner.access_token, body: { expected_version: after.version, latitude: 13.8, longitude: 100.6, method: 'manual_pin' } });
+  assert.equal(again.body.code, 'COORDINATES_EXIST');
+  const stale = await call('PUT', coordinates, { token: owner.access_token, body: { expected_version: location.version, latitude: 13.8, longitude: 100.6, method: 'manual_pin', replace_existing: true } });
+  assert.equal(stale.body.code, 'VERSION_CONFLICT');
+  const replaced = await call('PUT', coordinates, { token: owner.access_token, body: { expected_version: after.version, latitude: 13.8, longitude: 100.6, method: 'manual_pin', replace_existing: true } });
+  assert.equal(replaced.body.locations[0].capture_method, 'manual_pin');
+  const audit = (await db.query("SELECT action, details FROM ops.audit_logs WHERE entity_id = $1 AND action LIKE 'location.coordinates%' ORDER BY created_at", [location.id])).rows;
+  assert.deepEqual(audit.map(r => r.action), ['location.coordinates_saved', 'location.coordinates_replaced']);
+  assert.equal(Number(audit[1].details.previous.latitude), 13.7563);
+  assert.equal((await call('PUT', coordinates, { token: owner.access_token, body: { expected_version: 99, latitude: 91, longitude: 0, method: 'manual_pin' } })).status, 400);
+});
+
+test('customers: technician scope, other shops, and an expired plan is read-only', { skip }, async () => {
+  const { owner, tech, shopId } = await shopWithTechnician('Scope');
+  const path = `/organizations/${shopId}/customers`;
+  const ownerCustomer = (await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Owner customer' } })).body;
+  const techCustomer = (await call('POST', path, { token: tech.access_token, body: { request_key: randomUUID(), name: 'On-site customer', location: { label: 'ร้าน' } } }));
+  assert.equal(techCustomer.status, 201);
+  assert.deepEqual((await call('GET', path, { token: tech.access_token })).body.items.map(c => c.name), ['On-site customer']);
+  assert.equal((await call('GET', `${path}/${ownerCustomer.id}`, { token: tech.access_token })).status, 404, 'not visible to the technician');
+  assert.equal((await call('GET', path, { token: owner.access_token })).body.items.length, 2);
+  assert.equal((await call('POST', `${path}/${techCustomer.body.id}/archive`, { token: tech.access_token })).status, 403, 'only owners archive');
+
+  const other = await signIn(newPhone(), 'Other C');
+  await call('POST', '/organizations', { token: other.access_token, body: { name: 'Other C Shop' } });
+  assert.equal((await call('GET', `${path}/${ownerCustomer.id}`, { token: other.access_token })).status, 403);
+
+  await db.query("UPDATE billing.subscription_periods SET start_at = start_at - interval '15 days', end_at = end_at - interval '15 days' WHERE organization_id = $1", [shopId]);
+  const refused = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Too late' } });
+  assert.equal(refused.status, 403);
+  assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED');
+  assert.equal((await call('GET', path, { token: owner.access_token })).status, 200, 'reading stays allowed');
+});
+
+async function uploadPhoto(token, shopId) {
+  const s = await sharp();
+  const bytes = await s({ create: { width: 800, height: 600, channels: 3, background: '#aabbcc' } }).jpeg().toBuffer();
+  const created = await call('POST', `/organizations/${shopId}/media`, { token, body: { request_key: randomUUID(), mime_type: 'image/jpeg', byte_size: bytes.length, purpose: 'nameplate' } });
+  const uploaded = await put(`/organizations/${shopId}/media/${created.body.id}/content`, token, bytes);
+  assert.equal(uploaded.body.status, 'ready');
+  return uploaded.body.id;
+}
+
+test('equipment: camera first, OCR stays a suggestion, confirmed values recorded, duplicates offered', { skip }, async () => {
+  const { owner, tech, shopId } = await shopWithTechnician('Equip');
+  const customer = (await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token,
+    body: { request_key: randomUUID(), phone: '0866600011', location: { label: 'บ้าน' } } })).body;
+  const locationId = customer.locations[0].id;
+  const nameplate = await uploadPhoto(owner.access_token, shopId);
+  const ocr = (await call('POST', `/organizations/${shopId}/ocr-requests`, { token: owner.access_token, body: { request_key: randomUUID(), media_asset_id: nameplate } })).body;
+
+  const path = `/organizations/${shopId}/locations/${locationId}/equipment`;
+  const key = randomUUID();
+  const body = { request_key: key, category: 'air_conditioner', name: 'แอร์ห้องนอน', brand: 'Daikin', model: 'FTKC12', serial_number: 'e123-45o',
+    photos: [{ media_asset_id: nameplate, photo_type: 'nameplate' }], ocr_request_id: ocr.id };
+  const created = await call('POST', path, { token: owner.access_token, body });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.serial_number, 'e123-45o', 'stored as typed; O and 0 are not guessed');
+  assert.equal(created.body.photos.length, 1);
+  assert.ok(created.body.photos[0].thumbnail_url);
+  assert.equal((await call('POST', path, { token: owner.access_token, body })).body.id, created.body.id, 'retry returns the same equipment');
+  const accepted = (await db.query('SELECT accepted_fields, equipment_id FROM core.ocr_requests WHERE id = $1', [ocr.id])).rows[0];
+  assert.equal(accepted.equipment_id, created.body.id);
+  assert.deepEqual(accepted.accepted_fields, { brand: 'Daikin', model: 'FTKC12', serial_number: 'e123-45o' });
+
+  const sameSerial = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), category: 'air_conditioner', serial_number: 'E12345O' } });
+  assert.equal(sameSerial.body.code, 'DUPLICATE_WARNING');
+  assert.equal(sameSerial.body.candidates[0].id, created.body.id);
+  const second = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), category: 'air_conditioner', serial_number: 'E12345O', confirm_duplicate: true } });
+  assert.equal(second.status, 201);
+  const minimal = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), category: 'water_filter' } });
+  assert.equal(minimal.status, 201, 'no brand, model, serial or photo needed');
+
+  const list = (await call('GET', path, { token: owner.access_token })).body.items;
+  assert.equal(list.length, 3);
+  assert.ok(list.find(e => e.id === created.body.id).thumbnail_url);
+
+  const stale = await call('PATCH', `/organizations/${shopId}/equipment/${created.body.id}`, { token: owner.access_token, body: { expected_version: 99, name: 'x' } });
+  assert.equal(stale.body.code, 'VERSION_CONFLICT');
+  const renamed = await call('PATCH', `/organizations/${shopId}/equipment/${created.body.id}`, { token: owner.access_token, body: { expected_version: created.body.version, name: 'แอร์ห้องนั่งเล่น' } });
+  assert.equal(renamed.body.name, 'แอร์ห้องนั่งเล่น');
+  assert.equal(renamed.body.brand, 'Daikin', 'fields not sent stay as they were');
+
+  // Technician scope: equipment follows customer visibility; photos of others cannot be attached.
+  assert.equal((await call('GET', path, { token: tech.access_token })).status, 404);
+  const own = (await call('POST', `/organizations/${shopId}/customers`, { token: tech.access_token, body: { request_key: randomUUID(), phone: '0866600022', location: { label: 'ร้าน' } } })).body;
+  const techPath = `/organizations/${shopId}/locations/${own.locations[0].id}/equipment`;
+  const borrowed = await call('POST', techPath, { token: tech.access_token, body: { request_key: randomUUID(), category: 'pump', photos: [{ media_asset_id: nameplate, photo_type: 'equipment' }] } });
+  assert.equal(borrowed.status, 400, 'cannot attach a photo uploaded by someone else');
+  const techPhoto = await uploadPhoto(tech.access_token, shopId);
+  const techEquipment = await call('POST', techPath, { token: tech.access_token, body: { request_key: randomUUID(), category: 'pump', photos: [{ media_asset_id: techPhoto, photo_type: 'equipment' }] } });
+  assert.equal(techEquipment.status, 201);
+  assert.equal((await call('GET', `/organizations/${shopId}/media/${techPhoto}`, { token: owner.access_token })).status, 200, 'owner sees technician photos');
+  assert.equal((await call('GET', `/organizations/${shopId}/equipment/${created.body.id}`, { token: tech.access_token })).status, 404);
+});
+
+async function addTechnician(owner, shopId, label) {
+  const link = (await call('GET', `/organizations/${shopId}/join-link`, { token: owner.access_token })).body.url.split('/').at(-1);
+  const tech = await signIn(newPhone(), label);
+  const joined = (await call('POST', '/join-requests', { token: tech.access_token, body: { token: link, display_name: label } })).body;
+  const member = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members.find(m => m.member_id === joined.member_id);
+  await call('POST', `/organizations/${shopId}/members/${member.member_id}/approve`, { token: owner.access_token, body: { expected_version: member.version } });
+  return { ...tech, memberId: member.member_id };
+}
+
+test('jobs: create and assign, technician sees only that job and place, conflicts warn, reassignment removes access', { skip }, async () => {
+  const { owner, tech, shopId } = await shopWithTechnician('Jobs');
+  const techMember = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members.find(m => m.role === 'technician').member_id;
+  const second = await addTechnician(owner, shopId, 'Tech Two');
+  const customer = (await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token,
+    body: { request_key: randomUUID(), name: 'Job customer', phone: '0877700011', location: { label: 'บ้าน' } } })).body;
+  const other = (await call('POST', `/organizations/${shopId}/customers/${customer.id}/locations`, { token: owner.access_token, body: { request_key: randomUUID(), label: 'โกดัง' } })).body;
+  const locationId = customer.locations[0].id;
+  const unit = (await call('POST', `/organizations/${shopId}/locations/${locationId}/equipment`, { token: owner.access_token, body: { request_key: randomUUID(), category: 'air_conditioner' } })).body;
+
+  const jobs = `/organizations/${shopId}/jobs`;
+  const key = randomUUID();
+  const body = { request_key: key, customer_id: customer.id, location_id: locationId, job_type: 'maintenance', description: 'ล้างแอร์ 3 เครื่อง',
+    estimated_equipment_count: 3, equipment_ids: [unit.id], assignee_member_id: techMember,
+    scheduled_start: '2026-11-10T09:00:00+07:00', scheduled_end: '2026-11-10T11:00:00+07:00' };
+  const created = await call('POST', jobs, { token: owner.access_token, body });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const job = created.body.job;
+  assert.equal(job.status, 'scheduled');
+  assert.equal(job.assignee_name, 'Tech Jobs');
+  assert.equal(job.equipment.length, 1);
+  assert.equal(job.estimated_equipment_count, 3);
+  assert.equal((await call('POST', jobs, { token: owner.access_token, body })).body.job.id, job.id, 'retry returns the same job');
+  assert.equal((await call('POST', jobs, { token: tech.access_token, body: { ...body, request_key: randomUUID() } })).status, 403, 'technicians do not plan jobs');
+
+  // The technician now sees this job, its customer and only the job's location.
+  const techList = (await call('GET', `${jobs}?from=2026-11-01T00:00:00Z&to=2026-12-01T00:00:00Z`, { token: tech.access_token })).body.items;
+  assert.deepEqual(techList.map(j => j.id), [job.id]);
+  const seen = (await call('GET', `/organizations/${shopId}/customers/${customer.id}`, { token: tech.access_token })).body;
+  assert.deepEqual(seen.locations.map(l => l.label), ['บ้าน'], 'not the other location of this customer');
+  assert.equal((await call('GET', `/organizations/${shopId}/locations/${other.locations[1].id}/equipment`, { token: tech.access_token })).status, 404);
+  const inbox = (await call('GET', `/organizations/${shopId}/notifications`, { token: tech.access_token })).body.items;
+  assert.ok(inbox.some(n => n.template_key === 'job_assigned'));
+
+  const overlap = await call('POST', jobs, { token: owner.access_token, body: { ...body, request_key: randomUUID(), equipment_ids: [],
+    scheduled_start: '2026-11-10T10:00:00+07:00', scheduled_end: '2026-11-10T12:00:00+07:00' } });
+  assert.equal(overlap.status, 201, 'a time clash is a warning, not a block');
+  assert.deepEqual(overlap.body.conflicts.map(c => c.id), [job.id]);
+  // Cancel the clash so the first technician has no other open job at this customer.
+  await call('POST', `${jobs}/${overlap.body.job.id}/cancel`, { token: owner.access_token, body: { expected_version: overlap.body.job.version, reason: 'test' } });
+
+  const stale = await call('POST', `${jobs}/${job.id}/assign`, { token: owner.access_token, body: { expected_version: job.version - 1 || 99, assignee_member_id: second.memberId } });
+  assert.equal(stale.body.code, 'VERSION_CONFLICT');
+  const moved = await call('POST', `${jobs}/${job.id}/assign`, { token: owner.access_token, body: { expected_version: job.version, assignee_member_id: second.memberId, reason: 'สลับคิว' } });
+  assert.equal(moved.status, 201, JSON.stringify(moved.body));
+  assert.equal(moved.body.job.assignee_name, 'Tech Two');
+  assert.equal((await call('GET', `${jobs}/${job.id}`, { token: tech.access_token })).status, 404, 'previous technician loses access at once');
+  assert.equal((await call('GET', `/organizations/${shopId}/customers/${customer.id}`, { token: tech.access_token })).status, 404);
+  assert.ok((await call('GET', `/organizations/${shopId}/notifications`, { token: tech.access_token })).body.items.some(n => n.template_key === 'job_unassigned'));
+  assert.equal((await call('GET', `${jobs}/${job.id}`, { token: second.access_token })).status, 200);
+
+  // Start, then cancel with a reason; a cancelled job cannot be started again.
+  assert.equal((await call('POST', `${jobs}/${job.id}/start`, { token: tech.access_token, body: { expected_version: moved.body.job.version } })).status, 404);
+  const started = await call('POST', `${jobs}/${job.id}/start`, { token: second.access_token, body: { expected_version: moved.body.job.version } });
+  assert.equal(started.body.status, 'in_progress');
+  assert.equal((await call('POST', `${jobs}/${job.id}/cancel`, { token: second.access_token, body: { expected_version: started.body.version, reason: 'x' } })).status, 403);
+  assert.equal((await call('POST', `${jobs}/${job.id}/cancel`, { token: owner.access_token, body: { expected_version: started.body.version } })).status, 400, 'reason required');
+  const cancelled = await call('POST', `${jobs}/${job.id}/cancel`, { token: owner.access_token, body: { expected_version: started.body.version, reason: 'ลูกค้าเลื่อน' } });
+  assert.equal(cancelled.body.status, 'cancelled');
+  assert.deepEqual(cancelled.body.history.map(h => h.to_status), ['scheduled', 'in_progress', 'cancelled']);
+  assert.equal((await call('POST', `${jobs}/${job.id}/start`, { token: second.access_token, body: { expected_version: cancelled.body.version } })).body.code, 'INVALID_STATE_TRANSITION');
+});
+
+test('jobs: unassign returns the job to the queue; reschedule notifies; an expired plan cannot create work', { skip }, async () => {
+  const { owner, tech, shopId } = await shopWithTechnician('Queue');
+  const techMember = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members.find(m => m.role === 'technician').member_id;
+  const customer = (await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token, body: { request_key: randomUUID(), phone: '0877700022', location: { label: 'ร้าน' } } })).body;
+  const jobs = `/organizations/${shopId}/jobs`;
+  const unassigned = (await call('POST', jobs, { token: owner.access_token, body: { request_key: randomUUID(), customer_id: customer.id, location_id: customer.locations[0].id, job_type: 'repair' } })).body.job;
+  assert.equal(unassigned.status, 'unassigned');
+  assert.equal(unassigned.scheduled_start, null, 'no time yet is allowed');
+  const assigned = (await call('POST', `${jobs}/${unassigned.id}/assign`, { token: owner.access_token, body: { expected_version: unassigned.version, assignee_member_id: techMember } })).body.job;
+  const moved = (await call('POST', `${jobs}/${assigned.id}/reschedule`, { token: owner.access_token,
+    body: { expected_version: assigned.version, scheduled_start: '2026-12-01T13:00:00+07:00' } })).body.job;
+  assert.equal(new Date(moved.scheduled_start).toISOString(), '2026-12-01T06:00:00.000Z');
+  assert.ok((await call('GET', `/organizations/${shopId}/notifications`, { token: tech.access_token })).body.items.some(n => n.template_key === 'job_rescheduled'));
+  const back = (await call('POST', `${jobs}/${moved.id}/unassign`, { token: owner.access_token, body: { expected_version: moved.version } })).body;
+  assert.equal(back.status, 'unassigned');
+  assert.equal(back.assignee_name, null);
+  assert.equal((await call('GET', `${jobs}/${moved.id}`, { token: tech.access_token })).status, 404);
+  assert.equal((await call('POST', jobs, { token: owner.access_token, body: { request_key: randomUUID(), customer_id: customer.id, location_id: customer.locations[0].id,
+    job_type: 'repair', scheduled_start: 'tomorrow' } })).status, 400);
+
+  await db.query("UPDATE billing.subscription_periods SET start_at = start_at - interval '15 days', end_at = end_at - interval '15 days' WHERE organization_id = $1", [shopId]);
+  const refused = await call('POST', jobs, { token: owner.access_token, body: { request_key: randomUUID(), customer_id: customer.id, location_id: customer.locations[0].id, job_type: 'repair' } });
+  assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED');
+  assert.equal((await call('GET', jobs, { token: owner.access_token })).status, 200);
 });

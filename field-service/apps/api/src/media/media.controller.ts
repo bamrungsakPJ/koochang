@@ -107,9 +107,14 @@ export class MediaController {
   @Get('media/:assetId')
   async get(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('assetId') assetId: string, @Req() request: HttpRequest) {
     if (!uuidPattern.test(assetId)) throw apiError(404, 'RESOURCE_NOT_FOUND');
-    const asset = await this.database.withTenant(session.userId, tenant.organizationId, client => this.find(client, tenant.organizationId, { id: assetId }));
-    // Until jobs exist (B modules) a technician may open only the files they uploaded.
-    if (!asset || (tenant.role !== 'owner' && asset.uploaded_by !== session.userId)) throw apiError(404, 'RESOURCE_NOT_FOUND');
+    const asset = await this.database.withTenant(session.userId, tenant.organizationId, async client => {
+      const found = await this.find(client, tenant.organizationId, { id: assetId });
+      if (!found || tenant.role === 'owner' || found.uploaded_by === session.userId) return found;
+      // A technician may also open photos of equipment they can see (RLS limits equipment_photos).
+      const linked = await client.query('SELECT 1 FROM core.equipment_photos WHERE organization_id = $1 AND media_asset_id = $2 LIMIT 1', [tenant.organizationId, assetId]);
+      return linked.rows.length ? found : undefined;
+    });
+    if (!asset) throw apiError(404, 'RESOURCE_NOT_FOUND');
     return this.present(asset, request);
   }
 

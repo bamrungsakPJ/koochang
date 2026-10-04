@@ -14,7 +14,23 @@
     "plugins": [
       "expo-localization",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ใช้ตำแหน่งเพื่อบันทึกพิกัดสถานที่ลูกค้าเมื่อคุณกดบันทึกเท่านั้น / Used only to save a customer location when you tap Save.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "ใช้กล้องเพื่อถ่ายรูปเครื่องและป้ายเครื่อง / Used to photograph equipment and nameplates.",
+          "photosPermission": "เลือกรูปเครื่องจากคลังภาพ / Pick equipment photos from your library.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "autolinkingModuleResolution": true

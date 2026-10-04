@@ -82,6 +82,46 @@ const th = {
   'notify.payment_overdue': 'เลยกำหนดชำระ ยังใช้งานได้ถึงวันที่ {date}', 'notify.subscription_expired': 'แพ็กเกจหมดอายุแล้ว',
   'notify.subscription_ended': 'แพ็กเกจสิ้นสุดตามที่ตั้งหยุดต่ออายุไว้', 'notify.storage_threshold': 'ใช้พื้นที่รูปภาพไปแล้ว {percent}%',
   notifications: 'การแจ้งเตือน', noNotifications: 'ยังไม่มีการแจ้งเตือน', markAllRead: 'อ่านทั้งหมดแล้ว',
+  DUPLICATE_WARNING: 'มีลูกค้าใช้เบอร์นี้อยู่แล้ว', COORDINATES_EXIST: 'สถานที่นี้มีพิกัดอยู่แล้ว ต้องยืนยันก่อนแทนที่',
+  searchCustomers: 'ค้นหาด้วยเบอร์หรือชื่อ', addCustomer: 'เพิ่มลูกค้า', noCustomers: 'ยังไม่มีลูกค้า', noResults: 'ไม่พบลูกค้าที่ค้นหา',
+  customerName: 'ชื่อลูกค้า', customerNameHint: 'เว้นว่างได้ เติมทีหลังได้', customerPhone: 'เบอร์โทรลูกค้า', customerNote: 'หมายเหตุ',
+  businessCustomer: 'เป็นบริษัทหรือร้านค้า', firstLocation: 'สถานที่ให้บริการ', locationLabel: 'ชื่อสถานที่',
+  locationLabelHint: 'เช่น บ้าน ร้าน โกดัง สาขา', address: 'ที่อยู่', travelNote: 'จุดสังเกต / วิธีเดินทาง',
+  saveCustomer: 'บันทึกลูกค้า', duplicateTitle: 'มีลูกค้าเบอร์นี้แล้ว', duplicateBody: 'เลือกลูกค้าเดิม หรือสร้างใหม่ถ้าเป็นคนละคนที่ใช้เบอร์ร่วมกัน',
+  useExisting: 'ใช้ลูกค้าเดิม', createAnyway: 'สร้างใหม่', locations: 'สถานที่', addLocation: 'เพิ่มสถานที่', saveLocation: 'บันทึกสถานที่',
+  call: 'โทร', navigate: 'นำทาง', hasCoordinates: 'มีพิกัด', noCoordinates: 'ยังไม่มีพิกัด',
+  locationCount: '{count} สถานที่', addressOnly: 'ยังไม่มีพิกัด จะค้นหาจากที่อยู่ ตำแหน่งอาจไม่แม่นยำ',
+  captureLocation: 'บันทึกตำแหน่งสถานที่นี้', captureHint: 'ใช้ GPS ของมือถือครั้งเดียว เฉพาะตอนอยู่ที่สถานที่จริง',
+  capturing: 'กำลังอ่านตำแหน่ง…', capturedPreview: 'ตำแหน่งที่อ่านได้ (แม่นยำประมาณ {meters} ม.)', lowAccuracy: 'ความแม่นยำต่ำ ลองใหม่หรือยืนยันก็ได้',
+  confirmLocation: 'ยืนยันตำแหน่งนี้', tryAgain: 'อ่านใหม่', replaceCoordinates: 'แทนที่พิกัดเดิม',
+  replaceConfirm: 'สถานที่นี้มีพิกัดอยู่แล้ว ต้องการแทนที่ด้วยตำแหน่งใหม่หรือไม่',
+  locationDenied: 'ไม่ได้รับสิทธิ์ใช้ตำแหน่ง ทำงานต่อได้โดยไม่บันทึกพิกัด', locationUnavailable: 'อ่านตำแหน่งไม่ได้ ทำงานต่อได้โดยไม่บันทึกพิกัด',
+  edit: 'แก้ไข', save: 'บันทึก', archiveCustomer: 'ซ่อนลูกค้า', archiveConfirm: 'ซ่อนลูกค้านี้จากการสร้างงานใหม่ ประวัติเดิมยังอยู่',
+  addEquipment: 'เพิ่มเครื่อง', nameplatePhoto: 'รูปป้ายเครื่อง', nameplateHint: 'ถ่ายป้ายเพื่อช่วยกรอกยี่ห้อ รุ่น และ Serial ไม่มีป้ายก็ข้ามได้',
+  equipmentPhoto: 'รูปตัวเครื่อง', takePhoto: 'ถ่ายรูป', choosePhoto: 'เลือกรูป', skip: 'ข้าม', uploading: 'กำลังอัปโหลดรูป…',
+  uploadFailed: 'อัปโหลดรูปไม่สำเร็จ ลองใหม่หรือข้ามได้', cameraDenied: 'ไม่ได้รับสิทธิ์ใช้กล้อง เลือกรูปจากคลังหรือข้ามได้',
+  ocrReading: 'กำลังอ่านป้ายเครื่อง… กรอกต่อได้เลยไม่ต้องรอ', ocrDone: 'อ่านป้ายแล้ว ตรวจค่าที่แนะนำก่อนใช้',
+  ocrEmpty: 'อ่านค่าจากป้ายไม่ได้ กรอกเองได้', ocrFailed: 'อ่านป้ายไม่สำเร็จ กรอกเองได้',
+  suggestion: 'ค่าที่อ่านได้: {value}', useSuggestion: 'ใช้ค่านี้', useAllSuggestions: 'ใช้ค่าที่อ่านได้ในช่องที่ว่าง',
+  category: 'ประเภท', equipmentName: 'ชื่อเรียก', equipmentNameHint: 'เช่น แอร์ห้องนอน', brand: 'ยี่ห้อ', model: 'รุ่น', serial: 'Serial',
+  serialHint: 'ตรวจตัวอักษรที่คล้ายกัน เช่น O กับ 0, I กับ 1', saveEquipment: 'บันทึกเครื่อง', equipmentSaved: 'บันทึกเครื่องแล้ว',
+  addAnother: 'เพิ่มเครื่องถัดไป', done: 'เสร็จ', duplicateEquipmentTitle: 'อาจเป็นเครื่องเดิม', duplicateEquipmentBody: 'เลือกเครื่องเดิม หรือยืนยันว่าเป็นคนละเครื่อง',
+  differentEquipment: 'เป็นคนละเครื่อง', noEquipment: 'ยังไม่มีเครื่องที่สถานที่นี้', photos: 'รูป', addPhoto: 'เพิ่มรูป', unknown: 'ไม่ทราบ',
+  'category.air_conditioner': 'แอร์', 'category.water_filter': 'เครื่องกรองน้ำ', 'category.cctv': 'กล้องวงจรปิด', 'category.solar': 'โซลาร์',
+  'category.pump': 'ปั๊มน้ำ', 'category.refrigeration': 'ตู้เย็น/ห้องเย็น', 'category.other': 'อื่น ๆ',
+  createJob: 'สร้างงาน', createJobHere: 'สร้างงานที่นี่', jobType: 'ประเภทงาน',
+  'jobType.installation': 'ติดตั้ง', 'jobType.repair': 'ซ่อม', 'jobType.inspection': 'ตรวจเช็ก', 'jobType.maintenance': 'ล้าง/บำรุงรักษา', 'jobType.other': 'อื่น ๆ',
+  jobDescription: 'อาการ / รายละเอียด', when: 'วันเวลานัด', notScheduled: 'ยังไม่กำหนดเวลา', tomorrow: 'พรุ่งนี้', duration: 'ใช้เวลาประมาณ',
+  hours: '{n} ชม.', estimatedCount: 'จำนวนเครื่องโดยประมาณ', estimatedEquipment: 'ประมาณ {count} เครื่อง', plannedEquipment: 'เครื่องที่จะทำ (ถ้าทราบ)',
+  assignee: 'ช่างที่รับงาน', unassignedOption: 'ยังไม่มอบหมาย', doItMyself: 'ฉันทำเอง', createAndAssign: 'ยืนยันและมอบหมายงาน',
+  createUnassigned: 'สร้างงานรอมอบหมาย', jobCreated: 'สร้างงานแล้ว', conflictWarning: 'ช่างมีงานอื่นในช่วงเวลาเดียวกัน {count} งาน',
+  chooseCustomer: 'เลือกลูกค้า', chooseLocation: 'เลือกสถานที่', filterToday: 'วันนี้', filterUpcoming: 'ถัดไป', filterUnassigned: 'รอมอบหมาย',
+  noJobs: 'ไม่มีงานในช่วงนี้', assign: 'มอบหมาย', reassign: 'เปลี่ยนช่าง', unassign: 'ถอนการมอบหมาย', reschedule: 'เลื่อนนัด',
+  cancelJob: 'ยกเลิกงาน', cancelReason: 'เหตุผลที่ยกเลิก', startJob: 'เริ่มงาน', serviceComing: 'การบันทึกผลบริการและปิดงานจะเปิดในช่วงพัฒนาถัดไป',
+  history: 'ประวัติ', reasonOptional: 'เหตุผล', reasonRequiredInProgress: 'ต้องใส่เหตุผลเมื่อเปลี่ยนช่างระหว่างทำงาน', viewJob: 'ดูงาน', myJobs: 'งานของฉัน',
+  'notify.job_assigned': 'คุณได้รับงานใหม่ {when}', 'notify.job_unassigned': 'งานหนึ่งถูกย้ายไปให้ช่างคนอื่น',
+  'notify.job_rescheduled': 'งานของคุณเลื่อนเป็น {when}', 'notify.job_cancelled': 'งานของคุณถูกยกเลิก',
+  noPhone: 'ไม่มีเบอร์', technicianCustomersHint: 'คุณเห็นเฉพาะลูกค้าที่คุณเพิ่ม และลูกค้าของงานที่ได้รับมอบหมาย',
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
@@ -166,6 +206,46 @@ const en: Catalog = {
   'notify.payment_overdue': 'Payment overdue. Usable until {date}', 'notify.subscription_expired': 'The plan has expired.',
   'notify.subscription_ended': 'The plan ended because renewal was stopped.', 'notify.storage_threshold': '{percent}% of photo storage is used',
   notifications: 'Notifications', noNotifications: 'No notifications yet', markAllRead: 'Mark all as read',
+  DUPLICATE_WARNING: 'A customer with this phone already exists.', COORDINATES_EXIST: 'This place already has coordinates. Confirm before replacing them.',
+  searchCustomers: 'Search by phone or name', addCustomer: 'Add customer', noCustomers: 'No customers yet', noResults: 'No matching customers',
+  customerName: 'Customer name', customerNameHint: 'Optional, you can add it later', customerPhone: 'Customer phone', customerNote: 'Note',
+  businessCustomer: 'Company or shop', firstLocation: 'Service location', locationLabel: 'Place name',
+  locationLabelHint: 'e.g. Home, Shop, Warehouse, Branch', address: 'Address', travelNote: 'Landmarks / how to get there',
+  saveCustomer: 'Save customer', duplicateTitle: 'This phone is already used', duplicateBody: 'Pick the existing customer, or create a new one if it is a different person sharing the number.',
+  useExisting: 'Use existing', createAnyway: 'Create new', locations: 'Locations', addLocation: 'Add location', saveLocation: 'Save location',
+  call: 'Call', navigate: 'Navigate', hasCoordinates: 'Has coordinates', noCoordinates: 'No coordinates',
+  locationCount: '{count} location(s)', addressOnly: 'No coordinates yet; maps will search the address and may be inaccurate.',
+  captureLocation: 'Save this place’s location', captureHint: 'Reads your phone’s GPS once, only while you are at the place.',
+  capturing: 'Reading location…', capturedPreview: 'Position found (accuracy about {meters} m)', lowAccuracy: 'Low accuracy. Try again or confirm anyway.',
+  confirmLocation: 'Use this position', tryAgain: 'Read again', replaceCoordinates: 'Replace saved coordinates',
+  replaceConfirm: 'This place already has coordinates. Replace them with the new position?',
+  locationDenied: 'Location permission was not given. You can continue without saving coordinates.', locationUnavailable: 'Could not read the location. You can continue without saving coordinates.',
+  edit: 'Edit', save: 'Save', archiveCustomer: 'Hide customer', archiveConfirm: 'Hide this customer from new work. Past history stays.',
+  addEquipment: 'Add equipment', nameplatePhoto: 'Nameplate photo', nameplateHint: 'A nameplate photo helps fill brand, model and serial. Skip if there is none.',
+  equipmentPhoto: 'Equipment photo', takePhoto: 'Take photo', choosePhoto: 'Choose photo', skip: 'Skip', uploading: 'Uploading photo…',
+  uploadFailed: 'The photo could not be uploaded. Try again or skip.', cameraDenied: 'Camera permission was not given. Choose a photo or skip.',
+  ocrReading: 'Reading the nameplate… keep filling in, no need to wait.', ocrDone: 'Nameplate read. Check the suggestions before using them.',
+  ocrEmpty: 'Nothing could be read from the nameplate. Type it in.', ocrFailed: 'The nameplate could not be read. Type it in.',
+  suggestion: 'Read: {value}', useSuggestion: 'Use this', useAllSuggestions: 'Use what was read in empty fields',
+  category: 'Type', equipmentName: 'Nickname', equipmentNameHint: 'e.g. Bedroom air conditioner', brand: 'Brand', model: 'Model', serial: 'Serial',
+  serialHint: 'Check look-alike characters such as O and 0, I and 1.', saveEquipment: 'Save equipment', equipmentSaved: 'Equipment saved',
+  addAnother: 'Add another', done: 'Done', duplicateEquipmentTitle: 'This may be existing equipment', duplicateEquipmentBody: 'Pick the existing one, or confirm it is a different unit.',
+  differentEquipment: 'Different unit', noEquipment: 'No equipment at this place yet', photos: 'Photos', addPhoto: 'Add photo', unknown: 'Unknown',
+  'category.air_conditioner': 'Air conditioner', 'category.water_filter': 'Water filter', 'category.cctv': 'CCTV', 'category.solar': 'Solar',
+  'category.pump': 'Water pump', 'category.refrigeration': 'Refrigeration', 'category.other': 'Other',
+  createJob: 'Create job', createJobHere: 'Create job here', jobType: 'Job type',
+  'jobType.installation': 'Installation', 'jobType.repair': 'Repair', 'jobType.inspection': 'Inspection', 'jobType.maintenance': 'Cleaning / maintenance', 'jobType.other': 'Other',
+  jobDescription: 'Problem / details', when: 'Appointment', notScheduled: 'No time yet', tomorrow: 'Tomorrow', duration: 'About',
+  hours: '{n} h', estimatedCount: 'Estimated number of units', estimatedEquipment: 'About {count} unit(s)', plannedEquipment: 'Equipment to service (if known)',
+  assignee: 'Technician', unassignedOption: 'Not assigned yet', doItMyself: 'I will do it', createAndAssign: 'Confirm and assign',
+  createUnassigned: 'Create without technician', jobCreated: 'Job created', conflictWarning: 'The technician has {count} other job(s) at the same time',
+  chooseCustomer: 'Choose customer', chooseLocation: 'Choose location', filterToday: 'Today', filterUpcoming: 'Upcoming', filterUnassigned: 'Unassigned',
+  noJobs: 'No jobs in this period', assign: 'Assign', reassign: 'Change technician', unassign: 'Remove technician', reschedule: 'Reschedule',
+  cancelJob: 'Cancel job', cancelReason: 'Reason for cancelling', startJob: 'Start job', serviceComing: 'Recording the service and finishing the job come in the next stage.',
+  history: 'History', reasonOptional: 'Reason', reasonRequiredInProgress: 'A reason is required when changing the technician during work.', viewJob: 'View job', myJobs: 'My jobs',
+  'notify.job_assigned': 'You have a new job {when}', 'notify.job_unassigned': 'A job was moved to another technician',
+  'notify.job_rescheduled': 'Your job moved to {when}', 'notify.job_cancelled': 'Your job was cancelled',
+  noPhone: 'No phone', technicianCustomersHint: 'You see the customers you added and those of jobs assigned to you.',
 };
 export const catalogs = { th, en };
 export type TranslationKey = keyof Catalog;
@@ -185,4 +265,14 @@ export function formatDate(date: Date, language: Language, timeZone = 'Asia/Bang
   return new Intl.DateTimeFormat(language === 'th' ? 'th-TH-u-ca-buddhist-nu-latn' : 'en-GB-u-ca-gregory-nu-latn', {
     timeZone, day: 'numeric', month: 'long', year: 'numeric',
   }).format(date);
+}
+/** Short date with weekday and time in the shop's time zone, e.g. "อ. 10 พ.ย. 69 09:00". */
+export function formatDateTime(date: Date, language: Language, timeZone = 'Asia/Bangkok'): string {
+  return new Intl.DateTimeFormat(language === 'th' ? 'th-TH-u-ca-buddhist-nu-latn' : 'en-GB-u-ca-gregory-nu-latn', {
+    timeZone, weekday: 'short', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(date);
+}
+/** Weekday and day for date chips, e.g. "พ. 11". */
+export function formatDayChip(date: Date, language: Language, timeZone = 'Asia/Bangkok'): string {
+  return new Intl.DateTimeFormat(language === 'th' ? 'th-TH-u-nu-latn' : 'en-GB', { timeZone, weekday: 'short', day: 'numeric', month: 'short' }).format(date);
 }

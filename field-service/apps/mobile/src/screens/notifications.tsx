@@ -1,13 +1,14 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatDate, translate, type TranslationKey } from '@field-service/i18n';
+import { formatDate, formatDateTime, translate, type TranslationKey } from '@field-service/i18n';
 import { api, type Inbox, type InboxItem, type Membership } from '../api';
 import { Banner, Button, Card, colors, fonts, IconTile, LanguageContext, Loading, Screen, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
 const look: Record<string, [IconName, Tone]> = {
   join_request: ['person-add', 'blue'], member_approved: ['checkmark-circle', 'green'], trial_ending: ['hourglass', 'amber'],
   renewal_due: ['calendar', 'amber'], payment_overdue: ['alert-circle', 'rose'], subscription_expired: ['close-circle', 'rose'],
-  subscription_ended: ['stop-circle', 'rose'], storage_threshold: ['images', 'violet'],
+  subscription_ended: ['stop-circle', 'rose'], storage_threshold: ['images', 'violet'], job_assigned: ['briefcase', 'blue'],
+  job_unassigned: ['swap-horizontal', 'amber'], job_rescheduled: ['calendar', 'amber'], job_cancelled: ['close-circle', 'rose'],
 };
 
 /** Text is rendered here from template + parameters, so it follows the reader's language. */
@@ -15,7 +16,8 @@ export function useNotificationText() {
   const language = useContext(LanguageContext);
   return (item: Pick<InboxItem, 'template_key' | 'parameters'>) => {
     const params = Object.fromEntries(Object.entries(item.parameters ?? {}).map(([k, v]) =>
-      [k, k === 'date' && typeof v === 'string' ? formatDate(new Date(`${v}T12:00:00+07:00`), language) : String(v)]));
+      [k, k === 'date' && typeof v === 'string' ? formatDate(new Date(`${v}T12:00:00+07:00`), language)
+        : k === 'when' && typeof v === 'string' && v ? formatDateTime(new Date(`${v}:00+07:00`), language) : String(v)]));
     return translate(language, `notify.${item.template_key}` as TranslationKey, params);
   };
 }

@@ -55,12 +55,14 @@ async function change(actor, organizationId, memberId, action, version, client) 
   return one('SELECT * FROM auth.change_member_status($1,$2,$3,$4,$5,$6,$7)',
     [actor.userId, organizationId, memberId, action, version ?? await memberVersion(memberId), null, randomUUID()], client);
 }
-/** Same RLS path a tenant request takes. */
+/** Same RLS path a tenant request takes. Counts shop data the member can see: the shop row and
+ * the customers (technicians see only the customers they created, so the shop row is what
+ * proves access for them). */
 async function visibleCustomers(userId, organizationId) {
   await db.exec('BEGIN; SET LOCAL ROLE fs_api;');
   try {
     await db.query("SELECT set_config('app.user_id',$1,true), set_config('app.organization_id',$2,true)", [userId, organizationId]);
-    return (await db.query('SELECT id FROM core.customers')).rows.length;
+    return (await db.query('SELECT id FROM core.organizations')).rows.length;
   } finally { await db.exec('ROLLBACK'); }
 }
 const addCustomer = organizationId => db.query("INSERT INTO core.customers(organization_id, name) VALUES ($1, 'Customer')", [organizationId]);

@@ -6,6 +6,7 @@ import { api, type JoinLink, type Me, type Membership, type Subscription, type T
 import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, IconTile, LanguageContext, Loading, tones, type Tone, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 import { LanguageSwitch } from './onboarding';
 import { useUnread } from './notifications';
+import { MyJobs } from './jobs';
 
 const memberTone = (status: string): Tone => status === 'active' ? 'green' : status === 'pending' ? 'amber' : status === 'suspended' ? 'rose' : 'sky';
 const statusTone = (status: string) => status === 'active' ? 'ok' : status === 'pending' ? 'warn' : status === 'suspended' ? 'danger' : 'neutral';
@@ -157,7 +158,7 @@ function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organ
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void }) {
+export function Home({ me, membership, onTeam, onNotifications, onOpenJob }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void; onOpenJob: (id: string) => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
@@ -190,13 +191,7 @@ export function Home({ me, membership, onTeam, onNotifications }: { me: Me; memb
       <Card padded={false}><Row icon="people" tone="blue" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
       {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} /></> : null}
     </> : null}
-    <Section>{t('comingSoon')}</Section>
-    <Card padded={false}>
-      <Row icon="briefcase" tone="amber" title={t('jobs')} trailing={<Badge text={t('comingSoon')} />} />
-      <Row icon="person" tone="violet" title={t('customers')} trailing={<Badge text={t('comingSoon')} />} />
-      <Row icon="hardware-chip" tone="teal" title={t('equipment')} trailing={<Badge text={t('comingSoon')} />} last />
-    </Card>
-    <Sub>{t('notBuiltYet')}</Sub>
+    {!owner ? <><Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} /></> : null}
   </Screen>;
 }
 

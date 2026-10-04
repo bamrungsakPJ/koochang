@@ -94,3 +94,51 @@ Tests (`pnpm test`, 81 total):
 - New: worker role isolation, OCR counted once / retries not counted / stale job requeued, notifications once per event and only visible to the recipient, push queue and invalid-token revocation, reminders once per period, storage 80% warning and capped consumption, housekeeping; unit: GPS/EXIF removed, resize, thumbnail, non-image and GIF rejected, signed URL expiry and forgery, storage path traversal, production refuses development OCR/push and missing media secrets; HTTP: upload → ready → signed download without EXIF → tampered link 404 → other shop 403 → bad bytes → failed, OCR through the worker counted once, inbox read/mark read.
 
 Not done: photo picker/camera screens (B02/B04), on-device upload queue, real OCR / push / S3 providers, push token registration in the app (needs a development build).
+
+# B01 customers and locations — 2026-10-04
+
+Decisions: [DECISIONS_B01.md](DECISIONS_B01.md). Migration `005_customers.sql`.
+
+Done:
+- API: `GET/POST /organizations/:id/customers` (search by phone digits or name), `GET/PATCH …/customers/:id`, `POST …/customers/:id/archive` (owner), `POST …/customers/:id/locations`, `PATCH …/locations/:id`, `PUT …/locations/:id/coordinates`.
+- RLS: restrictive technician scope on customers and locations.
+- Mobile: Customers tab for owners and technicians (search, list with location/coordinate status), add customer (phone first, optional name, first location, duplicate choice), customer detail (call, edit, locations, navigate, save location once with permission and review, add/edit location, archive for owners).
+- Dev database on server2: migration 005 applied.
+
+Tests (`pnpm test`, 87 total): PostgreSQL 16.15: 87 passed. PGlite: 72 passed, 15 skipped.
+- New: owner vs technician visibility, technician cannot create in another member's name, name-or-phone and coordinate-pair constraints; HTTP: phone-only customer with first location, retry → same customer, duplicate warning and confirmed duplicate, search by phone fragment and name, location version conflict, coordinate save → replace needs confirmation → audit keeps the previous value, invalid latitude rejected, technician sees only own customers, other shop 403, expired plan → create 403 SUBSCRIPTION_EXPIRED while listing still works.
+- Identity tests now prove tenant access through the shop row instead of customers (technicians no longer see every customer).
+
+Checked by hand on Expo web: create shop → Customers tab → add customer with phone + "บ้าน" + address → detail shows the phone as title, "ยังไม่มีพิกัด", navigate and save-location buttons → list and search by "222-33" find it; a non-matching search shows "ไม่พบลูกค้าที่ค้นหา". GPS capture was not tried on a device yet.
+
+# B02 equipment — 2026-10-04
+
+Decisions: [DECISIONS_B02.md](DECISIONS_B02.md). Migration `006_equipment.sql`.
+
+Done:
+- API: `GET/POST /organizations/:id/locations/:locationId/equipment`, `GET/PATCH …/equipment/:id`, `POST …/equipment/:id/photos`. Media download now also allowed for technicians on photos of equipment they can see.
+- Mobile: equipment list under each location (thumbnail or category icon, serial), add equipment (nameplate photo → background OCR with suggestions → equipment photo → category chips and fields → duplicate choice → "add another"), equipment detail (photos, add photo from camera/library, edit fields). Uses expo-image-picker (camera permission text in app.json, no microphone).
+- API errors outside production now log SQLSTATE, constraint and message (found an over-long constraint name this way).
+- Dev database on server2: migration 006 applied.
+
+Tests (`pnpm test`, 88 total): PostgreSQL 16.15: 88 passed. PGlite: 72 passed, 16 skipped.
+- New HTTP test: nameplate upload + OCR request, equipment created with photo and OCR link, serial kept as typed, retry → same equipment, accepted_fields recorded, same serial in another format → duplicate warning → confirmed different unit, equipment with only a category, list with thumbnails, version conflict and partial update, technician cannot see other customers' equipment or attach someone else's photo, owner opens technician photos.
+
+Checked by hand on Expo web: customer → "เพิ่มเครื่อง" → water filter, nickname, brand, serial (no photo) → saved → listed under the place with S/N → detail shows type, brand, "ไม่ทราบ" for the missing model. Camera, photo library and GPS were not tried on a phone yet.
+
+# B03 jobs and scheduling — 2026-10-04
+
+Decisions: [DECISIONS_B03.md](DECISIONS_B03.md). Migration `007_jobs.sql` (adds `core.job_state_changes`; core now has 21 tables, 43 in core/billing/platform/ops).
+
+Done:
+- API: `GET/POST /organizations/:id/jobs`, `GET/PATCH …/jobs/:id`, `POST …/jobs/:id/assign|unassign|reschedule|cancel|start`.
+- RLS: technicians see jobs currently assigned to them and, through an open job, its customer and that location only.
+- Notifications: job assigned / moved away / rescheduled / cancelled.
+- Mobile: owner Jobs tab (today, upcoming, unassigned), create job (pick customer and place or start from a place in the customer screen; type, details, date/time/duration chips, planned equipment, estimate, technician or "I will do it"), job detail (customer call, navigate, planned equipment, assign/change technician, unassign, reschedule, cancel with reason, start, history). Technician home shows "my jobs". Notifications open the job.
+- Mobile session: on 401 the app first adopts tokens another instance stored (second tab, hot reload) before signing out — found when a web session was cleared while the server session was still valid.
+- Dev database on server2: migration 007 applied.
+
+Tests (`pnpm test`, 90 total): PostgreSQL 16.15: 90 passed. PGlite: 72 passed, 18 skipped.
+- New HTTP tests: create + assign with planned equipment and estimate, retry → same job, technicians cannot plan, technician sees the job, its customer and only the job's location, job_assigned notification, overlapping job → conflict warning, stale version, reassignment → previous technician loses job and customer access and gets job_unassigned, start by assignee only, cancel needs a reason and is owner-only, history scheduled → in_progress → cancelled, cancelled job cannot start; unassigned job without time, assign, reschedule → job_rescheduled, unassign removes access, invalid time rejected, expired plan → SUBSCRIPTION_EXPIRED while reading works.
+
+Checked by hand on Expo web (clicks through the DOM because the window was not drawing): Jobs tab → create job → customer → "I will do it" → repair → confirm → detail shows the appointment tomorrow 09:00, "assigned", history → start → "in progress" with the "service recording comes next" note.

@@ -6,6 +6,7 @@ export interface ApiErrorBody {
   field_errors?: FieldErrors;
   latest_version?: number;
   retry_after?: number;
+  candidates?: unknown[];
 }
 
 /** Throwable API error. The filter adds the translated message and request_id. */
