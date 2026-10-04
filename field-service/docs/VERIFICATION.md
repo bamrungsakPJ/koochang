@@ -157,3 +157,18 @@ Tests (`pnpm test`, 93 total): PostgreSQL 16.15: 93 passed. PGlite: 72 passed, 2
 - New HTTP tests: assignee-only completion with done + not done units and photos, 31 Aug + 6 months → 28 Feb, retry returns the same event, changed body → IDEMPOTENCY_MISMATCH, job history completed, owner notified, unit history with technician name and photos, no cycle for the unit not serviced, all-deferred rejected; next round by another technician keeps the first technician in history and reuses the 6-month schedule, back-dated work leaves the cycle, no-reminder disables the schedule; ad-hoc work creates a completed technician_adhoc job; finishing a job started before expiry works within 24 hours while new work is refused.
 
 Checked by hand on Expo web: in-progress job → record service → pick the water filter, 6 months → finish → "job finished, next 4 April 2570" → equipment history shows the repair by Web Tester and the due date.
+
+# B05 maintenance follow-up and reminders — 2026-10-04
+
+Decisions: [DECISIONS_B05.md](DECISIONS_B05.md). Migration `009_maintenance.sql` (44 tables).
+
+Done:
+- API (Owner only): `GET /organizations/:id/maintenance`, `POST …/maintenance/cycles/:cycleId/contacts`, `POST …/maintenance/book`, `POST …/maintenance/cycles/:cycleId/postpone`, `POST …/maintenance/cycles/:cycleId/stop`. New error code `ALREADY_BOOKED`.
+- Database: contact log table, cancelled jobs release bookings, `worker.scan_maintenance` (owner reminders per milestone); the worker runs it with the subscription scan.
+- Mobile: maintenance card on the Owner home (overdue / 7 days / 30 days counts in rose / amber / teal), due list by bucket, cycle detail (customer, call, place, last service, last contact, booked job), log contact, book a job together with other due units at the same place (time chips, assignee), postpone with reason, stop reminders. Maintenance notifications open the list.
+- Dev database on server2: migration 009 applied.
+
+Tests (`pnpm test`, 94 total): PostgreSQL 16.15: 94 passed. PGlite: 72 passed, 22 skipped.
+- New HTTP test: owner-only list with buckets, phone and last service; scanning twice sends one `due_soon`; contact logged, bad result rejected; booking two cycles creates one scheduled maintenance job with both units, retry returns the same job, booking again → ALREADY_BOOKED; booking leaves the due date; cancelling the job reopens the cycle; postpone checks the version, is audited and the new date triggers `due`; stop removes the cycle from the list.
+
+Checked by hand on Expo web: home card 0/1/1 → list → cycle detail → book both units tomorrow 09:00, "I'll do it" → opens the scheduled job with both units. Test customer "ลูกค้าทดสอบรอบดูแล" left on the dev shop.

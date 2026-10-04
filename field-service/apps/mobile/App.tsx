@@ -3,7 +3,7 @@ import { Linking, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
 import { Language, normalizeLanguage } from '@field-service/core';
-import { api, tokenFromLink, type Challenge, type CustomerLocation, type Job, type JoinLink, type Me, type ServiceResult } from './src/api';
+import { api, tokenFromLink, type Challenge, type CustomerLocation, type Job, type JoinLink, type MaintenanceItem, type Me, type ServiceResult } from './src/api';
 import { ServiceDone, ServiceForm } from './src/screens/service';
 import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './src/screens/customers';
 import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
@@ -14,6 +14,7 @@ import { translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
 import { NotificationsScreen } from './src/screens/notifications';
+import { MaintenanceDetail, MaintenanceScreen } from './src/screens/maintenance';
 
 type Next =
   | { kind: 'register'; shopName: string; idempotencyKey: string }
@@ -30,7 +31,7 @@ type Route =
   | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
   | { screen: 'equipmentNew'; customerId: string; locationId: string; returnTo?: Route } | { screen: 'equipment'; customerId: string; id: string }
   | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
-  | { screen: 'serviceDone'; result: ServiceResult; back: Route }
+  | { screen: 'serviceDone'; result: ServiceResult; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem }
   | { screen: 'jobs' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -144,6 +145,7 @@ export default function App() {
     case 'notifications': content = membership?.status === 'active'
       ? <NotificationsScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })}
         onOpen={item => setRoute(item.target_type === 'job' && item.target_id ? { screen: 'job', id: item.target_id }
+          : item.target_type === 'maintenance_cycle' && membership.role === 'owner' ? { screen: 'maintenance' }
           : { screen: item.template_key === 'join_request' && membership.role === 'owner' ? 'team' : 'shop' })} /> : <Loading />; break;
     case 'customer': content = membership?.status === 'active'
       ? <CustomerDetail key={route.id} membership={membership} customerId={route.id} onBack={() => setRoute({ screen: 'customers' })}
@@ -170,6 +172,11 @@ export default function App() {
         onBack={() => setRoute(route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' })}
         onAddEquipment={locationId => setRoute({ screen: 'equipmentNew', customerId: route.screen === 'service' ? route.job.customer_id : route.customerId, locationId, returnTo: route })}
         onDone={result => setRoute({ screen: 'serviceDone', result, back: route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' } })} /> : <Loading />; break;
+    case 'maintenance': content = membership?.status === 'active' && membership.role === 'owner'
+      ? <MaintenanceScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })} onOpen={item => setRoute({ screen: 'maintenanceItem', item })} /> : <Loading />; break;
+    case 'maintenanceItem': content = membership?.status === 'active' && membership.role === 'owner'
+      ? <MaintenanceDetail key={route.item.id} membership={membership} item={route.item} onBack={() => setRoute({ screen: 'maintenance' })}
+        onOpenJob={id => setRoute({ screen: 'job', id })} onOpenCustomer={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
     case 'serviceDone': content = <ServiceDone result={route.result} onDone={() => setRoute(route.back)} />; break;
     case 'adhocPick': content = membership?.status === 'active'
       ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'shop' })} onPicked={(customerId, locationId) => setRoute({ screen: 'serviceAdhoc', customerId, locationId })} /> : <Loading />; break;
@@ -197,7 +204,7 @@ export default function App() {
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} />;
       else content = <Loading />;
       if (membership && active) {
         const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);

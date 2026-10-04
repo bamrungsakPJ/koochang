@@ -62,7 +62,8 @@ export async function runPush(deps: WorkerDeps, limit = 20): Promise<number> {
 
 export async function runScheduled(deps: WorkerDeps): Promise<{ reminders: number; housekeeping: unknown }> {
   await deps.pool.query('SELECT worker.requeue_stale_ocr(600)');
-  const reminders = (await deps.pool.query('SELECT worker.scan_subscriptions(now()) AS n')).rows[0].n as number;
+  const reminders = (await deps.pool.query('SELECT worker.scan_subscriptions(now()) AS n')).rows[0].n as number
+    + ((await deps.pool.query('SELECT worker.scan_maintenance(now()) AS n')).rows[0].n as number);
   const housekeeping = (await deps.pool.query('SELECT worker.housekeeping() AS r')).rows[0].r;
   return { reminders, housekeeping };
 }

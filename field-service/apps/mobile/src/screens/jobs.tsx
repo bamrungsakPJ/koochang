@@ -15,13 +15,13 @@ const typeLook: Record<string, [IconName, Tone]> = {
 const statusTone = (s: JobStatus) => s === 'scheduled' ? 'info' : s === 'in_progress' ? 'warn' : s === 'completed' ? 'ok' : s === 'cancelled' ? 'danger' : 'neutral';
 
 /** YYYY-MM-DD in Bangkok for an offset of days from today. */
-function bangkokDay(offset: number): string {
+export function bangkokDay(offset: number): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(Date.now() + offset * 86400000));
 }
-const atBangkok = (day: string, time: string) => `${day}T${time}:00+07:00`;
+export const atBangkok = (day: string, time: string) => `${day}T${time}:00+07:00`;
 const times = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
-function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon?: IconName }) {
+export function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon?: IconName }) {
   return <Pressable accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={onPress} style={[styles.chip, on && styles.chipOn]}>
     {icon ? <Icon name={icon} size={16} color={on ? colors.onPrimary : colors.muted} /> : null}
     <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
@@ -29,7 +29,7 @@ function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPres
 }
 
 /** Date chips (no time / today … +6), time chips and duration — no date-picker dependency. */
-function WhenPicker({ day, time, hours, onChange }: { day: string | null; time: string; hours: number; onChange: (v: { day: string | null; time: string; hours: number }) => void }) {
+export function WhenPicker({ day, time, hours, onChange }: { day: string | null; time: string; hours: number; onChange: (v: { day: string | null; time: string; hours: number }) => void }) {
   const t = useT();
   const language = useContext(LanguageContext);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => bangkokDay(i)), []);
@@ -47,7 +47,7 @@ function WhenPicker({ day, time, hours, onChange }: { day: string | null; time: 
   </>;
 }
 
-const endOf = (day: string, time: string, hours: number) => new Date(new Date(atBangkok(day, time)).getTime() + hours * 3600000).toISOString();
+export const endOf = (day: string, time: string, hours: number) => new Date(new Date(atBangkok(day, time)).getTime() + hours * 3600000).toISOString();
 
 function JobRow({ job, onPress, last }: { job: JobSummary; onPress: () => void; last?: boolean }) {
   const t = useT();

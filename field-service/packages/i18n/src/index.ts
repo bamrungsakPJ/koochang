@@ -131,6 +131,15 @@ const th = {
   performedBy: 'โดย {name}', maintenanceDue: 'ถึงรอบ {date}', 'notify.job_completed': '{name} ปิดงานแล้ว', sending: 'กำลังส่ง…',
   unsentHint: 'ยังส่งไม่สำเร็จ ข้อมูลยังอยู่ กดส่งอีกครั้งได้',
   noPhone: 'ไม่มีเบอร์', technicianCustomersHint: 'คุณเห็นเฉพาะลูกค้าที่คุณเพิ่ม และลูกค้าของงานที่ได้รับมอบหมาย',
+  ALREADY_BOOKED: 'รอบนี้มีนัดงานอยู่แล้ว', 'field.sameLocation': 'เลือกได้เฉพาะเครื่องในสถานที่เดียวกัน',
+  'notify.maintenance_due_soon': '{name} จะถึงรอบดูแลวันที่ {date}', 'notify.maintenance_due': '{name} ถึงรอบดูแลวันนี้', 'notify.maintenance_overdue': '{name} เลยรอบดูแล ({date})',
+  maintenanceOverdue: 'เลยกำหนด', maintenanceWithin7: 'ภายใน 7 วัน', maintenanceWithin30: 'ภายใน 30 วัน', maintenanceEmpty: 'ยังไม่มีรอบดูแลที่ใกล้ถึง',
+  maintenanceHint: 'ติดต่อลูกค้า แล้วนัดงาน หรือเลื่อนรอบ', bookJob: 'นัดงาน', logContact: 'บันทึกการติดต่อ', postpone: 'เลื่อนรอบ', stopReminder: 'หยุดเตือน',
+  lastService: 'ทำล่าสุด {date}', neverServiced: 'ยังไม่มีประวัติในระบบ', bookedJob: 'นัดแล้ว', openJob: 'เปิดงาน',
+  'contact.no_answer': 'ไม่รับสาย', 'contact.interested': 'สนใจ', 'contact.call_later': 'โทรใหม่ภายหลัง', 'contact.declined': 'ไม่ต้องการ', 'contact.booked': 'นัดแล้ว',
+  lastContact: 'ติดต่อล่าสุด: {result}', nextContactOn: 'ติดต่อใหม่วันที่', newDueDate: 'วันครบรอบใหม่', reasonLabel: 'เหตุผล', alsoBook: 'นัดพร้อมกันในสถานที่นี้',
+  contactNote: 'บันทึก (ไม่บังคับ)', contactSaved: 'บันทึกการติดต่อแล้ว', postponed: 'เลื่อนรอบแล้ว', reminderStopped: 'หยุดเตือนแล้ว', jobBooked: 'สร้างงานนัดแล้ว',
+  stopReminderConfirm: 'หยุดเตือนรอบดูแลของเครื่องนี้? ประวัติเดิมยังอยู่', maintenanceDueCount: 'รอบดูแลที่ต้องติดตาม', dateFormatHint: 'ปปปป-ดด-วว (ค.ศ.)',
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
@@ -264,6 +273,15 @@ const en: Catalog = {
   performedBy: 'by {name}', maintenanceDue: 'Due {date}', 'notify.job_completed': '{name} finished a job', sending: 'Sending…',
   unsentHint: 'Not sent yet. Your entries are kept; tap send again.',
   noPhone: 'No phone', technicianCustomersHint: 'You see the customers you added and those of jobs assigned to you.',
+  ALREADY_BOOKED: 'This cycle already has a booked job.', 'field.sameLocation': 'Pick units at one location only',
+  'notify.maintenance_due_soon': '{name} is due for maintenance on {date}', 'notify.maintenance_due': '{name} is due for maintenance today', 'notify.maintenance_overdue': '{name} is overdue for maintenance ({date})',
+  maintenanceOverdue: 'Overdue', maintenanceWithin7: 'Within 7 days', maintenanceWithin30: 'Within 30 days', maintenanceEmpty: 'No maintenance coming up',
+  maintenanceHint: 'Contact the customer, then book a job or postpone', bookJob: 'Book job', logContact: 'Log contact', postpone: 'Postpone', stopReminder: 'Stop reminders',
+  lastService: 'Last done {date}', neverServiced: 'No history in the app', bookedJob: 'Booked', openJob: 'Open job',
+  'contact.no_answer': 'No answer', 'contact.interested': 'Interested', 'contact.call_later': 'Call later', 'contact.declined': 'Declined', 'contact.booked': 'Booked',
+  lastContact: 'Last contact: {result}', nextContactOn: 'Contact again on', newDueDate: 'New due date', reasonLabel: 'Reason', alsoBook: 'Book together at this location',
+  contactNote: 'Note (optional)', contactSaved: 'Contact logged', postponed: 'Cycle postponed', reminderStopped: 'Reminders stopped', jobBooked: 'Job booked',
+  stopReminderConfirm: 'Stop maintenance reminders for this unit? Its history stays.', maintenanceDueCount: 'Maintenance to follow up', dateFormatHint: 'YYYY-MM-DD',
 };
 export const catalogs = { th, en };
 export type TranslationKey = keyof Catalog;

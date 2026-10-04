@@ -60,6 +60,14 @@ export interface EquipmentHistory {
   items: { id: string; occurred_at: string; performed_by_name: string | null; service_type: string; outcome: string; work_note: string | null; problem_note: string | null;
     not_done_reason: string | null; next_due_on: string | null; note: string | null; photos: { photo_type: string; url: string | null; thumbnail_url: string | null }[] }[];
 }
+export type ContactResult = 'no_answer' | 'interested' | 'call_later' | 'declined' | 'booked';
+export interface MaintenanceItem {
+  id: string; due_date: string; version: number; service_type: string; interval_months: number | null; equipment_id: string; equipment_name: string | null; category: string;
+  brand: string | null; model: string | null; location_id: string; location_label: string; location_address: string | null; customer_id: string; customer_name: string | null;
+  customer_phone: string | null; last_service_at: string | null; booked_job_id: string | null; bucket: 'overdue' | 'within_7' | 'within_30';
+  last_contact: { result: ContactResult; note: string | null; next_contact_on: string | null; created_at: string } | null;
+}
+export interface MaintenanceList { today: string; items: MaintenanceItem[]; counts: { overdue: number; within_7: number; within_30: number } }
 export interface InboxItem { id: string; template_key: string; parameters: Record<string, string | number>; target_type: string | null; target_id: string | null; created_at: string; read_at: string | null; }
 export interface Inbox { items: InboxItem[]; unread: number; }
 /** Owners get the full object; technicians only state and writable. */
@@ -183,6 +191,19 @@ export class Api {
     return this.call<ServiceResult>('POST', `/organizations/${organizationId}/service-events`, body);
   }
   equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
+  maintenance(organizationId: string, days = 30) { return this.call<MaintenanceList>('GET', `/organizations/${organizationId}/maintenance?days=${days}`); }
+  logContact(organizationId: string, cycleId: string, body: { result: ContactResult; note?: string; next_contact_on?: string | null }) {
+    return this.call('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/contacts`, body);
+  }
+  bookMaintenance(organizationId: string, body: { request_key: string; cycle_ids: string[]; assignee_member_id?: string | null; scheduled_start?: string | null; scheduled_end?: string | null; description?: string }) {
+    return this.call<{ job_id: string; replayed?: boolean }>('POST', `/organizations/${organizationId}/maintenance/book`, body);
+  }
+  postponeCycle(organizationId: string, cycleId: string, body: { expected_version: number; due_date: string; reason: string }) {
+    return this.call<{ id: string; due_date: string; version: number }>('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/postpone`, body);
+  }
+  stopCycle(organizationId: string, cycleId: string, reason: string) {
+    return this.call('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/stop`, { reason });
+  }
   notifications(organizationId: string) { return this.call<Inbox>('GET', `/organizations/${organizationId}/notifications`); }
   markRead(organizationId: string, ids?: string[]) { return this.call<Inbox>('POST', `/organizations/${organizationId}/notifications/read`, ids ? { ids } : {}); }
   subscription(organizationId: string) { return this.call<Subscription>('GET', `/organizations/${organizationId}/subscription`); }

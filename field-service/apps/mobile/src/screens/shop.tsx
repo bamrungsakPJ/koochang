@@ -6,6 +6,7 @@ import { api, type JoinLink, type Me, type Membership, type Subscription, type T
 import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, IconTile, LanguageContext, Loading, tones, type Tone, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 import { LanguageSwitch } from './onboarding';
 import { useUnread } from './notifications';
+import { MaintenanceCard } from './maintenance';
 import { MyJobs } from './jobs';
 
 const memberTone = (status: string): Tone => status === 'active' ? 'green' : status === 'pending' ? 'amber' : status === 'suspended' ? 'rose' : 'sky';
@@ -158,8 +159,8 @@ function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organ
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRecordAdhoc }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void;
-  onOpenJob: (id: string) => void; onRecordAdhoc: () => void }) {
+export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRecordAdhoc, onMaintenance }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void;
+  onOpenJob: (id: string) => void; onRecordAdhoc: () => void; onMaintenance: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
@@ -189,6 +190,7 @@ export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRec
         <Stat icon="people" tone="teal" label={t('activeTechnicians')} value={team ? `${team.seats.active_technicians}/${team.seats.seat_limit}` : '–'} />
         <Stat icon="time" label={t('pendingCount')} value={team ? String(pending) : '–'} tone={pending ? 'rose' : 'amber'} />
       </View>
+      <MaintenanceCard membership={membership} onOpen={onMaintenance} />
       <Card padded={false}><Row icon="people" tone="blue" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
       {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} /></> : null}
     </> : null}

@@ -675,3 +675,69 @@ test('service: ad-hoc on-site work creates a completed job; late submission afte
     items: [{ equipment_id: unit.id, service_type: 'repair', outcome: 'done' }] } });
   assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED', 'no new work after expiry');
 });
+
+test('maintenance: due list, owner reminders once per milestone, contact log, book a job, postpone, stop; cancelling a job reopens the cycle', { skip }, async () => {
+  const s = await serviceSetup('Maint');
+  const [a, b] = [await s.unit('ห้องนอน'), await s.unit('ห้องครัว')];
+  const bangkok = days => new Date(Date.now() + 7 * 3600000 + days * 86400000).toISOString().slice(0, 10);
+  const job = await startedJob(s, s.techMember, s.tech.access_token, [a.id, b.id]);
+  const done = await call('POST', `/organizations/${s.shopId}/jobs/${job.id}/complete`, { token: s.tech.access_token, body: {
+    expected_version: job.version, client_event_id: randomUUID(), occurred_at: new Date(Date.now() - 60000).toISOString(),
+    items: [{ equipment_id: a.id, service_type: 'maintenance', outcome: 'done', next_maintenance: { mode: 'custom_date', due_on: bangkok(3) } },
+      { equipment_id: b.id, service_type: 'maintenance', outcome: 'done', next_maintenance: { mode: 'custom_date', due_on: bangkok(20) } }] } });
+  assert.equal(done.status, 201, JSON.stringify(done.body));
+  const path = `/organizations/${s.shopId}/maintenance`;
+  assert.equal((await call('GET', path, { token: s.tech.access_token })).status, 403, 'owner only');
+  let list = (await call('GET', path, { token: s.owner.access_token })).body;
+  assert.deepEqual(list.counts, { overdue: 0, within_7: 1, within_30: 1 });
+  const cycleA = list.items.find(i => i.equipment_id === a.id), cycleB = list.items.find(i => i.equipment_id === b.id);
+  assert.equal(cycleA.customer_phone, '+66855500011');
+  assert.ok(cycleA.last_service_at);
+
+  // Reminders: one per cycle and milestone, however often the worker scans.
+  const pool = new pg.Pool({ connectionString: workerUrl, max: 2 });
+  try {
+    const scan = async () => (await pool.query('SELECT worker.scan_maintenance(now()) AS n')).rows[0].n;
+    await scan(); await scan();
+    const reminders = () => db.query("SELECT template_key FROM core.notifications WHERE organization_id = $1 AND template_key LIKE 'maintenance_%'", [s.shopId]);
+    assert.deepEqual((await reminders()).rows.map(r => r.template_key), ['maintenance_due_soon']);
+
+    const contact = await call('POST', `${path}/cycles/${cycleA.id}/contacts`, { token: s.owner.access_token, body: { result: 'call_later', note: 'โทรเย็นนี้', next_contact_on: bangkok(1) } });
+    assert.equal(contact.status, 201, JSON.stringify(contact.body));
+    assert.equal((await call('POST', `${path}/cycles/${cycleA.id}/contacts`, { token: s.owner.access_token, body: { result: 'maybe' } })).status, 400);
+
+    const key = randomUUID();
+    const book = await call('POST', `${path}/book`, { token: s.owner.access_token, body: { request_key: key, cycle_ids: [cycleA.id, cycleB.id], assignee_member_id: s.techMember,
+      scheduled_start: new Date(Date.now() + 86400000).toISOString() } });
+    assert.equal(book.status, 201, JSON.stringify(book.body));
+    const again = await call('POST', `${path}/book`, { token: s.owner.access_token, body: { request_key: key, cycle_ids: [cycleA.id, cycleB.id] } });
+    assert.deepEqual([again.body.job_id, again.body.replayed], [book.body.job_id, true]);
+    const twice = await call('POST', `${path}/book`, { token: s.owner.access_token, body: { request_key: randomUUID(), cycle_ids: [cycleA.id] } });
+    assert.deepEqual([twice.status, twice.body.code, twice.body.candidates[0].job_id], [409, 'ALREADY_BOOKED', book.body.job_id]);
+    const booked = (await call('GET', `/organizations/${s.shopId}/jobs/${book.body.job_id}`, { token: s.tech.access_token })).body;
+    assert.deepEqual([booked.status, booked.job_type, booked.equipment.length], ['scheduled', 'maintenance', 2]);
+    list = (await call('GET', path, { token: s.owner.access_token })).body;
+    assert.equal(list.items.find(i => i.id === cycleA.id).booked_job_id, book.body.job_id);
+    assert.equal(list.items.find(i => i.id === cycleA.id).last_contact.result, 'call_later');
+    assert.equal(list.items.find(i => i.id === cycleA.id).due_date, bangkok(3), 'booking does not move the due date');
+
+    // Cancel the job: bookings are released and the cycle is open for follow-up again.
+    const cancel = await call('POST', `/organizations/${s.shopId}/jobs/${booked.id}/cancel`, { token: s.owner.access_token, body: { expected_version: booked.version, reason: 'ลูกค้าเลื่อน' } });
+    assert.equal(cancel.status, 201, JSON.stringify(cancel.body));
+    assert.equal((await call('GET', path, { token: s.owner.access_token })).body.items.find(i => i.id === cycleA.id).booked_job_id, null);
+
+    // Postpone: version checked, audited, and reminders restart for the new date.
+    const stale = await call('POST', `${path}/cycles/${cycleA.id}/postpone`, { token: s.owner.access_token, body: { expected_version: 99, due_date: bangkok(0), reason: 'x' } });
+    assert.deepEqual([stale.status, stale.body.code], [409, 'VERSION_CONFLICT']);
+    const moved = await call('POST', `${path}/cycles/${cycleA.id}/postpone`, { token: s.owner.access_token, body: { expected_version: stale.body.latest_version, due_date: bangkok(0), reason: 'ลูกค้าไม่อยู่' } });
+    assert.equal(moved.status, 201, JSON.stringify(moved.body));
+    await scan();
+    assert.deepEqual((await reminders()).rows.map(r => r.template_key).sort(), ['maintenance_due', 'maintenance_due_soon']);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM ops.audit_logs WHERE organization_id = $1 AND action = 'maintenance.postponed'", [s.shopId])).rows[0].n, 1);
+
+    const stopped = await call('POST', `${path}/cycles/${cycleB.id}/stop`, { token: s.owner.access_token, body: { reason: 'ลูกค้าย้ายบ้าน' } });
+    assert.equal(stopped.status, 201, JSON.stringify(stopped.body));
+    list = (await call('GET', path, { token: s.owner.access_token })).body;
+    assert.deepEqual(list.items.map(i => i.id), [cycleA.id]);
+  } finally { await pool.end(); }
+});
