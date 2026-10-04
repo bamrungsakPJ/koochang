@@ -191,3 +191,21 @@ Tests (`pnpm test`, 95 total): PostgreSQL 16.15: 95 passed. PGlite: 72 passed, 2
 Checked by hand: Expo web owner → renew → Team invoice with transfer details; proof sent (test image through the API, since the web picker cannot be automated); console on `localhost:3001/console` → sign-in with TOTP → queue → proof image → confirm → "Payment confirmed. Period 4 Oct 2026 – 4 Nov 2026" on the dev shop.
 
 Remaining: physical-phone check of the camera/gallery proof upload; real receiving account and receipt format from the team.
+
+# C02 platform administration — 2026-10-04
+
+Decisions: [DECISIONS_C02.md](DECISIONS_C02.md). Migrations `011_platform_admin.sql` (49 tables), `012_platform_names.sql`.
+
+Done:
+- Platform API: `GET /platform/overview`, `GET /platform/shops`, `GET /platform/shops/:id`, `POST /platform/shops/:id/suspend|restore`, `POST /platform/shops/:id/grants`, `POST /platform/grants/:id/end`, `GET/POST /platform/tickets[/:id]`, `POST /platform/tickets/:id/access`, `GET /platform/access`, `POST /platform/access/:id/approve|reject`, `GET /platform/access/:id/read/:what`, `GET /platform/audit`, `GET /platform/system`, `GET/POST /platform/data-requests[/:id]`.
+- Shop API (owner, also while suspended): `GET /organizations/:id/support`, `POST …/support/tickets`, `POST …/support/tickets/:id/messages`, `POST …/support/access/:grantId/consent|refuse|revoke`, `POST …/support/data-requests`. Suspended shops get `ORGANIZATION_SUSPENDED` on other shop routes.
+- Mobile: Account → Contact our team (tickets with replies, new ticket, access requests to allow/refuse/revoke with scope, time and read count, data export request); suspended shop screen with the support button; support notifications open it.
+- Console: Overview tiles, Shops, Support, Access approvals, Data requests, Audit, System.
+- Dev database on server2: migrations 011 and 012 applied.
+
+Tests (`pnpm test`, 96 total): PostgreSQL 16.15: 96 passed. PGlite: 72 passed, 24 skipped.
+- New HTTP test: shop search with masked owner phone; detail has no customer content; suspend needs a reason and the permission; suspended shop → ORGANIZATION_SUSPENDED but support reachable; restore returns to the trial; grant over 180 days refused; grant raises seats to 20 and ending returns 3; technician cannot open tickets; internal notes hidden from the owner, reply notifies; access: over 60 minutes refused, no read before approval, approval without consent → OWNER_CONSENT_REQUIRED, technician cannot consent, agent cannot approve, approved read returns masked customers, other scope and other agent refused, read count shown to the owner, revoke stops reads at once, requester with approver role cannot approve own request, expired grant refused; data export single open request and step order enforced; audit readable by the auditor only and contains each action; system health permission; phone-like display names masked.
+
+Checked by hand: app (Expo web) Account → Contact our team → new ticket; console → Overview (1 open ticket, shops by state) → Support → ticket → reply from Dev Operator.
+
+Open item: the Expo web preview lost its stored session once after an API restart (server session not revoked, no refresh recorded); not reproduced, watch for it on devices.

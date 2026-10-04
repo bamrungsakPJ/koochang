@@ -875,3 +875,105 @@ test('payments: owner invoice and private proof; operator confirms money once; r
   await denied('fs_platform', 'SELECT count(*) FROM billing.payments');
   await denied('fs_platform', 'SELECT count(*) FROM core.customers');
 });
+
+// C02 -------------------------------------------------------------------------------------------
+test('platform admin: shop metadata only, suspend/restore and grants with audit; support access needs owner consent, a second approver and expires', { skip }, async () => {
+  const { owner, tech, shopId } = await shopWithTechnician('Adm');
+  const admin = await platformLogin(await platformAccount('Admin', ['platform_admin']));
+  const agentAccount = await platformAccount('Agent', ['support_agent']);
+  const agent = await platformLogin(agentAccount);
+  const other = await platformLogin(await platformAccount('Agent2', ['support_agent']));
+  const both = await platformLogin(await platformAccount('AgentAdmin', ['support_agent', 'platform_admin']));
+  const auditor = await platformLogin(await platformAccount('Auditor', ['auditor']));
+
+  // Shops: search, masked owner phone, no customer content; viewing is audited.
+  const found = (await call('GET', '/platform/shops?q=Adm', { token: admin })).body.items.find(s => s.id === shopId);
+  assert.ok(found && found.owner_phone.includes('•') && found.state === 'trialing', JSON.stringify(found));
+  const detail = (await call('GET', `/platform/shops/${shopId}`, { token: admin })).body;
+  assert.deepEqual(Object.keys(detail).sort(), ['entitlement', 'grants', 'invoices', 'organization', 'periods', 'platform_history', 'team', 'usage']);
+  assert.ok(detail.team.every(m => !m.phone || m.phone.includes('•')));
+  assert.equal((await call('GET', '/platform/overview', { token: admin })).status, 200);
+  assert.equal((await call('GET', '/platform/shops', { token: auditor })).status, 200);
+  assert.equal((await call('POST', `/platform/shops/${shopId}/suspend`, { token: agent, body: { reason: 'x' } })).body.code, 'PERMISSION_DENIED');
+
+  // Suspension wins over the trial; restore returns to it without a new period.
+  assert.equal((await call('POST', `/platform/shops/${shopId}/suspend`, { token: admin, body: {} })).status, 400, 'reason required');
+  assert.equal((await call('POST', `/platform/shops/${shopId}/suspend`, { token: admin, body: { reason: 'รายงานการใช้ผิดวัตถุประสงค์' } })).status, 200);
+  const blocked = await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token, body: { request_key: randomUUID(), phone: '0855500033', location: { label: 'บ้าน' } } });
+  assert.deepEqual([blocked.status, blocked.body.code], [403, 'ORGANIZATION_SUSPENDED']);
+  assert.equal((await call('GET', `/organizations/${shopId}/support`, { token: owner.access_token })).status, 200, 'support stays reachable while suspended');
+  assert.equal((await call('POST', `/platform/shops/${shopId}/restore`, { token: admin, body: { reason: 'ตรวจแล้วไม่พบปัญหา' } })).status, 200);
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.state, 'trialing');
+
+  // Grants raise limits until they end; at most 180 days.
+  const until = new Date(Date.now() + 30 * 86400000).toISOString();
+  assert.equal((await call('POST', `/platform/shops/${shopId}/grants`, { token: admin, body: { kind: 'pilot', reason: 'ร้านนำร่อง', valid_until: new Date(Date.now() + 400 * 86400000).toISOString(), entitlements: { technician_seats: 20 } } })).status, 400);
+  const grant = await call('POST', `/platform/shops/${shopId}/grants`, { token: admin, body: { kind: 'pilot', reason: 'ร้านนำร่อง', valid_until: until, entitlements: { technician_seats: 20 } } });
+  assert.equal(grant.status, 201, JSON.stringify(grant.body));
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.limits.technician_seats, 20);
+  assert.equal((await call('POST', `/platform/grants/${grant.body.grant_id}/end`, { token: admin, body: { reason: 'จบการทดลอง' } })).status, 200);
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.limits.technician_seats, 3);
+
+  // Support ticket: public replies reach the owner, internal notes do not.
+  assert.equal((await call('POST', `/organizations/${shopId}/support/tickets`, { token: tech.access_token, body: { subject: 'x', body: 'y' } })).status, 403);
+  const ticket = (await call('POST', `/organizations/${shopId}/support/tickets`, { token: owner.access_token, body: { subject: 'รูปไม่ขึ้น', body: 'ถ่ายรูปป้ายแล้วไม่ขึ้น' } })).body;
+  assert.ok((await call('GET', '/platform/tickets', { token: agent })).body.items.some(t => t.id === ticket.ticket_id));
+  assert.equal((await call('POST', `/platform/tickets/${ticket.ticket_id}`, { token: agent, body: { body: 'ขอตรวจสอบข้อมูลอุปกรณ์ครับ', assign_to_me: true } })).status, 200);
+  assert.equal((await call('POST', `/platform/tickets/${ticket.ticket_id}`, { token: agent, body: { body: 'น่าจะเป็นปัญหา OCR provider', internal: true } })).status, 200);
+  let mine = (await call('GET', `/organizations/${shopId}/support`, { token: owner.access_token })).body;
+  assert.deepEqual(mine.tickets[0].messages.map(m => m.from_platform), [false, true], 'internal notes stay internal');
+  assert.equal(mine.tickets[0].status, 'in_progress');
+  assert.ok((await call('GET', `/organizations/${shopId}/notifications`, { token: owner.access_token })).body.items.some(n => n.template_key === 'support_reply'));
+  assert.equal((await call('POST', `/organizations/${shopId}/support/tickets/${ticket.ticket_id}/messages`, { token: owner.access_token, body: { body: 'ขอบคุณครับ' } })).status, 201);
+
+  // Access: request → owner consent → a different approver → read within scope and time.
+  await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token, body: { request_key: randomUUID(), name: 'ลูกค้าลับ', phone: '0855500044', location: { label: 'บ้าน' } } });
+  const access = (await call('POST', `/platform/tickets/${ticket.ticket_id}/access`, { token: agent, body: { scope: ['customers'], minutes: 30, reason: 'ตรวจข้อมูลลูกค้า' } })).body;
+  assert.equal((await call('POST', `/platform/tickets/${ticket.ticket_id}/access`, { token: agent, body: { scope: ['customers'], minutes: 90, reason: 'x' } })).status, 400, 'at most 60 minutes');
+  assert.equal((await call('GET', `/platform/access/${access.grant_id}/read/customers`, { token: agent })).body.code, 'PERMISSION_DENIED', 'nothing before approval');
+  assert.equal((await call('POST', `/platform/access/${access.grant_id}/approve`, { token: admin, body: {} })).body.code, 'OWNER_CONSENT_REQUIRED');
+  mine = (await call('GET', `/organizations/${shopId}/support`, { token: owner.access_token })).body;
+  assert.equal(mine.access[0].status, 'pending');
+  assert.ok((await call('GET', `/organizations/${shopId}/notifications`, { token: owner.access_token })).body.items.some(n => n.template_key === 'support_access_requested'));
+  assert.equal((await call('POST', `/organizations/${shopId}/support/access/${access.grant_id}/consent`, { token: tech.access_token })).status, 403);
+  assert.equal((await call('POST', `/organizations/${shopId}/support/access/${access.grant_id}/consent`, { token: owner.access_token })).status, 201);
+  assert.equal((await call('POST', `/platform/access/${access.grant_id}/approve`, { token: agent, body: {} })).body.code, 'PERMISSION_DENIED');
+  assert.equal((await call('POST', `/platform/access/${access.grant_id}/approve`, { token: admin, body: {} })).status, 200);
+  const read = await call('GET', `/platform/access/${access.grant_id}/read/customers`, { token: agent });
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  assert.ok(read.body.rows.some(c => c.name === 'ลูกค้าลับ' && c.phone.includes('•')));
+  assert.equal((await call('GET', `/platform/access/${access.grant_id}/read/jobs`, { token: agent })).body.code, 'PERMISSION_DENIED', 'outside the consented scope');
+  assert.equal((await call('GET', `/platform/access/${access.grant_id}/read/customers`, { token: other })).body.code, 'PERMISSION_DENIED', 'only the requesting agent');
+  mine = (await call('GET', `/organizations/${shopId}/support`, { token: owner.access_token })).body;
+  assert.deepEqual([mine.access[0].status, mine.access[0].reads], ['active', 1]);
+  assert.equal((await call('POST', `/organizations/${shopId}/support/access/${access.grant_id}/revoke`, { token: owner.access_token })).status, 201);
+  assert.equal((await call('GET', `/platform/access/${access.grant_id}/read/customers`, { token: agent })).body.code, 'PERMISSION_DENIED', 'revoked at once');
+
+  // A requester holding the approver role still cannot approve their own request; expired grants stop.
+  const own = (await call('POST', `/platform/tickets/${ticket.ticket_id}/access`, { token: both, body: { scope: ['jobs'], minutes: 10, reason: 'ตรวจงาน' } })).body;
+  await call('POST', `/organizations/${shopId}/support/access/${own.grant_id}/consent`, { token: owner.access_token });
+  assert.equal((await call('POST', `/platform/access/${own.grant_id}/approve`, { token: both, body: {} })).body.code, 'SELF_APPROVAL_FORBIDDEN');
+  assert.equal((await call('POST', `/platform/access/${own.grant_id}/approve`, { token: admin, body: {} })).status, 200);
+  assert.equal((await call('GET', `/platform/access/${own.grant_id}/read/jobs`, { token: both })).status, 200);
+  await db.query("UPDATE platform.support_access_grants SET valid_from = now() - interval '2 hours', valid_until = now() - interval '90 minutes' WHERE id = $1", [own.grant_id]);
+  assert.equal((await call('GET', `/platform/access/${own.grant_id}/read/jobs`, { token: both })).body.code, 'PERMISSION_DENIED', 'expired');
+
+  // Data export request: one open at a time; staff record each step.
+  const exp = (await call('POST', `/organizations/${shopId}/support/data-requests`, { token: owner.access_token, body: { reason: 'สำรองข้อมูล' } })).body;
+  assert.equal((await call('POST', `/organizations/${shopId}/support/data-requests`, { token: owner.access_token, body: {} })).body.request_id, exp.request_id);
+  assert.equal((await call('POST', `/platform/data-requests/${exp.request_id}`, { token: admin, body: { status: 'succeeded' } })).status, 422, 'no skipping steps');
+  for (const status of ['approved', 'running', 'succeeded']) assert.equal((await call('POST', `/platform/data-requests/${exp.request_id}`, { token: admin, body: { status, note: status } })).status, 200);
+  assert.equal((await call('GET', `/organizations/${shopId}/support`, { token: owner.access_token })).body.data_requests[0].status, 'succeeded');
+
+  // Audit: readable by the auditor only, with the support reads linked to their grant.
+  assert.equal((await call('GET', `/platform/audit?organization_id=${shopId}`, { token: agent })).body.code, 'PERMISSION_DENIED');
+  const audit = (await call('GET', `/platform/audit?organization_id=${shopId}`, { token: auditor })).body.items;
+  for (const a of ['shop.viewed', 'shop.suspended', 'shop.restored', 'grant.created', 'grant.ended', 'support_access.requested', 'support_access.owner_consent',
+    'support_access.approved', 'support.read', 'support_access.owner_revoke', 'data_request.succeeded']) assert.ok(audit.some(r => r.action === a), a);
+  assert.ok(audit.filter(r => r.action === 'support.read').every(r => r.support_grant_id));
+  assert.equal((await call('GET', '/platform/system', { token: admin })).status, 200);
+  assert.equal((await call('GET', '/platform/system', { token: auditor })).body.code, 'PERMISSION_DENIED');
+  // A display name that is a phone number is masked like a phone on platform views.
+  await db.exec('BEGIN; SET LOCAL ROLE fs_platform;');
+  try { assert.equal((await db.query("SELECT padmin.person_name('+66812345678') AS n")).rows[0].n, '+66•••••5678'); } finally { await db.exec('ROLLBACK'); }
+});

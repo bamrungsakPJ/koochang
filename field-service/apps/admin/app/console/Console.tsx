@@ -1,21 +1,33 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Language } from '@field-service/core';
+import type { AdminKey } from '@field-service/i18n';
 import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useText, type Me } from './api';
 import { InvoiceView, PaymentsView, ReconcileView, RefundsView } from './payments';
+import { AccessView, AuditView, DataRequestsView, OverviewView, ShopsView, ShopView, SystemView, TicketsView, TicketView } from './admin';
 
-type View = { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' };
-const nav: { name: View['name']; key: 'navPayments' | 'navRefunds' | 'navReconcile'; permission: string }[] = [
+type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
+  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' };
+type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data';
+const nav: { name: NavName; key: AdminKey; permission: string }[] = [
+  { name: 'overview', key: 'navOverview', permission: 'shops.read' },
+  { name: 'shops', key: 'navShops', permission: 'shops.read' },
   { name: 'payments', key: 'navPayments', permission: 'billing.read' },
   { name: 'refunds', key: 'navRefunds', permission: 'billing.read' },
   { name: 'reconcile', key: 'navReconcile', permission: 'billing.read' },
+  { name: 'support', key: 'navSupport', permission: 'support.read' },
+  { name: 'access', key: 'navAccess', permission: 'access.approve' },
+  { name: 'data', key: 'navData', permission: 'data.manage' },
+  { name: 'audit', key: 'navAudit', permission: 'audit.read' },
+  { name: 'system', key: 'navSystem', permission: 'system.read' },
 ];
+const parent: Partial<Record<View['name'], NavName>> = { invoice: 'payments', shop: 'shops', ticket: 'support' };
 
 export function Console() {
   const [language, setLanguage] = useState<Language>('th');
   const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
-  const [view, setView] = useState<View>({ name: 'payments' });
+  const [view, setView] = useState<View | null>(null);
   const stepUpResolve = useRef<((ok: boolean) => void) | null>(null);
   const [stepUpOpen, setStepUpOpen] = useState(false);
 
@@ -23,7 +35,7 @@ export function Console() {
     const saved = (() => { try { return localStorage.getItem('console.language'); } catch { return null; } })();
     const lang = normalizeLanguage(saved ?? navigator.language);
     setLanguage(lang); setApiLanguage(lang);
-    setOnSignedOut(() => setMe(null));
+    setOnSignedOut(() => { setMe(null); setView(null); });
     if (session.get()) call<Me>('GET', '/platform/auth/me').then(setMe, () => setMe(null)).finally(() => setReady(true));
     else setReady(true);
   }, []);
@@ -38,12 +50,24 @@ export function Console() {
   else if (!me) content = <SignIn onSignedIn={setMe} />;
   else {
     const allowed = nav.filter(n => me.permissions.includes(n.permission));
-    const body = view.name === 'invoice' ? <InvoiceView id={view.id} me={me} onBack={() => setView({ name: 'payments' })} />
-      : !allowed.some(n => n.name === view.name) ? <NoPermission />
-      : view.name === 'payments' ? <PaymentsView onOpen={id => setView({ name: 'invoice', id })} />
-      : view.name === 'refunds' ? <RefundsView me={me} onOpen={id => setView({ name: 'invoice', id })} />
-      : <ReconcileView />;
-    content = <Shell me={me} view={view.name} items={allowed} onNavigate={name => setView({ name } as View)}
+    const current: View = view ?? (allowed[0] ? { name: allowed[0].name } as View : { name: 'overview' });
+    const section = parent[current.name] ?? current.name;
+    const go = (name: string) => setView({ name } as View);
+    const body = !allowed.some(n => n.name === section) ? <NoPermission />
+      : current.name === 'invoice' ? <InvoiceView id={current.id} me={me} onBack={() => go('payments')} />
+      : current.name === 'shop' ? <ShopView id={current.id} me={me} onBack={() => go('shops')} />
+      : current.name === 'ticket' ? <TicketView id={current.id} me={me} onBack={() => go('support')} />
+      : current.name === 'overview' ? <OverviewView onNavigate={name => { if (allowed.some(n => n.name === name)) go(name); }} />
+      : current.name === 'payments' ? <PaymentsView onOpen={id => setView({ name: 'invoice', id })} />
+      : current.name === 'refunds' ? <RefundsView me={me} onOpen={id => setView({ name: 'invoice', id })} />
+      : current.name === 'reconcile' ? <ReconcileView />
+      : current.name === 'shops' ? <ShopsView onOpen={id => setView({ name: 'shop', id })} />
+      : current.name === 'support' ? <TicketsView onOpen={id => setView({ name: 'ticket', id })} />
+      : current.name === 'access' ? <AccessView me={me} />
+      : current.name === 'audit' ? <AuditView />
+      : current.name === 'system' ? <SystemView />
+      : <DataRequestsView />;
+    content = <Shell me={me} view={section} items={allowed} onNavigate={go}
       onSignOut={async () => { try { await call('POST', '/platform/auth/logout'); } catch { /* ignore */ } session.set(null); setMe(null); }}>{body}</Shell>;
   }
 
@@ -64,12 +88,12 @@ function LanguageSelect({ value, onChange }: { value: Language; onChange: (v: La
   </select>;
 }
 
-function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; view: string; items: typeof nav; onNavigate: (name: View['name']) => void; onSignOut: () => void; children: ReactNode }) {
+function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; view: string; items: typeof nav; onNavigate: (name: NavName) => void; onSignOut: () => void; children: ReactNode }) {
   const t = useText();
   return <div className="shell">
     <aside className="side">
       <div className="logo">{t('consoleTitle')}</div>
-      <nav>{items.map(n => <button key={n.name} className={view === n.name || (view === 'invoice' && n.name === 'payments') ? 'nav on' : 'nav'} onClick={() => onNavigate(n.name)}>{t(n.key)}</button>)}</nav>
+      <nav>{items.map(n => <button key={n.name} className={view === n.name ? 'nav on' : 'nav'} onClick={() => onNavigate(n.name)}>{t(n.key)}</button>)}</nav>
       <div className="who"><strong>{me.display_name}</strong><span>{me.email}</span><span className="muted">{t('roles')}: {me.roles.join(', ')}</span>
         <button className="ghost" onClick={onSignOut}>{t('signOut')}</button></div>
     </aside>

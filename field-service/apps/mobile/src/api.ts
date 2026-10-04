@@ -67,6 +67,11 @@ export interface Invoice extends InvoiceSummary {
   payment: { amount_minor: string; verified_at: string; refunded_minor: string } | null; period: { start_at: string; end_at: string } | null;
   pay_to: { bank_name: string; account_name: string; account_number: string; promptpay_id: string | null; reference: string } | null;
 }
+export interface SupportOverview {
+  tickets: { id: string; subject: string; status: string; created_at: string; last_message_at: string; messages: { id: string; body: string; from_platform: boolean; created_at: string }[] | null }[];
+  access: { id: string; ticket_id: string; agent: string; scope: string[]; reason: string; duration_minutes: number; status: string; valid_until: string | null; created_at: string; reads: number; consented?: boolean }[];
+  data_requests: { id: string; type: string; status: string; created_at: string; completed_at: string | null; note: string | null }[];
+}
 export type ContactResult = 'no_answer' | 'interested' | 'call_later' | 'declined' | 'booked';
 export interface MaintenanceItem {
   id: string; due_date: string; version: number; service_type: string; interval_months: number | null; equipment_id: string; equipment_name: string | null; category: string;
@@ -207,6 +212,11 @@ export class Api {
   uploadProof(organizationId: string, invoiceId: string, proofId: string, data: Blob, mimeType: string) {
     return this.call<Invoice>('PUT', `/organizations/${organizationId}/billing/invoices/${invoiceId}/proof?proof_id=${proofId}`, data, true, { 'content-type': mimeType });
   }
+  support(organizationId: string) { return this.call<SupportOverview>('GET', `/organizations/${organizationId}/support`); }
+  openTicket(organizationId: string, subject: string, body: string) { return this.call<{ ticket_id: string }>('POST', `/organizations/${organizationId}/support/tickets`, { subject, body }); }
+  replyTicket(organizationId: string, ticketId: string, body: string) { return this.call('POST', `/organizations/${organizationId}/support/tickets/${ticketId}/messages`, { body }); }
+  supportAccess(organizationId: string, grantId: string, action: 'consent' | 'refuse' | 'revoke') { return this.call('POST', `/organizations/${organizationId}/support/access/${grantId}/${action}`); }
+  requestExport(organizationId: string) { return this.call('POST', `/organizations/${organizationId}/support/data-requests`, {}); }
   maintenance(organizationId: string, days = 30) { return this.call<MaintenanceList>('GET', `/organizations/${organizationId}/maintenance?days=${days}`); }
   logContact(organizationId: string, cycleId: string, body: { result: ContactResult; note?: string; next_contact_on?: string | null }) {
     return this.call('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/contacts`, body);

@@ -1,0 +1,16 @@
+# C02 decisions — platform administration (2026-10-04)
+
+| # | Topic | Decision | Why |
+|---|---|---|---|
+| 1 | What staff see | Shop list/detail: name, status, time zone, entitlement, usage, team (names, roles, statuses), periods, grants, invoices and platform history. Owner/member phones are masked (country code + last 4); display names that are phone numbers are masked the same way (migration 012). No customers, jobs, equipment or photos. Opening a shop is audited (`shop.viewed`). | Functional §23: admins are not owners of every shop. |
+| 2 | Roles → permissions | Seven roles as in the spec. C02 adds `access.approve` (platform_admin, super_admin), `data.manage` (platform_admin) and `support.read` for auditors. Super admin manages accounts/audit but gets no tenant content. | Least privilege per endpoint, checked in the API and inside each `padmin` function. |
+| 3 | Suspend / restore | `shops.suspend`, reason required, step-up. Suspension overrides every period and grant (entitlement `suspended`); restore returns to the existing subscription without a new period. Shop routes answer `ORGANIZATION_SUSPENDED`; support routes stay open for the owner. | Functional §22–23. |
+| 4 | Temporary grants | `grants.manage`, step-up: kind pilot / compensation / temporary upgrade, reason, end date ≤ 180 days, positive seat/storage/OCR values. Grants only raise limits; ending sets the end to now and is audited. | Commercial §8. |
+| 5 | Support tickets | Owner opens and replies in the app; staff reply (owner notified) or add internal notes the shop never sees; assign to self; status open → in progress → resolved/closed. A reply from the shop reopens a resolved ticket. | Functional §23 Support. |
+| 6 | Support access | Agent requests read-only access within a ticket (scope customers / equipment / jobs / service history, 5–60 minutes, reason) → owner consents in the app (or refuses) → a platform approver who is not the requester approves (step-up) → the window starts at approval. Only the requesting agent can read, only the consented scope, until expiry or the owner's revocation. Every read is audited with the grant id; the owner sees the read count. No impersonation. | Functional §23.1, DB §18. |
+| 7 | Audit | `audit.read`: platform audit filtered by shop/action, 200 rows per page, append-only (C01). | DB §18.2. |
+| 8 | System health | `system.read`: OCR queue by status and oldest queued, push deliveries (7 days), stuck uploads, open reservations, latest scheduled reminder. | Functional §23 System. Backup age needs the backup job (stage D). |
+| 9 | Data requests | Owner requests an export (one open at a time); staff record each runbook step pending → approved → running → succeeded, or rejected/cancelled; no skipping. Generating and delivering the file stays a manual runbook step in the MVP. | Commercial §8 (manual operations with status and audit). |
+| 10 | Console | `/console` gains Overview, Shops (search, detail, suspend/restore, grants), Support (tickets, replies, notes, access requests and reading), Access approvals, Data requests, Audit and System, each shown only with its permission. | Functional §23. |
+
+Not in C02: closure/deletion execution, plan/price version editor, announcements, incident records, MFA recovery flow beyond the operator script, break-glass access.
