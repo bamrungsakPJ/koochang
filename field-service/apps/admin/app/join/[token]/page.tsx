@@ -34,7 +34,7 @@ export default function JoinLanding() {
           <p className="eyebrow">{t('joinShop')}</p>
           <h1>{t('joinWebTitle', { shop: preview.organization_name ?? '' })}</h1>
           <p>{t('joinWebBody')}</p>
-          <a className="primary" href={`fieldservice://join/${token}`}>{t('openInApp')}</a>
+          <a className="primary" href={`${process.env.NEXT_PUBLIC_APP_JOIN_URL ?? 'fieldservice://join/'}${token}`}>{t('openInApp')}</a>
           <p className="hint">{t('joinWebInstall')}</p>
         </> : <>
           <h1>{t('linkInvalidTitle')}</h1>

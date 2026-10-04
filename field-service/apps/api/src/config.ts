@@ -34,7 +34,7 @@ export function loadAuthSettings(env: NodeJS.ProcessEnv = process.env): AuthSett
     production,
     otpSecret: secret(env.OTP_SECRET, 32),
     joinLinkKey: joinKey && joinKey.length === 32 ? joinKey : undefined,
-    joinLinkBaseUrl: (env.JOIN_LINK_BASE_URL ?? (production ? '' : 'http://localhost:3000/join')).replace(/\/+$/, ''),
+    joinLinkBaseUrl: (env.JOIN_LINK_BASE_URL ?? (production ? '' : 'http://localhost:3001/join')).replace(/\/+$/, ''),
     otpTtlSeconds: int(env.OTP_TTL_SECONDS, 300),
     otpMaxAttempts: int(env.OTP_MAX_ATTEMPTS, 5),
     otpCooldownSeconds: int(env.OTP_COOLDOWN_SECONDS, 60),
