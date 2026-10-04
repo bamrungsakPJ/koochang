@@ -1,8 +1,9 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, Res, UseGuards } from '@nestjs/common';
-import type { Response } from 'express';
 import { PLATFORM_SETTINGS, type PlatformSettings } from '../config.js';
 import { RequestId, Session, type SessionContext } from '../auth/session.guard.js';
 import { SessionGuard } from '../auth/session.guard.js';
+/** Only what these handlers use; the API does not depend on express types directly. */
+type Response = { setHeader: (name: string, value: string) => void; json: (body: unknown) => void; send: (body: string | Buffer) => void };
 import { DatabaseService } from '../database/database.service.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { decrypt, encrypt } from '../shared/crypto.js';
