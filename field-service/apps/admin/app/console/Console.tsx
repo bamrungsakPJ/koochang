@@ -90,7 +90,7 @@ export function Console() {
       : current.name === 'staff' ? <StaffView me={me}/>
       : current.name === 'catalog' ? <CatalogView me={me}/>
       : current.name === 'approvals' ? <ApprovalsView me={me}/>
-      : current.name === 'policy' ? <PolicyView/>
+      : current.name === 'policy' ? <PolicyView me={me}/>
       : current.name === 'communications' ? <CommunicationsView/>
       : current.name === 'operations' ? <OperationsView me={me}/>
       : current.name === 'paymentSettings' ? <PaymentSettingsView />

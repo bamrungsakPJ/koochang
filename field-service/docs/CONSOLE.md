@@ -17,8 +17,12 @@ Shop sessions and platform sessions remain separate. Thai and English are availa
   clears password and MFA after a second person approves; then **Create new invitation link**
   (each new link revokes the previous one).
 - **Approvals**: role, recovery, plan and policy requests shown as readable details (who, which
-  account, new roles, prices, policy values). Requester and approver must differ; nobody approves
-  a change about their own account.
+  account, new roles, prices, policy values). For other roles the requester and approver must differ.
+- **Super admin acts directly** (owner decision 2026-10-04, migration 021): has every permission;
+  role / recovery / plan / policy requests apply immediately; may approve own refunds, own support
+  access requests and execute closures/deletions they approved. Each such action is audited with
+  `self_approved`. Still enforced: shop-owner consent for support access, holds / retention /
+  unsettled-payment blocks, no disabling or recovering one's own account, last super admin kept.
 - **Payments** (50 per page), proof exceptions, invoice details, refunds (two people),
   **Reconciliation**: CSV per Bangkok day and a **finance summary** (received, refunded, net, by
   confirmation channel / plan / day, unpaid invoices, pending refunds, paying shops; ≤ 366 days).
@@ -37,7 +41,7 @@ Shop sessions and platform sessions remain separate. Thai and English are availa
 
 ## Setup and runtime behavior
 
-Apply migrations **001–020** using fs_migrator (64 core/billing/platform/ops tables).
+Apply migrations **001–021** using fs_migrator (64 core/billing/platform/ops tables).
 Platform functions use the separate fs_platform connection in `PLATFORM_DATABASE_URL`.
 `settings.manage` belongs to super_admin/platform_admin; Stripe uses `payments.manage`.
 

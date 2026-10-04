@@ -58,14 +58,15 @@ test('invitation requires allowed roles, stores hashes, verifies MFA, and cannot
  const second=await ok(one,'/staff/invite',{email:'expired@test.invalid',display_name:'Expired',roles:['support_agent']});await db.query("UPDATE platform.staff_invitations SET expires_at=now()-interval '1 minute' WHERE account_id=$1",[second.account_id]);assert.equal((await http(null,'/enrollment/setup',{token:second.token})).status,404);
  const audit=JSON.stringify((await db.query('SELECT details FROM platform.audit_logs')).rows);assert.ok(!audit.includes(invite.token));assert.ok(!audit.includes(setup.secret));
 });
-test('role changes require a different approver, revoke target sessions and reject stale requests',async()=>{
+test('a super admin role change applies at once, revokes target sessions and refuses stale versions',async()=>{
  const target=await account('support_agent'),version=(await db.query('SELECT version FROM platform.accounts WHERE id=$1',[target.id])).rows[0].version;
  const change=await ok(one,'/changes',{kind:'roles',target_id:target.id,version,payload:{roles:['billing_approver']},reason:'Separate finance approval'});
- assert.equal((await http(one,`/changes/${change.id}/decision`,{approve:true,note:'Self'})).status,403);
- await ok(two,`/changes/${change.id}/decision`,{approve:true,note:'Reviewed'});
+ const row=(await db.query('SELECT status,decided_by FROM platform.change_requests WHERE id=$1',[change.id])).rows[0];assert.equal(row.status,'approved');assert.equal(row.decided_by,one.id);
+ assert.equal((await db.query("SELECT r.code FROM platform.account_roles ar JOIN platform.roles r ON r.id=ar.role_id WHERE ar.account_id=$1",[target.id])).rows[0].code,'billing_approver');
  assert.equal((await http(target,'/overview')).status,401);assert.equal((await http(one,'/changes',{kind:'roles',target_id:target.id,version,payload:{roles:['support_agent']},reason:'Stale'})).status,403);
  assert.equal((await http(two,`/changes/${change.id}/decision`,{approve:true,note:'Replay'})).status,422);
  assert.equal((await http(one,`/staff/${one.id}/action`,{action:'disable',version:1,reason:'Self disable'})).status,403);
+ const audit=(await db.query("SELECT details FROM platform.audit_logs WHERE target_id=$1 AND action='approval.approved'",[change.id])).rows[0].details;assert.equal(audit.self_approved,true);
 });
 test('immutable plan publications support month/year, protect old invoices and require two people',async()=>{
  assert.equal((await http(admin,'/catalog/drafts',{payload:{...draftPayload,prices:[{interval_unit:'month',amount_minor:-1}]}})).status,400);
@@ -118,7 +119,7 @@ test('delivery retry keeps its identity, refuses sent rows and does not reveal d
  assert.equal((await http(ops,`/operations/deliveries/${row.id}/retry`,{version:row.version,reason:'Replay'})).status,409);
  await db.query("UPDATE ops.notification_deliveries SET status='sent' WHERE id=$1",[row.id]);const count=(await db.query('SELECT count(*)::int AS n FROM ops.notification_deliveries WHERE notification_id=$1',[n])).rows[0].n;assert.equal(count,1);
 });
-async function request(shop,kind){const d=await a.one('SELECT auth.request_privacy($1,$2,$3,$4) AS v',[shop.owner.userId,shop.organizationId,kind,'Synthetic owner request']);await ok(one,`/data-requests/${d.v.request_id}`,{status:'approved',note:'Verified owner request'});return d.v.request_id;}
+async function request(shop,kind){const d=await a.one('SELECT auth.request_privacy($1,$2,$3,$4) AS v',[shop.owner.userId,shop.organizationId,kind,'Synthetic owner request']);await ok(admin,`/data-requests/${d.v.request_id}`,{status:'approved',note:'Verified owner request'});return d.v.request_id;}
 test('owner export is generated, encrypted, expires, remains private and cannot be falsely completed',async()=>{
  const shop=await a.createShop('Private export'),other=await a.createShop('Other export');await db.query('INSERT INTO core.customers(organization_id,name) VALUES($1,$2)',[shop.organizationId,'Private customer']);const id=await request(shop,'export');
  assert.equal((await http(one,`/data-requests/${id}`,{status:'succeeded',note:'Skip export'})).status,422);
@@ -131,7 +132,7 @@ test('privacy execution enforces separate staff, holds, cooling and runs erasure
  const shop=await a.createShop('Erase synthetic shop');await db.query('INSERT INTO core.customers(organization_id,name,phone,phone_normalized,note) VALUES($1,$2,$3,$3,$4)',[shop.organizationId,'Private erased customer','+66991234567','Secret note']);
  await db.query("INSERT INTO core.media_assets(organization_id,object_key,thumbnail_key,mime_type,size_bytes,uploaded_by,status) VALUES($1,'synthetic/original.jpg','synthetic/thumb.jpg','image/jpeg',10,$2,'pending_upload')",[shop.organizationId,shop.owner.userId]);
  const id=await request(shop,'deletion');let preview=await ok(two,`/privacy/requests/${id}`);
- assert.equal((await http(one,`/privacy/requests/${id}/execute`,{version:preview.request.version,note:'Self execute'})).status,403);
+ assert.equal((await http(admin,`/privacy/requests/${id}/execute`,{version:preview.request.version,note:'Self execute'})).status,403);
  assert.equal((await http(two,`/privacy/requests/${id}/execute`,{version:preview.request.version,note:'Too soon'})).status,422);
  await db.query("UPDATE platform.data_requests SET created_at=now()-interval '2 days' WHERE id=$1",[id]);await ok(one,'/privacy/holds',{organization_id:shop.organizationId,reason:'Synthetic hold'});preview=await ok(two,`/privacy/requests/${id}`);
  assert.equal((await http(two,`/privacy/requests/${id}/execute`,{version:preview.request.version,note:'Held'})).status,422);

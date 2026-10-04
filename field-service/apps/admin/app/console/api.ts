@@ -78,3 +78,6 @@ export const dateTime = (value: string | Date | null | undefined, lang: Language
   ? new Intl.DateTimeFormat(lang === 'th' ? 'th-TH-u-ca-buddhist' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok' }).format(new Date(value)) : '—';
 export const dateOnly = (value: string | Date | null | undefined, lang: Language) => value
   ? new Intl.DateTimeFormat(lang === 'th' ? 'th-TH-u-ca-buddhist' : 'en-GB', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(new Date(value)) : '—';
+
+/** A super admin acts without a second approver (owner decision 2026-10-04). */
+export const isSuperAdmin = (me: Me) => me.roles.includes('super_admin');

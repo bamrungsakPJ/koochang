@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { translate, type TranslationKey, type AdminKey } from '@field-service/i18n';
-import { call, ConsoleError, dateOnly, dateTime, download, money, useLanguage, useStepUp, useText, type Me } from './api';
+import { call, ConsoleError, dateOnly, dateTime, download, isSuperAdmin, money, useLanguage, useStepUp, useText, type Me } from './api';
 import { Pager, type Page } from './admin';
 
 interface QueueRow { invoice_id: string; number: string; organization_name: string; amount_minor: string; status: string; plan_name_th: string; plan_name_en: string;
@@ -171,7 +171,7 @@ function RefundActions({ refund, me, onDone }: { refund: { id: string; status: s
     try { await stepUp(() => call('POST', `/platform/billing/refunds/${refund.id}/${path}`, body)); onDone(); }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
-  const approver = me.permissions.includes('refund.approve') && refund.requested_by !== me.id;
+  const approver = me.permissions.includes('refund.approve') && (refund.requested_by !== me.id || isSuperAdmin(me));
   return <div className="actions">
     {refund.status === 'pending' && approver ? <>
       <button className="primary small" disabled={busy} onClick={() => act('approve', {})}>{t('approve')}</button>

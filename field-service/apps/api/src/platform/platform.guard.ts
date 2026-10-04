@@ -35,7 +35,8 @@ export class PlatformGuard implements CanActivate {
     request.platform = { sessionId: row.session_id, accountId: row.account_id, displayName: row.display_name, email: row.email, language: row.preferred_language,
       permissions: row.permissions, roles: row.roles, stepUpAt: row.step_up_at, tokenHash };
     const needed = this.reflector.getAllAndOverride<string | undefined>(PERMISSION, [context.getHandler(), context.getClass()]);
-    if (needed && !row.permissions.includes(needed)) throw apiError(403, 'PERMISSION_DENIED');
+    // A super admin may do everything (owner decision 2026-10-04); SQL functions check the same way.
+    if (needed && !row.roles.includes('super_admin') && !row.permissions.includes(needed)) throw apiError(403, 'PERMISSION_DENIED');
     const stepUp = this.reflector.getAllAndOverride<boolean | undefined>(STEP_UP, [context.getHandler(), context.getClass()]);
     if (stepUp && (!row.step_up_at || Date.now() - new Date(row.step_up_at).getTime() > STEP_UP_WINDOW_MS)) throw apiError(403, 'STEP_UP_REQUIRED');
     return true;

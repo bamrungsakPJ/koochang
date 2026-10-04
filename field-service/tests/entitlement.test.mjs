@@ -131,7 +131,8 @@ test('stopping renewal ends the subscription without grace; resuming restores gr
 test('upgrading to Team applies its seat limit from the next period', async () => {
   const shop = await a.createShop('Upgrade');
   await age(shop.organizationId, 20);
-  await pay(shop.organizationId, await invoice(shop.organizationId, TEAM), new Date(), TEAM);
+  // A minute back: the test clock and the database clock may differ by a few milliseconds.
+  await pay(shop.organizationId, await invoice(shop.organizationId, TEAM), new Date(Date.now() - 60_000), TEAM);
   const e = await entitlement(shop.organizationId);
   assert.deepEqual([e.state, e.plan_code, e.technician_seats], ['active', 'team', 10]);
   assert.equal((await db.query('SELECT auth.technician_seat_limit($1) AS n', [shop.organizationId])).rows[0].n, 10);

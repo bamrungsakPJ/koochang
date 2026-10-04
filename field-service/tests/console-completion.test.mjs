@@ -43,12 +43,12 @@ async function http(who,path,body){const r=await fetch(`${base}/platform${path}`
 async function ok(who,path,body){const r=await http(who,path,body);assert.ok(r.status<300,`${path}: ${r.status} ${JSON.stringify(r.data)}`);return r.data;}
 async function enroll(token){const setup=await ok(null,'/enrollment/setup',{token});await ok(null,'/enrollment',{token,password:'synthetic-long-password',code:totpCode(setup.secret,Math.floor(Date.now()/30000))});}
 
-test('account recovery needs a second approver, resets credentials and only the newest invitation works',async()=>{
+test('super admin account recovery applies at once, resets credentials and only the newest invitation works',async()=>{
  const invite=await ok(one,'/staff/invite',{email:'recover@test.invalid',display_name:'Recover me',roles:['support_agent']});await enroll(invite.token);
  const target=invite.account_id,login=randomToken();await db.query("INSERT INTO platform.sessions(account_id,token_hash,mfa_verified_at,expires_at) VALUES($1,$2,now(),now()+interval '1 hour')",[target,sha256Hex(login)]);
  const change=await ok(one,'/changes',{kind:'recovery',target_id:target,version:await version(target),reason:'Lost authenticator'});
- assert.equal((await http(one,`/changes/${change.id}/decision`,{approve:true,note:'Self'})).status,403);
- await ok(two,`/changes/${change.id}/decision`,{approve:true,note:'Identity confirmed by phone call'});
+ assert.equal((await http(two,`/changes/${change.id}/decision`,{approve:true,note:'Already applied'})).status,422);
+ assert.equal((await http(one,'/changes',{kind:'recovery',target_id:one.id,version:await version(one.id),reason:'Own account'})).status,403);
  const row=(await db.query('SELECT status,password_hash,totp_secret_sealed,mfa_enrolled FROM platform.accounts WHERE id=$1',[target])).rows[0];
  assert.deepEqual([row.status,row.password_hash,row.totp_secret_sealed,row.mfa_enrolled],['invited',null,null,false]);
  assert.equal((await http({token:login},'/overview')).status,401);
@@ -60,28 +60,37 @@ test('account recovery needs a second approver, resets credentials and only the 
  const audit=(await db.query("SELECT action,details::text AS d FROM platform.audit_logs WHERE target_id=$1 OR target_id=$2",[target,change.id])).rows;
  assert.ok(audit.some(x=>x.action==='staff.reinvited'));assert.ok(audit.every(x=>!x.d.includes(second.token)));
 });
-test('an approver cannot decide a change about themselves; a pending change blocks a second one',async()=>{
- const c=await ok(one,'/changes',{kind:'roles',target_id:two.id,version:await version(two.id),payload:{roles:['super_admin','support_agent']},reason:'Add support duty'});
- assert.equal((await http(two,`/changes/${c.id}/decision`,{approve:true,note:'About me'})).status,403);
- assert.equal((await http(one,'/changes',{kind:'roles',target_id:two.id,version:await version(two.id),payload:{roles:['super_admin']},reason:'Duplicate'})).status,409);
- const third=await account('super_admin');await ok(third,`/changes/${c.id}/decision`,{approve:false,note:'Keep duties as they are'});
- assert.equal((await db.query('SELECT status FROM platform.change_requests WHERE id=$1',[c.id])).rows[0].status,'rejected');
+test('platform admins still need a second person; a super admin publishes directly and may decide any request',async()=>{
+ const admin=await account('platform_admin'),admin2=await account('platform_admin');
+ const draft=await ok(admin,'/catalog/drafts',{payload:{code:'two-person',name_th:'สองคน',name_en:'Two person',kind:'paid',technician_seats:2,storage_bytes:1000000000,ocr_per_period:5,trial_days:0,grace_days:3,effective_at:new Date().toISOString(),prices:[{interval_unit:'month',amount_minor:100}]}});
+ const c=await ok(admin,'/changes',{kind:'plan',target_id:draft.id,version:draft.version,reason:'Needs review'});
+ assert.equal((await db.query('SELECT status FROM platform.change_requests WHERE id=$1',[c.id])).rows[0].status,'pending');
+ assert.equal((await http(admin,`/changes/${c.id}/decision`,{approve:true,note:'About my own request'})).status,403);
+ await ok(admin2,`/changes/${c.id}/decision`,{approve:false,note:'Fix the price'});
+ const again=(await db.query('SELECT version FROM platform.plan_drafts WHERE id=$1',[draft.id])).rows[0].version;
+ const c2=await ok(admin,'/changes',{kind:'plan',target_id:draft.id,version:again,reason:'Second try'});
+ await ok(one,`/changes/${c2.id}/decision`,{approve:true,note:'Super admin decides'});
+ assert.equal((await db.query("SELECT count(*)::int AS n FROM billing.plans WHERE code='two-person'")).rows[0].n,1);
+ const own=await ok(one,'/catalog/drafts',{payload:{code:'super-direct',name_th:'ตรง',name_en:'Direct',kind:'paid',technician_seats:2,storage_bytes:1000000000,ocr_per_period:5,trial_days:0,grace_days:3,effective_at:new Date().toISOString(),prices:[{interval_unit:'month',amount_minor:200}]}});
+ await ok(one,'/changes',{kind:'plan',target_id:own.id,version:own.version,reason:'Publish directly'});
+ assert.equal((await db.query("SELECT count(*)::int AS n FROM billing.plans WHERE code='super-direct'")).rows[0].n,1);
 });
 test('a new trial version applies only to shops created after it takes effect',async()=>{
  const before=await a.createShop('Old trial');const days=async s=>(await db.query("SELECT round(extract(epoch FROM trial_end_at-trial_started_at)/86400)::int AS d FROM billing.subscriptions WHERE organization_id=$1",[s.organizationId])).rows[0].d;
  assert.equal(await days(before),14);
  const trial={code:'trial',name_th:'ทดลองใช้',name_en:'Trial',kind:'trial',technician_seats:2,storage_bytes:1000000000,ocr_per_period:10,trial_days:30,grace_days:0,prices:[]};
  const later=await ok(one,'/catalog/drafts',{payload:{...trial,trial_days:45,effective_at:new Date(Date.now()+86400000).toISOString()}});
- const c1=await ok(one,'/changes',{kind:'plan',target_id:later.id,version:later.version,reason:'Scheduled trial'});await ok(two,`/changes/${c1.id}/decision`,{approve:true,note:'Scheduled'});
+ await ok(one,'/changes',{kind:'plan',target_id:later.id,version:later.version,reason:'Scheduled trial'});
  assert.equal(await days(await a.createShop('Before schedule')),14);
  const now=await ok(one,'/catalog/drafts',{payload:{...trial,effective_at:new Date(Date.now()-60000).toISOString()}});
- const c2=await ok(one,'/changes',{kind:'plan',target_id:now.id,version:now.version,reason:'Longer trial'});await ok(two,`/changes/${c2.id}/decision`,{approve:true,note:'Approved'});
+ await ok(one,'/changes',{kind:'plan',target_id:now.id,version:now.version,reason:'Longer trial'});
  const after=await a.createShop('New trial');assert.equal(await days(after),30);assert.equal(await days(before),14);
  const period=(await db.query("SELECT plan_snapshot FROM billing.subscription_periods WHERE organization_id=$1",[after.organizationId])).rows[0].plan_snapshot;assert.equal(period.technician_seats,2);
  assert.equal((await db.query("SELECT plan_snapshot FROM billing.subscription_periods WHERE organization_id=$1",[before.organizationId])).rows[0].plan_snapshot.technician_seats,3);
  const zero=(await db.query("SELECT pr.amount_minor FROM billing.price_versions pr JOIN billing.plan_versions pv ON pv.id=pr.plan_version_id JOIN billing.plans p ON p.id=pv.plan_id WHERE p.code='trial' ORDER BY pv.version_no DESC LIMIT 1")).rows[0];assert.equal(Number(zero.amount_minor),0);
  const other=await ok(one,'/catalog/drafts',{payload:{...trial,code:'second-trial',effective_at:new Date().toISOString()}});
- const c3=await ok(one,'/changes',{kind:'plan',target_id:other.id,version:other.version,reason:'Second trial plan'});assert.equal((await http(two,`/changes/${c3.id}/decision`,{approve:true,note:'Only one trial'})).status,422);
+ assert.equal((await http(one,'/changes',{kind:'plan',target_id:other.id,version:other.version,reason:'Second trial plan'})).status,400);
+ assert.equal((await db.query('SELECT status FROM platform.plan_drafts WHERE id=$1',[other.id])).rows[0].status,'draft');
 });
 async function readyAsset(shop,status='ready'){return (await db.query(`INSERT INTO core.media_assets(organization_id,object_key,mime_type,size_bytes,status,uploaded_by,request_key,thumbnail_key,checksum,gps_metadata_stripped_at) VALUES($1,$2,'image/jpeg',1000,$3,$4,$5,$6,repeat('a',64),now()) RETURNING id`,[shop.organizationId,`${shop.organizationId}/t/${randomUUID()}.jpg`,status,shop.owner.userId,randomUUID(),`${shop.organizationId}/t/${randomUUID()}_thumb.jpg`])).rows[0].id;}
 async function failedOcr(shop){const key=randomUUID();assert.equal((await a.one('SELECT * FROM auth.reserve_usage($1,$2,$3,$4,1,600)',[shop.owner.userId,shop.organizationId,'ocr',key])).outcome,'reserved');
@@ -146,7 +155,7 @@ test('incident summary lists unresolved incidents by severity and the latest res
  assert.equal((await http(operator,'/incidents/summary')).status,403);
 });
 test('restore replay re-erases content, re-deletes restored images and recovers tombstones from the off-database registry',async()=>{
- const policy=await ok(one,'/policy'),c=await ok(one,'/changes',{kind:'policy',version:policy.version,payload:{...policy.payload,new_shops_enabled:true,new_payments_enabled:true,business_retention_days:1,deletion_cooling_days:1},reason:'Retention'});await ok(two,`/changes/${c.id}/decision`,{approve:true,note:'OK'});
+ const policy=await ok(one,'/policy'),c=await ok(one,'/changes',{kind:'policy',version:policy.version,payload:{...policy.payload,new_shops_enabled:true,new_payments_enabled:true,business_retention_days:1,deletion_cooling_days:1},reason:'Retention'});assert.ok(c.id);
  const shop=await a.createShop('Replay shop');await db.query('INSERT INTO core.customers(organization_id,name,phone,phone_normalized) VALUES($1,$2,$3,$3)',[shop.organizationId,'Replay customer','+66990000001']);await readyAsset(shop);
  const note=(await db.query('SELECT core.notify($1,$2,$3,$4,$5,$6,$7) AS id',[shop.organizationId,shop.owner.userId,randomUUID(),'renewal_due',{},'subscription',null])).rows[0].id;
  await db.query("UPDATE core.notifications SET sent_snapshot='Replay customer is due' WHERE id=$1",[note]);
@@ -175,4 +184,13 @@ test('restore replay re-erases content, re-deletes restored images and recovers 
   assert.equal(await syncErasureRegistry(deps,file),2);
   await assert.rejects(role('fs_platform',c=>c.query('SELECT worker.replay_erasure($1)',[[]])),e=>e.code==='42501');
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('a super admin may approve their own refund; other accounts still need a second person',async()=>{
+ const shop=await a.createShop('Refund direct');const inv=await invoice(shop);
+ const pay=(await db.query('SELECT * FROM padmin.confirm_payment($1,$2,59000,$3,now(),NULL,NULL,$4)',[operator.id,inv,`REF-${randomUUID()}`,randomUUID()])).rows[0];
+ const req=(await db.query('SELECT * FROM padmin.request_refund($1,$2,1000,$3,$4)',[one.id,pay.payment_id,'Super admin refund',randomUUID()])).rows[0];assert.equal(req.outcome,'ok');
+ assert.equal((await db.query('SELECT padmin.decide_refund($1,$2,true,$3,$4) AS v',[one.id,req.refund_id,'Own refund',randomUUID()])).rows[0].v,'ok');
+ const both=await account('billing_operator');await db.query("INSERT INTO platform.account_roles(account_id,role_id) SELECT $1,id FROM platform.roles WHERE code='billing_approver'",[both.id]);
+ const req2=(await db.query('SELECT * FROM padmin.request_refund($1,$2,1000,$3,$4)',[both.id,pay.payment_id,'Operator refund',randomUUID()])).rows[0];
+ assert.equal((await db.query('SELECT padmin.decide_refund($1,$2,true,$3,$4) AS v',[both.id,req2.refund_id,'Own refund',randomUUID()])).rows[0].v,'self_approval');
 });

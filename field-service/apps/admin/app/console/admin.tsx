@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { AdminKey } from '@field-service/i18n';
 import { DatabaseZap, KeyRound, LifeBuoy, ReceiptText, RotateCcw, type LucideIcon } from 'lucide-react';
-import { call, ConsoleError, dateOnly, dateTime, money, useLanguage, useStepUp, useText, type Me } from './api';
+import { call, ConsoleError, dateOnly, dateTime, isSuperAdmin, money, useLanguage, useStepUp, useText, type Me } from './api';
 
 const message = (e: unknown) => e instanceof ConsoleError ? e.message : String(e);
 const states = ['trialing', 'active', 'past_due', 'expired', 'ended', 'pending_payment', 'suspended'];
@@ -325,7 +325,7 @@ export function AccessView({ me }: { me: Me }) {
       <tbody>{rows?.length ? rows.map(r => <tr key={r.id}>
         <td>{r.organization_name}</td><td>{r.subject}</td><td>{r.scope.map(s => t(`scope.${s}` as AdminKey)).join(', ')} · {r.duration_minutes} {t('minutes')}</td>
         <td>{r.reason}<div className="muted">{r.consented ? t('ownerConsented') : t('ownerNotYet')}</div></td><td>{r.requested_by}<div className="muted">{dateTime(r.created_at, lang)}</div></td>
-        <td className="actions">{r.account_id !== me.id ? <>
+        <td className="actions">{r.account_id !== me.id || isSuperAdmin(me) ? <>
           <button className="primary small" disabled={!r.consented} onClick={() => decide(r.id, true)}>{t('approve')}</button>
           <button className="danger small" onClick={() => decide(r.id, false)}>{t('reject')}</button></> : null}</td>
       </tr>) : <tr><td colSpan={6} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
