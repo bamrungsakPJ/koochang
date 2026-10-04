@@ -6,7 +6,7 @@ import { AppModule } from './app.module.js';
 import { ApiExceptionFilter } from './shared/api-exception.filter.js';
 import { productionProblems } from './config-check.js';
 async function main() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   // Image uploads arrive as raw bytes; JSON stays the default for everything else.
   app.useBodyParser('raw', { type: ['image/jpeg', 'image/png', 'image/webp', 'application/octet-stream'], limit: process.env.MAX_UPLOAD_BYTES ?? '12mb' });
   app.setGlobalPrefix('v1');

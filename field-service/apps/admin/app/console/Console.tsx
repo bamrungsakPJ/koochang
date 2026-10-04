@@ -5,10 +5,11 @@ import type { AdminKey } from '@field-service/i18n';
 import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useText, type Me } from './api';
 import { InvoiceView, PaymentsView, ReconcileView, RefundsView } from './payments';
 import { AccessView, AuditView, DataRequestsView, OverviewView, ShopsView, ShopView, SystemView, TicketsView, TicketView } from './admin';
+import { PaymentSettingsView } from './payment-settings';
 
 type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
-  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' };
-type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data';
+  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'};
+type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings';
 const nav: { name: NavName; key: AdminKey; permission: string }[] = [
   { name: 'overview', key: 'navOverview', permission: 'shops.read' },
   { name: 'shops', key: 'navShops', permission: 'shops.read' },
@@ -20,6 +21,7 @@ const nav: { name: NavName; key: AdminKey; permission: string }[] = [
   { name: 'data', key: 'navData', permission: 'data.manage' },
   { name: 'audit', key: 'navAudit', permission: 'audit.read' },
   { name: 'system', key: 'navSystem', permission: 'system.read' },
+  { name: 'paymentSettings', key: 'paymentSettings', permission: 'payments.manage' },
 ];
 const parent: Partial<Record<View['name'], NavName>> = { invoice: 'payments', shop: 'shops', ticket: 'support' };
 
@@ -66,6 +68,7 @@ export function Console() {
       : current.name === 'access' ? <AccessView me={me} />
       : current.name === 'audit' ? <AuditView />
       : current.name === 'system' ? <SystemView />
+      : current.name === 'paymentSettings' ? <PaymentSettingsView />
       : <DataRequestsView />;
     content = <Shell me={me} view={section} items={allowed} onNavigate={go}
       onSignOut={async () => { try { await call('POST', '/platform/auth/logout'); } catch { /* ignore */ } session.set(null); setMe(null); }}>{body}</Shell>;

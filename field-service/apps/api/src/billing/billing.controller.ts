@@ -8,6 +8,7 @@ import { InvalidImageError, processImage } from '../media/image.js';
 import { OBJECT_STORAGE, type ObjectStorage } from '../media/object-storage.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { SlipVerificationService } from './slip-verification.service.js';
+import { StripeService } from './stripe.service.js';
 
 /** Owner bank transfers. EasySlip-confirmed payments activate immediately; exceptional proofs
  * stay in the platform review queue. Technicians never reach the billing routes. */
@@ -16,14 +17,16 @@ import { SlipVerificationService } from './slip-verification.service.js';
 export class BillingController {
   constructor(private readonly database: DatabaseService, @Inject(PLATFORM_SETTINGS) private readonly settings: PlatformSettings,
     @Inject(MEDIA_SETTINGS) private readonly media: MediaSettings, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null,
-    private readonly slips: SlipVerificationService) {}
+    private readonly slips: SlipVerificationService, private readonly stripe: StripeService) {}
 
   /** Paid plans at their current published price (proposal prices until launch). */
   @Get('plans')
-  plans(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
+  async plans(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
     this.ownerOnly(tenant);
+    const stripe = await this.stripe.methods();
     return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
-      payment_available: Boolean(this.settings.payment),
+      payment_available: Boolean(this.settings.payment) || stripe.stripe_card || stripe.stripe_qr,
+      methods: { transfer: Boolean(this.settings.payment), ...stripe },
       items: (await client.query(
         `SELECT DISTINCT ON (p.id) p.code, p.name_th, p.name_en, pv.technician_seats, pv.storage_bytes, pv.ocr_per_period, pv.grace_days,
            pr.id AS price_version_id, pr.amount_minor, pr.currency, pr.interval_unit
@@ -53,13 +56,14 @@ export class BillingController {
     const price = typeof body.price_version_id === 'string' && uuidPattern.test(body.price_version_id) ? body.price_version_id : (check.fail('price_version_id', 'field.required'), '');
     const key = typeof body.request_key === 'string' && uuidPattern.test(body.request_key) ? body.request_key : (check.fail('request_key', 'field.required'), '');
     check.done();
-    if (!this.settings.payment) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
+    const methods = await this.stripe.methods();
+    if (!this.settings.payment && !methods.stripe_card && !methods.stripe_qr) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
     const row = await this.database.identity(async c => (await c.query('SELECT * FROM auth.create_invoice($1,$2,$3,$4)', [session.userId, tenant.organizationId, price, key])).rows[0]);
     if (row.outcome === 'forbidden') throw apiError(403, 'TENANT_ACCESS_DENIED');
     if (row.outcome === 'suspended') throw apiError(403, 'ORGANIZATION_SUSPENDED');
     if (row.outcome === 'not_found') throw apiError(400, 'VALIDATION_ERROR', { field_errors: { price_version_id: 'field.required' } });
     if (row.outcome === 'seats') throw apiError(422, 'SEAT_LIMIT_REACHED');
-    await this.database.identity(c => c.query('SELECT auth.freeze_invoice_receiver($1,$2,$3,$4::jsonb)',
+    if (this.settings.payment) await this.database.identity(c => c.query('SELECT auth.freeze_invoice_receiver($1,$2,$3,$4::jsonb)',
       [session.userId, tenant.organizationId, row.invoice_id, JSON.stringify(this.settings.payment)]));
     return this.database.withTenant(session.userId, tenant.organizationId, client => this.detail(client, tenant, row.invoice_id));
   }
@@ -68,6 +72,30 @@ export class BillingController {
   get(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('invoiceId') invoiceId: string) {
     this.ownerOnly(tenant); this.id(invoiceId);
     return this.database.withTenant(session.userId, tenant.organizationId, client => this.detail(client, tenant, invoiceId));
+  }
+
+  @Post('invoices/:invoiceId/checkout')
+  checkout(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('invoiceId') invoiceId: string, @Body() body: Record<string, unknown> = {}) {
+    this.ownerOnly(tenant); this.id(invoiceId);
+    if (!['card','promptpay'].includes(body.method as string) || typeof body.request_key !== 'string' || !uuidPattern.test(body.request_key)) throw apiError(400,'VALIDATION_ERROR');
+    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key);
+  }
+  @Post('invoices/:invoiceId/checkouts/:checkoutId/refresh')
+  async refreshCheckout(@Session() session: SessionContext,@Tenant() tenant: TenantContext,@Param('invoiceId') invoiceId:string,@Param('checkoutId') checkoutId:string) {
+    await this.checkoutOwner(session,tenant,invoiceId,checkoutId);
+    await this.stripe.refresh(checkoutId);
+    return this.database.withTenant(session.userId,tenant.organizationId,c=>this.detail(c,tenant,invoiceId));
+  }
+  @Post('invoices/:invoiceId/checkouts/:checkoutId/cancel')
+  async cancelCheckout(@Session() session: SessionContext,@Tenant() tenant: TenantContext,@Param('invoiceId') invoiceId:string,@Param('checkoutId') checkoutId:string) {
+    await this.checkoutOwner(session,tenant,invoiceId,checkoutId);
+    await this.stripe.cancel(checkoutId);
+    return this.database.withTenant(session.userId,tenant.organizationId,c=>this.detail(c,tenant,invoiceId));
+  }
+  private async checkoutOwner(session:SessionContext,tenant:TenantContext,invoiceId:string,id:string) {
+    this.ownerOnly(tenant);this.id(invoiceId);this.id(id);
+    const row=await this.database.withTenant(session.userId,tenant.organizationId,async c=>(await c.query('SELECT id FROM billing.stripe_checkouts WHERE organization_id=$1 AND invoice_id=$2 AND id=$3',[tenant.organizationId,invoiceId,id])).rows[0]);
+    if(!row)throw apiError(404,'RESOURCE_NOT_FOUND');
   }
 
   /** Proof of transfer as image bytes (screenshot or photo of the slip). Stored privately with
@@ -94,6 +122,7 @@ export class BillingController {
       [session.userId, tenant.organizationId, invoiceId, proofId, key, processed.checksum, processed.image.length])).rows[0]);
     if (row.outcome === 'closed') throw apiError(422, 'INVOICE_CLOSED');
     if (row.outcome === 'mismatch') throw apiError(409, 'VERSION_CONFLICT');
+    if (row.outcome === 'checkout_active') throw apiError(422, 'PAYMENT_IN_PROGRESS');
     if (!['ok', 'existing'].includes(row.outcome)) throw apiError(404, 'RESOURCE_NOT_FOUND');
     if (open.status === 'open') {
       await this.storage.put(key, processed.image);
@@ -117,7 +146,9 @@ export class BillingController {
       [tenant.organizationId, invoiceId])).rows[0] ?? null;
     const channel = invoice.receiver_snapshot ?? this.settings.payment;
     const { receiver_snapshot: _receiver, ...publicInvoice } = invoice;
-    return { ...publicInvoice, proofs, payment, period,
+    const checkouts = (await client.query('SELECT id,method,status,reason,created_at,expires_at,checkout_url FROM billing.stripe_checkouts WHERE organization_id=$1 AND invoice_id=$2 ORDER BY created_at DESC',[tenant.organizationId,invoiceId])).rows;
+    const methods = {transfer:Boolean(channel),...await this.stripe.methods()};
+    return { ...publicInvoice, proofs, payment, period, checkouts, methods,
       pay_to: invoice.status === 'open' && channel ? { bank_name: channel.bankName, account_name: channel.accountName, account_number: channel.accountNumber,
         promptpay_id: channel.promptPayId ?? null, reference: invoice.number } : null };
   }

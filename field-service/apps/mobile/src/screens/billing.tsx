@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { AppState, Linking, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatMoney, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
 import { CameraDeniedError, pickPhoto, uuid } from '../photos';
@@ -88,7 +88,31 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const proofId = useRef<string | null>(null);
+  const checkoutKeys = useRef<Record<string,string>>({});
+  const active = invoice?.checkouts?.find(c => ['creating','open'].includes(c.status));
   useEffect(() => { api.invoice(org, invoiceId).then(setInvoice, e => setError(errorText(e))); }, [org, invoiceId]);
+  useEffect(() => {
+    if (!active || active.status !== 'open') return;
+    let checking = false;
+    const refresh = async () => { if(checking)return;checking=true;try{setInvoice(await api.refreshCheckout(org,invoiceId,active.id));}catch{/* Manual status check remains available. */}finally{checking=false;} };
+    void refresh();const timer=setInterval(()=>void refresh(),10_000);
+    const listener=AppState.addEventListener('change',state=>{if(state==='active')void refresh();});
+    return ()=>{clearInterval(timer);listener.remove();};
+  },[org,invoiceId,active?.id,active?.status]);
+  async function checkout(method:'card'|'promptpay') {
+    setBusy(true);setError(null);
+    try{
+      if(!active&&invoice?.checkouts?.some(c=>c.method===method&&['expired','failed'].includes(c.status)))delete checkoutKeys.current[method];
+      checkoutKeys.current[method]??=uuid();
+      const result=await api.stripeCheckout(org,invoiceId,method,checkoutKeys.current[method]);
+      setInvoice(await api.invoice(org,invoiceId));await Linking.openURL(result.url);
+    }catch(e){try{setInvoice(await api.invoice(org,invoiceId));}catch{}setError(errorText(e));}finally{setBusy(false);}
+  }
+  async function checkoutAction(cancel:boolean) {
+    if(!active)return;setBusy(true);setError(null);
+    try{setInvoice(await (cancel?api.cancelCheckout(org,invoiceId,active.id):api.refreshCheckout(org,invoiceId,active.id)));if(cancel)checkoutKeys.current={};}
+    catch(e){setError(errorText(e));}finally{setBusy(false);}
+  }
 
   async function send(source: 'camera' | 'library') {
     setError(null); setDone(null);
@@ -107,7 +131,7 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   }
 
   if (!invoice) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
-  const pending = invoice.proofs.some(p => p.status === 'pending');
+  const pending = invoice.proofs.some(p => p.status === 'pending') || Boolean(active);
   return <Screen onBack={onBack}>
     <Sub>{t('invoice')} {invoice.number}</Sub>
     <View style={styles.amountRow}>
@@ -118,6 +142,14 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
     <Banner tone="success" text={done} />
     {invoice.period ? <Banner tone="success" text={t('paidPeriod', { from: formatDate(new Date(invoice.period.start_at), language), to: formatDate(new Date(invoice.period.end_at), language) })} /> : null}
     {invoice.payment && Number(invoice.payment.refunded_minor) > 0 ? <Banner tone="info" text={t('refunded', { amount: money(invoice.payment.refunded_minor, language) })} /> : null}
+    {invoice.status==='open'&&(invoice.methods?.stripe_card||invoice.methods?.stripe_qr||active)?<>
+      <Section>{t('stripe.title')}</Section><Sub>{t('stripe.hint')}</Sub>
+      {invoice.methods?.stripe_test?<Banner tone="info" text={t('stripe.test')}/>:null}
+      {invoice.methods?.stripe_qr?<Button title={t('stripe.qr')} busy={busy} disabled={Boolean(active&&active.method!=='promptpay')||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('promptpay')}/>:null}
+      {invoice.methods?.stripe_card?<Button kind="secondary" title={t('stripe.card')} busy={busy} disabled={Boolean(active&&active.method!=='card')||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>:null}
+      {active?<><Sub>{t(`stripe.${active.status}` as TranslationKey)}</Sub><Button title={t('stripe.refresh')} busy={busy} onPress={()=>checkoutAction(false)}/>{active.status==='open'?<Button kind="secondary" title={t('stripe.cancel')} busy={busy} onPress={()=>checkoutAction(true)}/>:null}</>:null}
+    </>:null}
+    {invoice.checkouts?.filter(c=>c.reason).map(c=><Banner key={c.id} text={t(`stripe.${c.reason}` as TranslationKey)}/>)}
 
     {invoice.pay_to ? <>
       <Section>{t('payTo')}</Section>

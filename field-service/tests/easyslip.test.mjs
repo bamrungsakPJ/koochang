@@ -114,7 +114,7 @@ test('upload controller and verification service activate synchronously and pres
   slips.pool={connect:async()=>({query:async(sql,params)=>sql==='BEGIN'?db.exec('BEGIN;SET LOCAL ROLE fs_worker;'):db.query(sql,params),release(){}})};
   slips.provider=new EasySlip('synthetic-key',async()=>{checks++;const r=valid();r.data.rawSlip.transRef=randomUUID().replaceAll('-','').toUpperCase();r.data.rawSlip.date=(await db.query('SELECT clock_timestamp() AS at')).rows[0].at.toISOString();return Response.json(r);});
   const storage={put:async()=>{writes++;}};
-  const controller=new BillingController(database,{production:false,payment:{...receiver,bankName:'Test',accountName:'Test'}},{maxStoredBytes:4_194_304},storage,slips);
+  const controller=new BillingController(database,{production:false,payment:{...receiver,bankName:'Test',accountName:'Test'}},{maxStoredBytes:4_194_304},storage,slips,{methods:async()=>({stripe_card:false,stripe_qr:false,stripe_test:false})});
   const session={userId:shop.owner.userId},tenant={organizationId:shop.organizationId,role:'owner'};
   const invoice=await controller.create(session,tenant,{price_version_id:'72000000-0000-0000-0000-000000000001',request_key:randomUUID()});
   const sharp=createRequire(new URL('../apps/api/package.json',import.meta.url))('sharp');

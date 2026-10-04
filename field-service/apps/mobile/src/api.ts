@@ -63,7 +63,7 @@ export interface EquipmentHistory {
 export interface PlanOffer { code: string; name_th: string; name_en: string; technician_seats: number; storage_bytes: string; ocr_per_period: number; price_version_id: string; amount_minor: string; interval_unit: string; }
 export interface InvoiceSummary { id: string; number: string; amount_minor: string; status: 'open' | 'paid' | 'voided'; created_at: string; paid_at: string | null; plan_name_th: string; plan_name_en: string; proof_status: 'pending' | 'accepted' | 'rejected' | null; }
 export interface Invoice extends InvoiceSummary {
-  due_at: string | null; technician_seats: number; proofs: { id: string; status: 'pending' | 'accepted' | 'rejected'; reason: string | null; created_at: string; verification_code?: string; verification_at?: string | null }[];
+  due_at: string | null; technician_seats: number; methods?: { transfer: boolean; stripe_card: boolean; stripe_qr: boolean; stripe_test: boolean }; checkouts?: { id: string; method: 'card'|'promptpay'; status: string; reason: string|null; checkout_url: string|null; expires_at: string }[]; proofs: { id: string; status: 'pending' | 'accepted' | 'rejected'; reason: string | null; created_at: string; verification_code?: string; verification_at?: string | null }[];
   payment: { amount_minor: string; verified_at: string; refunded_minor: string } | null; period: { start_at: string; end_at: string } | null;
   pay_to: { bank_name: string; account_name: string; account_number: string; promptpay_id: string | null; reference: string } | null;
 }
@@ -203,6 +203,9 @@ export class Api {
     return this.call<ServiceResult>('POST', `/organizations/${organizationId}/service-events`, body);
   }
   equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
+  stripeCheckout(organizationId: string, invoiceId: string, method: 'card'|'promptpay', requestKey: string) { return this.call<{id: string; url: string}>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkout`, {method, request_key: requestKey}); }
+  refreshCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/refresh`); }
+  cancelCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/cancel`); }
   billingPlans(organizationId: string) { return this.call<{ payment_available: boolean; items: PlanOffer[] }>('GET', `/organizations/${organizationId}/billing/plans`); }
   invoices(organizationId: string) { return this.call<{ items: InvoiceSummary[] }>('GET', `/organizations/${organizationId}/billing/invoices`); }
   invoice(organizationId: string, id: string) { return this.call<Invoice>('GET', `/organizations/${organizationId}/billing/invoices/${id}`); }

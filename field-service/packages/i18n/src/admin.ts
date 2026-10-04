@@ -2,6 +2,14 @@ import type { Language } from './index.js';
 
 /** Platform console texts (th/en). Kept apart from the shop app catalog. */
 const th = {
+  save:'บันทึก',saving:'กำลังบันทึก',settingsError:'ตั้งค่าไม่สำเร็จ กรุณาลองใหม่',
+  paymentSettings:'ตั้งค่าการชำระเงิน',stripeSettingsHint:'เชื่อมบัญชี Stripe ของแพลตฟอร์มเพื่อรับเงินค่าแพ็กเกจผ่าน QR และบัตรเครดิต',
+  stripeAccount:'บัญชี Stripe',stripeLive:'โหมดเงินจริง',stripeTest:'โหมดทดสอบ',stripeSecretKey:'Secret key ของ Stripe',stripeWebhookSecret:'Webhook signing secret',
+  stripeKeepSecret:'เว้นว่างทั้งสองช่องเพื่อใช้กุญแจเดิม เมื่อเปลี่ยนให้ใส่ทั้งสองช่องและลงทะเบียน webhook ใหม่ กุญแจที่บันทึกแล้วจะไม่แสดงอีก การเปลี่ยนต้องยืนยันตัวตน',
+  stripeCard:'เปิดรับบัตรเครดิต / เดบิต',stripeQr:'เปิดรับ QR PromptPay',stripeDashboardHint:'เปิดวิธีชำระเดียวกันใน Stripe Dashboard ด้วย QR ใช้บัญชีประเทศไทยและรับยอดเงินบาท',
+  stripeWebhookEndpoint:'ปลายทางรับผลชำระจาก Stripe',stripeWebhookHint:'เติมโดเมน HTTPS ของ API ด้านหน้าที่อยู่นี้ แล้วลงทะเบียนใน Stripe ก่อนนำ signing secret มาบันทึก รับ checkout.session.completed, async_payment_succeeded, async_payment_failed และ expired เมื่อเปลี่ยนกุญแจ ใช้ปลายทางใหม่และคงปลายทางเก่าไว้จนรายการเดิมจบ',
+  stripeServerMissing:'เซิร์ฟเวอร์ยังไม่พร้อมรับ Stripe กรุณาตั้งค่าการเชื่อมต่อชำระเงินและหน้าเว็บที่จะกลับมา',
+  stripeTransferKept:'ช่องทางโอนเงิน / EasySlip',stripeConfigured:'ตั้งค่าแล้ว',stripeNotConfigured:'ยังไม่ตั้งค่า',
   consoleTitle: 'คอนโซลแพลตฟอร์ม', signIn: 'เข้าสู่ระบบ', email: 'อีเมล', password: 'รหัสผ่าน', next: 'ถัดไป',
   mfaTitle: 'ยืนยันตัวตนอีกขั้น', mfaHint: 'ใส่รหัส 6 หลักจากแอปยืนยันตัวตน', code: 'รหัส 6 หลัก', confirm: 'ยืนยัน', cancel: 'ยกเลิก',
   signOut: 'ออกจากระบบ', stepUpTitle: 'ยืนยันก่อนทำรายการเงิน', stepUpHint: 'รายการนี้ต้องยืนยันรหัสจากแอปยืนยันตัวตนอีกครั้ง',
@@ -45,6 +53,14 @@ const th = {
 };
 type AdminCatalog = { [K in keyof typeof th]: string };
 const en: AdminCatalog = {
+  save:'Save',saving:'Saving',settingsError:'Settings could not be saved. Please try again.',
+  paymentSettings:'Payment settings',stripeSettingsHint:'Connect the platform Stripe account to receive plan payments by QR and card.',
+  stripeAccount:'Stripe account',stripeLive:'Live mode',stripeTest:'Test mode',stripeSecretKey:'Stripe secret key',stripeWebhookSecret:'Webhook signing secret',
+  stripeKeepSecret:'Leave both blank to keep existing keys. To rotate, enter both and register the new webhook endpoint. Saved keys are never shown again. Changes require identity verification.',
+  stripeCard:'Enable credit / debit cards',stripeQr:'Enable PromptPay QR',stripeDashboardHint:'Enable the same methods in Stripe Dashboard. QR requires a Thai account and THB payments.',
+  stripeWebhookEndpoint:'Stripe payment webhook endpoint',stripeWebhookHint:'Prefix with the API HTTPS domain and register it in Stripe before saving its signing secret. Listen for checkout.session.completed, async_payment_succeeded, async_payment_failed and expired. New keys use a new endpoint; keep old endpoints until existing payments finish.',
+  stripeServerMissing:'The server is not ready for Stripe. Configure the payment database connection and owner return page.',
+  stripeTransferKept:'Bank transfer / EasySlip',stripeConfigured:'Configured',stripeNotConfigured:'Not configured',
   consoleTitle: 'Platform console', signIn: 'Sign in', email: 'Email', password: 'Password', next: 'Next',
   mfaTitle: 'Two-step verification', mfaHint: 'Enter the 6-digit code from your authenticator app', code: '6-digit code', confirm: 'Confirm', cancel: 'Cancel',
   signOut: 'Sign out', stepUpTitle: 'Confirm before a money action', stepUpHint: 'This action needs a fresh code from your authenticator app.',

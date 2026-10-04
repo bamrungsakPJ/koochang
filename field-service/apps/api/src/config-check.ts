@@ -21,6 +21,7 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env): string
   if (!/^\d{3}$/.test(env.PAYMENT_BANK_CODE ?? '')) problems.push('PAYMENT_BANK_CODE (EasySlip three-digit bank code)');
   if (!env.EASYSLIP_API_KEY) problems.push('EASYSLIP_API_KEY');
   if (!env.SLIP_DATABASE_URL) problems.push('SLIP_DATABASE_URL (fs_worker)');
+  if (env.PAYMENT_DATABASE_URL && !env.OWNER_WEB_URL?.startsWith('https://')) problems.push('OWNER_WEB_URL (https Stripe return URL)');
   const origins = (env.ADMIN_ORIGIN ?? '').split(',').map(o => o.trim()).filter(Boolean);
   if (!origins.length || origins.some(o => !o.startsWith('https://'))) problems.push('ADMIN_ORIGIN (https origins only)');
   return problems;

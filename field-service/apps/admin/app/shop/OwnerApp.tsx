@@ -32,7 +32,7 @@ export function OwnerApp() {
   const go: Go = r => { const q = new URLSearchParams(Object.entries(r).filter(([, v]) => v) as [string, string][]); void storage.set(keys.route, q.toString()).catch(() => {}); router.push(`/shop?${q.toString()}`); setRoute(r); };
   async function loadMe(prefer?: string) {
     const next = await api.me(); setMe(next); setOffline(false);
-    const saved = prefer ?? await storage.get(keys.organization);
+    const saved = prefer ?? new URLSearchParams(window.location.search).get('organization_id') ?? await storage.get(keys.organization);
     const selected = next.memberships.find(m => m.organization_id === saved && m.role === 'owner') ?? next.memberships.find(m => m.role === 'owner' && m.status === 'active') ?? next.memberships.find(m => m.role === 'owner');
     setOrg(selected?.organization_id ?? ''); await storage.set(keys.organization, selected?.organization_id ?? null);
     setLanguage(next.user.preferred_language); api.language = next.user.preferred_language;

@@ -16,6 +16,9 @@ import { ServiceController } from './service/service.controller.js';
 import { MaintenanceController } from './maintenance/maintenance.controller.js';
 import { BillingController } from './billing/billing.controller.js';
 import { SlipVerificationService } from './billing/slip-verification.service.js';
+import { StripeService } from './billing/stripe.service.js';
+import { StripeWebhookController } from './billing/stripe-webhook.controller.js';
+import { PaymentSettingsController } from './platform/payment-settings.controller.js';
 import { PlatformDatabaseService } from './platform/platform-database.service.js';
 import { PlatformGuard } from './platform/platform.guard.js';
 import { PlatformAuthController } from './platform/platform-auth.controller.js';
@@ -29,9 +32,9 @@ import { createOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
 @Module({
   controllers: [HealthController, AuthController, MeController, OrganizationsController, JoinController, CustomersController,
     MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController, MaintenanceController,
-    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController],
+    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController],
   providers: [
-    DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard, SlipVerificationService,
+    DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard, SlipVerificationService, StripeService,
     { provide: PLATFORM_SETTINGS, useFactory: () => loadPlatformSettings() },
     { provide: AUTH_SETTINGS, useFactory: () => loadAuthSettings() },
     { provide: SMS_SENDER, useFactory: () => createSmsSender() },

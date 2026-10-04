@@ -1,3 +1,15 @@
+# Stripe QR/card and platform account settings — 2026-10-04
+
+- Final workspace typechecks and API/Next.js production build passed. Windows sandbox initially blocked child processes with spawn EPERM; the authorized verification rerun succeeded.
+- Full PGlite suite: **131 total, 104 passed / 27 skipped / 0 failed** (`node --test --test-concurrency=1 tests/*.test.mjs`). PostgreSQL HTTP/concurrency cases are skipped here.
+- Isolated PostgreSQL 16 covered all **13 Stripe scenarios** with no failures: initial 10 Stripe cases plus the existing payments HTTP case passed (11 total), then 3 added cases plus credential rotation passed (4 total; rotation repeats an earlier case).
+- Final targeted command: `node --env-file=.env --test --test-name-pattern='Stripe-only|Stripe activation|late Stripe|Stripe credentials rotate' tests/stripe.test.mjs`.
+- Coverage includes restricted settings/TOTP flow, encrypted and sanitized credentials, account rotation, server-priced Checkout, idempotent retries, competing payment channels, owner RLS, raw HTTP signed webhook and stale/tampered signatures, canonical provider status, currency/amount/metadata checks, unpaid and production-test rejection.
+- Verified immediate expired-shop activation, one payment/period on duplicate and concurrent callbacks, rollback on entitlement failure, security suspension, Stripe-only billing without bank details and late funds routed to the admin queue without a second period.
+- All provider responses are synthetic. No Stripe account was connected, real provider payment made, deployment performed or human UAT/device test claimed. Setup and scope: [STRIPE.md](STRIPE.md).
+
+---
+
 # EasySlip immediate activation — 2026-10-04
 
 - All workspace typechecks and production API/Next.js build passed.

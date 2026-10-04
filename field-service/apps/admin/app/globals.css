@@ -27,6 +27,7 @@ button:focus-visible,select:focus-visible { outline:3px solid #caab36; outline-o
 .console button:disabled { opacity:.55; cursor:default; }
 .console input, .console select { font:inherit; border:1px solid var(--c-line); border-radius:10px; padding:9px 12px; background:#fff; color:var(--c-ink); }
 .console label { display:flex; flex-direction:column; gap:6px; font-size:14px; color:var(--c-muted); margin:10px 0; }
+.console label.payment-setting-toggle { flex-direction:row; align-items:center; gap:10px; }
 .console .muted { color:var(--c-muted); font-size:14px; }
 .console .error { color:var(--c-bad); background:var(--c-bad-soft); padding:8px 12px; border-radius:10px; }
 .console .ok-box { color:var(--c-ok); background:var(--c-ok-soft); padding:10px 14px; border-radius:10px; }

@@ -1,5 +1,5 @@
 'use client';
-import { useContext, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { api, type MaintenanceItem, type ContactResult } from './api';
 import type { Go } from './OwnerApp';
 import { ActionState, Button, dateTime, Empty, Field, LanguageContext, money, Note, Notice, PageTitle, Panel, ResourceState, Select, statusText, toInstant, useAction, useResource, useText, uuid } from './ui';
@@ -38,9 +38,28 @@ export function BillingView({ org, go }: { org: string; go: Go }) {
 export function InvoiceView({ org, id, go }: { org: string; id: string; go: Go }) {
   const t = useText(), lang = useContext(LanguageContext), a = useAction(), r = useResource(() => api.invoice(org, id), [org, id]);
   const [file, setFile] = useState<File | null>(null), proofId = useRef<string | null>(null), i = r.data;
+  const checkoutKeys = useRef<Record<string,string>>({}), active = i?.checkouts?.find(c => ['creating','open'].includes(c.status));
+  useEffect(() => {
+    if (!active || active.status !== 'open') return;
+    let checking = false;
+    const poll = async () => { if (checking) return; checking = true; try { await api.refreshCheckout(org,id,active.id); await r.reload(); } catch { /* Retry or explicit status check. */ } finally { checking = false; } };
+    void poll(); const timer = setInterval(() => void poll(), 10_000); return () => clearInterval(timer);
+  }, [org,id,active?.id,active?.status]);
+  const startCheckout = (method:'card'|'promptpay') => a.run(async () => {
+    if (!active && i?.checkouts?.some(c=>c.method===method&&['expired','failed'].includes(c.status))) delete checkoutKeys.current[method];
+    checkoutKeys.current[method] ??= uuid();
+    try {
+      const result = await api.stripeCheckout(org,id,method,checkoutKeys.current[method]);
+      await r.reload(); window.location.assign(result.url);
+    } catch (error) { await r.reload().catch(() => {}); throw error; }
+  });
   return <><Button onClick={() => go({ section: 'billing' })}>← {t('subscription')}</Button><ResourceState resource={r} /><ActionState action={a} />{i ? <><PageTitle action={<Button onClick={() => window.print()}>{t('ownerWeb.print_invoice')}</Button>}>{i.number}</PageTitle><Panel title={lang === 'th' ? i.plan_name_th : i.plan_name_en}><p className="plan-price">{money(i.amount_minor, lang)}</p><p>{statusText(lang, 'invoice', i.status)} · {dateTime(i.created_at, lang)}</p>{i.period ? <p>{dateTime(i.period.start_at, lang)} → {dateTime(i.period.end_at, lang)}</p> : null}
     {i.pay_to ? <dl><dt>{t('ownerWeb.bank')}</dt><dd>{i.pay_to.bank_name}</dd><dt>{t('ownerWeb.account_name')}</dt><dd>{i.pay_to.account_name}</dd><dt>{t('ownerWeb.account_number')}</dt><dd>{i.pay_to.account_number}</dd>{i.pay_to.promptpay_id ? <><dt>PromptPay</dt><dd>{i.pay_to.promptpay_id}</dd></> : null}<dt>{t('ownerWeb.reference')}</dt><dd>{i.pay_to.reference}</dd></dl> : null}</Panel>
-    {i.status === 'open' ? <Panel title={t('ownerWeb.upload_transfer_proof')}><Notice>{t('ownerWeb.uploading_a_slip_does_not_renew_the_plan_our')}</Notice><label>{t('choosePhoto')}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={a.busy} onChange={e => { setFile(e.target.files?.[0] ?? null); proofId.current = null; }} /></label><Button kind="primary" busy={a.busy} disabled={!file || i.proofs.some(p => p.status === 'pending')} onClick={() => a.run(async () => { await api.uploadProof(org, id, proofId.current ?? (proofId.current = uuid()), file!, file!.type); setFile(null); proofId.current = null; await r.reload(); }, t('saved'))}>{t('send')}</Button></Panel> : null}
+    {i.status === 'open' && (i.methods?.stripe_card || i.methods?.stripe_qr || active) ? <Panel title={t('stripe.title')}><p>{t('stripe.hint')}</p>{i.methods?.stripe_test ? <Notice>{t('stripe.test')}</Notice> : null}
+      <div className="actions">{i.methods?.stripe_qr ? <Button kind="primary" busy={a.busy} disabled={Boolean(active && active.method !== 'promptpay') || i.proofs.some(p=>p.status==='pending')} onClick={()=>startCheckout('promptpay')}>{t('stripe.qr')}</Button> : null}{i.methods?.stripe_card ? <Button busy={a.busy} disabled={Boolean(active && active.method !== 'card') || i.proofs.some(p=>p.status==='pending')} onClick={()=>startCheckout('card')}>{t('stripe.card')}</Button> : null}</div>
+      {active ? <><p>{statusText(lang,'stripe',active.status)}</p>{active.checkout_url ? <Button onClick={()=>window.location.assign(active.checkout_url!)}>{t('stripe.resume')}</Button> : null}<Button busy={a.busy} onClick={()=>a.run(async()=>{await api.refreshCheckout(org,id,active.id);await r.reload();})}>{t('stripe.refresh')}</Button>{active.status==='open' ? <Button busy={a.busy} onClick={()=>a.run(async()=>{await api.cancelCheckout(org,id,active.id);checkoutKeys.current={};await r.reload();})}>{t('stripe.cancel')}</Button> : null}</> : null}</Panel> : null}
+    {i.status === 'open' && i.pay_to ? <Panel title={t('ownerWeb.upload_transfer_proof')}><Notice>{t('ownerWeb.uploading_a_slip_does_not_renew_the_plan_our')}</Notice><label>{t('choosePhoto')}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={a.busy || Boolean(active)} onChange={e => { setFile(e.target.files?.[0] ?? null); proofId.current = null; }} /></label><Button kind="primary" busy={a.busy} disabled={!file || Boolean(active) || i.proofs.some(p => p.status === 'pending')} onClick={() => a.run(async () => { await api.uploadProof(org, id, proofId.current ?? (proofId.current = uuid()), file!, file!.type); setFile(null); proofId.current = null; await r.reload(); }, t('saved'))}>{t('send')}</Button></Panel> : null}
+    {i.checkouts?.filter(c=>c.reason).map(c=><Notice key={c.id}>{statusText(lang,'stripe',c.reason!)}</Notice>)}
     {i.status === 'paid' ? <Notice>{t('paymentActivated')}</Notice> : null}
     <Panel title={t('ownerWeb.proof_review_status')}>{i.proofs.length ? i.proofs.map(p => <p key={p.id}>{statusText(lang, 'proof', p.status)} · {dateTime(p.created_at, lang)} · {p.reason || (p.verification_code ? statusText(lang, 'slip', p.verification_code) : '')}</p>) : <Empty />}</Panel></> : null}</>;
 }

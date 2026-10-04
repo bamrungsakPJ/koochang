@@ -8,6 +8,7 @@ interface QueueRow { invoice_id: string; number: string; organization_name: stri
 interface Detail {
   invoice: { id: string; number: string; organization_name: string; amount_minor: number; status: string; created_at: string; plan_snapshot: { name_th: string; name_en: string } };
   proofs: { id: string; status: string; reason: string | null; created_at: string; verification_code?: string }[];
+  checkouts?: {id:string;method:string;status:string;reason:string|null;session_id:string|null;payment_intent:string|null}[];
   payment: { id: string; amount_minor: number; bank_reference: string; received_at: string; verified_at: string; verified_by: string; refunded_minor: number } | null;
   refunds: { id: string; amount_minor: number; status: string; reason: string; requested_by: string; requested_by_id: string; approved_by: string | null; bank_reference: string | null; created_at: string }[];
   period: { start_at: string; end_at: string } | null;
@@ -100,6 +101,7 @@ export function InvoiceView({ id, me, onBack }: { id: string; me: Me; onBack: ()
     <div className="grid2">
       <div className="panel">
         <h2>{t('proof')}</h2>
+        {detail.checkouts?.map(c=><p key={c.id}>{translate(lang,c.method==='card'?'stripe.card':'stripe.qr')} · {translate(lang,`stripe.${c.status}` as TranslationKey)} {c.reason?translate(lang,`stripe.${c.reason}` as TranslationKey):''}<br/><small>{c.session_id} {c.payment_intent}</small></p>)}
         {detail.proofs.length ? <ul className="plain">{detail.proofs.map(p => <li key={p.id}>
           <Pill kind="proof" value={p.status} /> {dateTime(p.created_at, lang)} {p.reason ? <span className="muted">— {p.reason}</span> : null}
           {p.verification_code ? <p className="muted">{translate(lang, `slip.${p.verification_code}` as TranslationKey)}</p> : null}
