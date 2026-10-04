@@ -4,8 +4,19 @@ import { deeSmsxSettings } from './sms/sms.sender.js';
 /** Settings a production start is missing, by name only (never values). Each missing item makes
  * its feature answer 503 (fail closed); the list is logged at start so it is noticed before a
  * shop is. Development defaults never count as configured in production. */
-export function productionProblems(env: NodeJS.ProcessEnv = process.env): string[] {
+export function productionProblems(env: NodeJS.ProcessEnv = process.env, saved?: import('./platform/runtime-settings.service.js').RuntimeSettings | null): string[] {
   if (env.NODE_ENV !== 'production') return [];
+  // Console rows override env, including explicitly disabled services. Diagnostics use markers,
+  // never decrypt or print credentials.
+  if(saved){
+    env={...env};
+    if(saved.bank){const bank=saved.bank.enabled?saved.bank:undefined;
+      env.PAYMENT_BANK_NAME=bank?.bankName;env.PAYMENT_ACCOUNT_NAME=bank?.accountName;
+      env.PAYMENT_ACCOUNT_NUMBER=bank?.accountNumber;env.PAYMENT_BANK_CODE=bank?.bankCode;}
+    if(saved.sms){env.SMS_PROVIDER=saved.sms.enabled?'deesmsx':undefined;env.DEESMSX_SENDER=saved.sms.sender;
+      env.DEESMSX_API_KEY=saved.sms.apiKeySealed?'configured':undefined;env.DEESMSX_SECRET_KEY=saved.sms.secretKeySealed?'configured':undefined;}
+    if(saved.easyslip)env.EASYSLIP_API_KEY=saved.easyslip.enabled&&saved.easyslip.keySealed?'configured':undefined;
+  }
   const auth = loadAuthSettings(env), media = loadMediaSettings(env), platform = loadPlatformSettings(env);
   const problems: string[] = [];
   if (!env.DATABASE_URL) problems.push('DATABASE_URL');

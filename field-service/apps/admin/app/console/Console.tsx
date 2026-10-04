@@ -6,11 +6,12 @@ import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApi
 import { InvoiceView, PaymentsView, ReconcileView, RefundsView } from './payments';
 import { AccessView, AuditView, DataRequestsView, OverviewView, ShopsView, ShopView, SystemView, TicketsView, TicketView } from './admin';
 import { PaymentSettingsView } from './payment-settings';
+import { AccountSettingsView, PlatformSettingsView } from './settings';
 
 type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
-  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'};
-type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings';
-const nav: { name: NavName; key: AdminKey; permission: string }[] = [
+  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'} | {name:'settings'} | {name:'account'};
+type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings' | 'settings' | 'account';
+const nav: { name: NavName; key: AdminKey; permission?: string }[] = [
   { name: 'overview', key: 'navOverview', permission: 'shops.read' },
   { name: 'shops', key: 'navShops', permission: 'shops.read' },
   { name: 'payments', key: 'navPayments', permission: 'billing.read' },
@@ -22,6 +23,8 @@ const nav: { name: NavName; key: AdminKey; permission: string }[] = [
   { name: 'audit', key: 'navAudit', permission: 'audit.read' },
   { name: 'system', key: 'navSystem', permission: 'system.read' },
   { name: 'paymentSettings', key: 'paymentSettings', permission: 'payments.manage' },
+  { name: 'settings', key: 'platformSettings', permission: 'settings.manage' },
+  { name: 'account', key: 'accountSettings' },
 ];
 const parent: Partial<Record<View['name'], NavName>> = { invoice: 'payments', shop: 'shops', ticket: 'support' };
 
@@ -51,7 +54,7 @@ export function Console() {
   if (!ready) content = null;
   else if (!me) content = <SignIn onSignedIn={setMe} />;
   else {
-    const allowed = nav.filter(n => me.permissions.includes(n.permission));
+    const allowed = nav.filter(n => !n.permission || me.permissions.includes(n.permission));
     const current: View = view ?? (allowed[0] ? { name: allowed[0].name } as View : { name: 'overview' });
     const section = parent[current.name] ?? current.name;
     const go = (name: string) => setView({ name } as View);
@@ -69,6 +72,8 @@ export function Console() {
       : current.name === 'audit' ? <AuditView />
       : current.name === 'system' ? <SystemView />
       : current.name === 'paymentSettings' ? <PaymentSettingsView />
+      : current.name === 'settings' ? <PlatformSettingsView />
+      : current.name === 'account' ? <AccountSettingsView onUpdated={value=>{setMe(value);changeLanguage(normalizeLanguage(value.preferred_language));}} />
       : <DataRequestsView />;
     content = <Shell me={me} view={section} items={allowed} onNavigate={go}
       onSignOut={async () => { try { await call('POST', '/platform/auth/logout'); } catch { /* ignore */ } session.set(null); setMe(null); }}>{body}</Shell>;

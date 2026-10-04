@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Optional, Post, UseGuards } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PLATFORM_SETTINGS, type PlatformSettings } from '../config.js';
 import { encrypt, decrypt } from '../shared/crypto.js';
@@ -6,12 +6,13 @@ import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { RequestId } from '../auth/session.guard.js';
 import { StripeService } from '../billing/stripe.service.js';
 import { PlatformDatabaseService } from './platform-database.service.js';
+import { RuntimeSettingsService } from './runtime-settings.service.js';
 import { Account, Permission, PlatformGuard, StepUp, type PlatformAccount } from './platform.guard.js';
 
 @Controller('platform/payment-settings') @UseGuards(PlatformGuard)
 export class PaymentSettingsController {
  constructor(private readonly database:PlatformDatabaseService,private readonly stripe:StripeService,
-   @Inject(PLATFORM_SETTINGS)private readonly settings:PlatformSettings){}
+   @Inject(PLATFORM_SETTINGS)private readonly settings:PlatformSettings,@Optional()private readonly runtime?:RuntimeSettingsService){}
  @Get() @Permission('payments.manage')
  async get(@Account()a:PlatformAccount){
    const result=await this.database.run(async c=>(await c.query('SELECT padmin.stripe_settings($1) AS value',[a.accountId])).rows[0].value);
@@ -19,7 +20,7 @@ export class PaymentSettingsController {
    return {...result,webhook_path:result.credential_id?`/v1/billing/stripe/webhook/${result.credential_id}`:null,
      next_credential_id:nextId,next_webhook_path:`/v1/billing/stripe/webhook/${nextId}`,
      server_ready:Boolean(this.settings.secretKey&&process.env.PAYMENT_DATABASE_URL&&process.env.OWNER_WEB_URL),
-     transfer_configured:Boolean(this.settings.payment)};
+     transfer_configured:Boolean(this.runtime?await this.runtime.bank():this.settings.payment)};
  }
  @Post() @HttpCode(200) @Permission('payments.manage') @StepUp()
  async save(@Account()a:PlatformAccount,@RequestId()requestId:string,@Body()body:Record<string,unknown>={}){

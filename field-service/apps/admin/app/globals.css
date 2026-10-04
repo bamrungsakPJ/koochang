@@ -86,3 +86,7 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 14px; margin:0
 .checks { border:1px solid var(--c-line); border-radius:10px; padding:8px 12px; display:flex; flex-wrap:wrap; gap:4px 16px; margin:10px 0; }
 .checks legend { font-size:14px; color:var(--c-muted); padding:0 4px; }
 .console label.check { flex-direction:row; align-items:center; gap:6px; margin:4px 0; color:var(--c-ink); }
+.console .settings-form { max-width:860px; margin-top:18px; }
+.console .settings-table { overflow-x:auto; margin-bottom:16px; }
+.console .settings-table td:first-child { overflow-wrap:anywhere; max-width:350px; }
+.console .settings-form code { overflow-wrap:anywhere; }

@@ -2,12 +2,17 @@ import type { Language } from './index.js';
 
 /** Platform console texts (th/en). Kept apart from the shop app catalog. */
 const th = {
+  platformSettings:'ตั้งค่าแพลตฟอร์ม',accountSettings:'บัญชีของฉัน',settingsHint:'จัดการบัญชีรับเงินและบริการของแพลตฟอร์ม การบันทึกมีผลกับคำขอใหม่ทันที',
+  bankSettings:'บัญชีรับเงิน',smsSettings:'SMS / OTP',slipSettings:'ตรวจสลิป EasySlip',enableService:'เปิดใช้งาน',bankName:'ชื่อธนาคาร',bankCode:'รหัสธนาคาร 3 หลัก',accountName:'ชื่อบัญชี',accountNumber:'เลขบัญชี',promptPayId:'หมายเลข PromptPay (ถ้ามี)',
+  bankSnapshotHint:'ใบแจ้งชำระที่ออกแล้วจะคงบัญชีรับเงินเดิม การเปลี่ยนบัญชีมีผลกับใบแจ้งชำระใหม่',providerKey:'API key',providerSecret:'Secret key',smsSender:'ชื่อผู้ส่งที่ได้รับอนุมัติ',keepProviderKeys:'เว้นว่างเพื่อใช้กุญแจเดิม กุญแจที่บันทึกจะไม่แสดงกลับ',
+  providerConfigured:'บันทึกกุญแจแล้ว',providerMissing:'ยังไม่มีกุญแจ',enableSmsHint:'เลือก DeeSMSx แล้ว การเปิดใช้งานจะส่ง OTP จริงเมื่อมีผู้ขอรหัส',enableSlipHint:'ตรวจสลิปทันทีหลังอัปโหลด หากมีปัญหาจะเข้าคิวผู้ดูแล',settingsEncryptionMissing:'ยังไม่พร้อมบันทึกกุญแจบริการ กรุณาตั้งค่าระบบเข้ารหัสฝั่งเซิร์ฟเวอร์',slipWorkerMissing:'ระบบยืนยันสลิปอัตโนมัติยังไม่พร้อม กรุณาตั้งค่าการเชื่อมต่อฝั่งเซิร์ฟเวอร์',
+  reloadSettings:'อ่านค่าล่าสุด',settingsReview:'กรุณาตรวจช่องที่กรอกและลองใหม่',profileName:'ชื่อที่แสดง',profileLanguage:'ภาษาประจำบัญชี',accountEmailHint:'อีเมลเข้าสู่ระบบและบทบาทกำหนดโดยผู้จัดการบัญชี',changePassword:'เปลี่ยนรหัสผ่าน',currentPassword:'รหัสผ่านปัจจุบัน',newPassword:'รหัสผ่านใหม่',confirmPassword:'ยืนยันรหัสผ่านใหม่',passwordHint:'อย่างน้อย 12 ตัวอักษร เมื่อเปลี่ยนจะออกจากระบบในเครื่องอื่น',passwordMismatch:'รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน',sessionsTitle:'อุปกรณ์ที่เข้าสู่ระบบ',currentSession:'เครื่องนี้',logoutOthers:'ออกจากระบบเครื่องอื่น',sessionClient:'อุปกรณ์ / เบราว์เซอร์',sessionStarted:'เข้าสู่ระบบเมื่อ',sessionExpires:'หมดอายุ',securitySaved:'บันทึกแล้ว เครื่องอื่นถูกออกจากระบบ',
   save:'บันทึก',saving:'กำลังบันทึก',settingsError:'ตั้งค่าไม่สำเร็จ กรุณาลองใหม่',
   paymentSettings:'ตั้งค่าการชำระเงิน',stripeSettingsHint:'เชื่อมบัญชี Stripe ของแพลตฟอร์มเพื่อรับเงินค่าแพ็กเกจผ่าน QR และบัตรเครดิต',
   stripeAccount:'บัญชี Stripe',stripeLive:'โหมดเงินจริง',stripeTest:'โหมดทดสอบ',stripeSecretKey:'Secret key ของ Stripe',stripeWebhookSecret:'Webhook signing secret',
   stripeKeepSecret:'เว้นว่างทั้งสองช่องเพื่อใช้กุญแจเดิม เมื่อเปลี่ยนให้ใส่ทั้งสองช่องและลงทะเบียน webhook ใหม่ กุญแจที่บันทึกแล้วจะไม่แสดงอีก การเปลี่ยนต้องยืนยันตัวตน',
   stripeCard:'เปิดรับบัตรเครดิต / เดบิต',stripeQr:'เปิดรับ QR PromptPay',stripeDashboardHint:'เปิดวิธีชำระเดียวกันใน Stripe Dashboard ด้วย QR ใช้บัญชีประเทศไทยและรับยอดเงินบาท',
-  stripeWebhookEndpoint:'ปลายทางรับผลชำระจาก Stripe',stripeWebhookHint:'เติมโดเมน HTTPS ของ API ด้านหน้าที่อยู่นี้ แล้วลงทะเบียนใน Stripe ก่อนนำ signing secret มาบันทึก รับ checkout.session.completed, async_payment_succeeded, async_payment_failed และ expired เมื่อเปลี่ยนกุญแจ ใช้ปลายทางใหม่และคงปลายทางเก่าไว้จนรายการเดิมจบ',
+  stripeWebhookEndpoint:'ปลายทางรับผลชำระจาก Stripe',stripeWebhookHint:'นำที่อยู่นี้ไปลงทะเบียนใน Stripe ก่อนนำ signing secret มาบันทึก ระบบจริงต้องใช้ HTTPS รับ checkout.session.completed, async_payment_succeeded, async_payment_failed และ expired เมื่อเปลี่ยนกุญแจ ใช้ปลายทางใหม่และคงปลายทางเก่าไว้จนรายการเดิมจบ',
   stripeServerMissing:'เซิร์ฟเวอร์ยังไม่พร้อมรับ Stripe กรุณาตั้งค่าการเชื่อมต่อชำระเงินและหน้าเว็บที่จะกลับมา',
   stripeTransferKept:'ช่องทางโอนเงิน / EasySlip',stripeConfigured:'ตั้งค่าแล้ว',stripeNotConfigured:'ยังไม่ตั้งค่า',
   consoleTitle: 'คอนโซลแพลตฟอร์ม', signIn: 'เข้าสู่ระบบ', email: 'อีเมล', password: 'รหัสผ่าน', next: 'ถัดไป',
@@ -53,12 +58,17 @@ const th = {
 };
 type AdminCatalog = { [K in keyof typeof th]: string };
 const en: AdminCatalog = {
+  platformSettings:'Platform settings',accountSettings:'My account',settingsHint:'Manage the receiving account and platform services. Saved settings apply to new requests immediately.',
+  bankSettings:'Receiving account',smsSettings:'SMS / OTP',slipSettings:'EasySlip verification',enableService:'Enable',bankName:'Bank name',bankCode:'Three-digit bank code',accountName:'Account name',accountNumber:'Account number',promptPayId:'PromptPay identifier (optional)',
+  bankSnapshotHint:'Existing invoices retain their receiving account. Changes apply to new invoices.',providerKey:'API key',providerSecret:'Secret key',smsSender:'Approved sender name',keepProviderKeys:'Leave blank to keep existing keys. Saved keys are never displayed.',
+  providerConfigured:'Keys configured',providerMissing:'Keys missing',enableSmsHint:'DeeSMSx is selected. Enabling sends real OTP messages when users request a code.',enableSlipHint:'Verify immediately after upload. Exceptions enter the administrator review queue.',settingsEncryptionMissing:'Service keys cannot be saved yet. Configure server encryption.',slipWorkerMissing:'Automatic slip confirmation is not ready. Configure the server connection.',
+  reloadSettings:'Reload latest settings',settingsReview:'Check your entries and try again.',profileName:'Display name',profileLanguage:'Account language',accountEmailHint:'Sign-in email and roles are assigned by the account manager.',changePassword:'Change password',currentPassword:'Current password',newPassword:'New password',confirmPassword:'Confirm new password',passwordHint:'At least 12 characters. Changing it signs out other devices.',passwordMismatch:'The new passwords do not match.',sessionsTitle:'Signed-in devices',currentSession:'This device',logoutOthers:'Sign out other devices',sessionClient:'Device / browser',sessionStarted:'Signed in',sessionExpires:'Expires',securitySaved:'Saved. Other devices have been signed out.',
   save:'Save',saving:'Saving',settingsError:'Settings could not be saved. Please try again.',
   paymentSettings:'Payment settings',stripeSettingsHint:'Connect the platform Stripe account to receive plan payments by QR and card.',
   stripeAccount:'Stripe account',stripeLive:'Live mode',stripeTest:'Test mode',stripeSecretKey:'Stripe secret key',stripeWebhookSecret:'Webhook signing secret',
   stripeKeepSecret:'Leave both blank to keep existing keys. To rotate, enter both and register the new webhook endpoint. Saved keys are never shown again. Changes require identity verification.',
   stripeCard:'Enable credit / debit cards',stripeQr:'Enable PromptPay QR',stripeDashboardHint:'Enable the same methods in Stripe Dashboard. QR requires a Thai account and THB payments.',
-  stripeWebhookEndpoint:'Stripe payment webhook endpoint',stripeWebhookHint:'Prefix with the API HTTPS domain and register it in Stripe before saving its signing secret. Listen for checkout.session.completed, async_payment_succeeded, async_payment_failed and expired. New keys use a new endpoint; keep old endpoints until existing payments finish.',
+  stripeWebhookEndpoint:'Stripe payment webhook endpoint',stripeWebhookHint:'Register this URL in Stripe before saving its signing secret. Production requires HTTPS. Listen for checkout.session.completed, async_payment_succeeded, async_payment_failed and expired. New keys use a new endpoint; keep old endpoints until existing payments finish.',
   stripeServerMissing:'The server is not ready for Stripe. Configure the payment database connection and owner return page.',
   stripeTransferKept:'Bank transfer / EasySlip',stripeConfigured:'Configured',stripeNotConfigured:'Not configured',
   consoleTitle: 'Platform console', signIn: 'Sign in', email: 'Email', password: 'Password', next: 'Next',

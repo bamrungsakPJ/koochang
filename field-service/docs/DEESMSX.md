@@ -3,6 +3,10 @@
 The user selected DeeSMSx. The API creates/verifies OTP challenges with the existing expiry,
 cooldown, attempt limits and hashed codes; DeeSMSx delivers the Thai/English message.
 
+Keys and sender can now be configured in `/console` → Platform settings → SMS / OTP.
+Console values override environment values and apply on the next request without restart;
+disabling the service overrides environment keys. See [CONSOLE.md](CONSOLE.md).
+
 Set server-only values in the deployment secret store:
 
 ```dotenv

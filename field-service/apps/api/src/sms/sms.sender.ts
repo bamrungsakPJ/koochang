@@ -2,6 +2,7 @@
 export abstract class SmsSender {
   abstract readonly delivery: 'development' | 'sms';
   abstract send(phoneE164: string, message: string): Promise<void>;
+  async resolve(): Promise<SmsSender | null> { return this; }
 }
 
 /** Development only: writes the message to the API log instead of sending it. Refuses to exist

@@ -1,3 +1,15 @@
+# Console settings and account security — 2026-10-04
+
+- Workspace typechecks, API production compilation and Next.js production build passed.
+- Full isolated PostgreSQL 16 suite: **143 passed / 0 skipped / 0 failed**, using `node --env-file=.env --test --test-concurrency=1 tests/*.test.mjs` (provider responses mocked). Includes existing HTTP pilot journey, OTP, EasySlip, Stripe and concurrent role/quota/payment workflows.
+- Full PGlite run before the final diagnostic case: **142 total / 115 passed / 27 skipped / 0 failed**. Final console/SMS/auth targeted suite: **21 passed / 0 failed**, including the added diagnostics case. No repeated full suite was needed after final display-label/copy polish.
+- Eight new console cases cover actual HTTP permissions/TOTP, restricted raw settings, encrypted/preserved secrets and sanitized audit, stale updates, bank snapshot retention, dynamic providers/explicit disable over environment, own-account profile/session binding, password verification/lockout, session revocation and console-aware startup diagnostics.
+- Browser QA used the isolated owner_web fixture, API 4101 / web 3101 and synthetic platform account. Confirmed email/password/MFA sign-in, receiving-account save/readback across navigation, profile-name save, account/device view, DeeSMSx/EasySlip forms, Stripe full endpoint/receiver status, Thai/English and My account/Stripe widths at 320px (document width 305 <= viewport 320).
+- Browser QA did not submit Stripe keys, call live providers, send SMS, change a user's password, deploy or perform human UAT. Password changes and provider writes were covered through synthetic HTTP/service tests. Screenshot is a synthetic receiving-account example.
+- Setup, remaining infrastructure requirements and scope: [CONSOLE.md](CONSOLE.md). Account roles/email remain managed by the existing operator tool; real provider setup remains pending.
+
+---
+
 # DeeSMSx OTP — 2026-10-04
 
 - API TypeScript build passed. `node --test tests/sms.test.mjs tests/auth-unit.test.mjs`: **13 passed / 0 skipped / 0 failed**. The initial sandbox attempt blocked process spawning with EPERM; the authorized rerun passed.

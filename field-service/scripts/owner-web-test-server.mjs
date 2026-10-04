@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { setTimeout } from 'node:timers/promises';
 import { openTestDatabase } from '../tests/support/database.mjs';
+import { encrypt } from '../apps/api/dist/shared/crypto.js';
+import { hashPassword, newTotpSecret } from '../apps/api/dist/platform/secrets.js';
 
 if (!process.env.TEST_DATABASE_URL) throw Error('TEST_DATABASE_URL_REQUIRED');
 const base = new URL(process.env.TEST_DATABASE_URL);
@@ -19,17 +21,29 @@ const db = await openTestDatabase('owner_web');
 const password = randomBytes(24).toString('hex');
 await db.exec(`ALTER ROLE fs_api LOGIN PASSWORD '${password}'`);
 const url = new URL(db.url); url.username = 'fs_api'; url.password = password;
+let consoleEnv={};
+if(process.env.CONSOLE_QA==='1'){
+  const platformPassword=randomBytes(24).toString('hex'),sealKey=randomBytes(32),accountPassword=randomBytes(18).toString('base64url'),totp=newTotpSecret();
+  await db.query(`ALTER ROLE fs_platform LOGIN PASSWORD '${platformPassword}'`);
+  await db.query(`ALTER ROLE fs_worker LOGIN PASSWORD '${platformPassword}'`);
+  const platformUrl=new URL(db.url);platformUrl.username='fs_platform';platformUrl.password=platformPassword;
+  const workerUrl=new URL(db.url);workerUrl.username='fs_worker';workerUrl.password=platformPassword;
+  const account=(await db.query("INSERT INTO platform.accounts(display_name,email,password_hash,totp_secret_sealed) VALUES('Console QA','console-qa@test.invalid',$1,$2) RETURNING id",[await hashPassword(accountPassword),encrypt(sealKey,totp)])).rows[0].id;
+  await db.query("INSERT INTO platform.account_roles(account_id,role_id) SELECT $1,id FROM platform.roles WHERE code='platform_admin'",[account]);
+  consoleEnv={PLATFORM_DATABASE_URL:platformUrl.toString(),PAYMENT_DATABASE_URL:workerUrl.toString(),SLIP_DATABASE_URL:workerUrl.toString(),PLATFORM_SECRET_KEY:sealKey.toString('base64'),OWNER_WEB_URL:'http://127.0.0.1:3101/shop'};
+  console.log('Synthetic console QA credentials:',JSON.stringify({email:'console-qa@test.invalid',password:accountPassword,totp}));
+}
 // The API has its own connection pool. Holding the setup connection idle can terminate the
 // fixture process when an SSH tunnel reconnects, so close it as soon as setup is finished.
 await db.close();
 const mediaDir = await mkdtemp(join(tmpdir(), 'fs-owner-web-'));
-const { TEST_DATABASE_URL, MIGRATION_DATABASE_URL, SEED_DATABASE_URL, PLATFORM_DATABASE_URL, WORKER_DATABASE_URL, DATABASE_URL, SLIP_DATABASE_URL, EASYSLIP_API_KEY, PAYMENT_DATABASE_URL, DEESMSX_API_KEY, DEESMSX_SECRET_KEY, DEESMSX_SENDER, ...safeEnv } = process.env;
+const { TEST_DATABASE_URL, MIGRATION_DATABASE_URL, SEED_DATABASE_URL, PLATFORM_DATABASE_URL, PLATFORM_SECRET_KEY, WORKER_DATABASE_URL, DATABASE_URL, SLIP_DATABASE_URL, EASYSLIP_API_KEY, PAYMENT_DATABASE_URL, OWNER_WEB_URL, DEESMSX_API_KEY, DEESMSX_SECRET_KEY, DEESMSX_SENDER, ...safeEnv } = process.env;
 const api = spawn(process.execPath, [fileURLToPath(new URL('../apps/api/dist/main.js', import.meta.url))], {
   env: { ...safeEnv, NODE_ENV: 'test', HOST: '127.0.0.1', PORT: '4101', DATABASE_URL: url.toString(),
     SMS_PROVIDER: 'development', OCR_PROVIDER: 'development', PUSH_PROVIDER: 'development',
     OTP_SECRET: randomBytes(32).toString('base64'), JOIN_LINK_KEY: randomBytes(32).toString('base64'), MEDIA_URL_SECRET: randomBytes(32).toString('base64'),
     MEDIA_DIR: mediaDir, ADMIN_ORIGIN: 'http://127.0.0.1:3101,http://localhost:3101', JOIN_LINK_BASE_URL: 'http://127.0.0.1:3101/join', OTP_CLIENT_HOURLY_LIMIT: '1000',
-    PAYMENT_BANK_NAME: 'QA Test Bank', PAYMENT_ACCOUNT_NAME: 'QA Synthetic Platform', PAYMENT_ACCOUNT_NUMBER: '000-0-00000-0' },
+    PAYMENT_BANK_NAME: 'QA Test Bank', PAYMENT_ACCOUNT_NAME: 'QA Synthetic Platform', PAYMENT_ACCOUNT_NUMBER: '000-0-00000-0',PAYMENT_BANK_CODE:'004',PAYMENT_PROMPTPAY_ID:'',...consoleEnv },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let output = '';

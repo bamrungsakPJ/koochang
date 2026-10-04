@@ -27,7 +27,9 @@ export class AuthService {
     const phone = normalizePhone(body.phone);
     if (!phone || (phone.startsWith('+66') && !isThaiMobile(phone))) check.fail('phone', 'field.phone');
     check.done();
-    if (!this.sms || !this.settings.otpSecret) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
+    let sms: SmsSender | null;
+    try { sms = this.sms ? await this.sms.resolve() : null; } catch { throw apiError(503, 'TEMPORARILY_UNAVAILABLE'); }
+    if (!sms || !this.settings.otpSecret) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
 
     const challengeId = randomUUID();
     const code = otpCode();
@@ -37,9 +39,9 @@ export class AuthService {
       [challengeId, phone, hmacHex(s.otpSecret!, `${challengeId}:${code}`), clientAddress ? sha256Hex(`client:${clientAddress}`) : null,
         s.otpTtlSeconds, s.otpMaxAttempts, s.otpCooldownSeconds, s.otpPhoneHourlyLimit, s.otpClientHourlyLimit])).rows[0]);
     if (!row?.challenge_id) throw apiError(429, 'RATE_LIMITED', { retry_after: row?.retry_after_seconds ?? s.otpCooldownSeconds });
-    try { await this.sms.send(phone!, smsText[language](code, Math.round(s.otpTtlSeconds / 60))); }
+    try { await sms.send(phone!, smsText[language](code, Math.round(s.otpTtlSeconds / 60))); }
     catch { throw apiError(503, 'TEMPORARILY_UNAVAILABLE'); }
-    return { challenge_id: challengeId, expires_at: row.expires_at, resend_after: s.otpCooldownSeconds, delivery: this.sms.delivery };
+    return { challenge_id: challengeId, expires_at: row.expires_at, resend_after: s.otpCooldownSeconds, delivery: sms.delivery };
   }
 
   async verifyOtp(body: { challenge_id?: unknown; code?: unknown; display_name?: unknown; preferred_language?: unknown }) {

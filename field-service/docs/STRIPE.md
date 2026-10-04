@@ -14,7 +14,7 @@ Checkout subscription/setup mode for this method.
 
 ## Platform setup
 
-1. Apply migration **015_stripe.sql** with fs_migrator; never seed production. There are now 52
+1. Apply migrations through **016_console_settings.sql** with fs_migrator; never seed production. There are now 53
    core/billing/platform/ops tables. Runtime role restrictions and FORCE RLS remain in place.
 2. Set server-only `PAYMENT_DATABASE_URL` to an **fs_worker** login (NOSUPERUSER/NOBYPASSRLS).
    Use `PLATFORM_SECRET_KEY` (32-byte base64) to encrypt Stripe keys in the database. It must remain

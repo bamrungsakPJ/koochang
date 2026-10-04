@@ -1,13 +1,15 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { EasySlip } from './easyslip.js';
+import { RuntimeSettingsService } from '../platform/runtime-settings.service.js';
 
 /** Trusted worker connection: fs_api cannot confirm a payment or grant an entitlement. */
 @Injectable()
 export class SlipVerificationService implements OnModuleDestroy {
   private readonly pool = process.env.SLIP_DATABASE_URL ? new Pool({ connectionString: process.env.SLIP_DATABASE_URL, max: 5, connectionTimeoutMillis: 3000 }) : undefined;
   private readonly provider = new EasySlip();
+  constructor(@Optional() private readonly runtime?: RuntimeSettingsService) {}
   async verify(proofId: string, image: Buffer): Promise<void> {
     if (!this.pool) return; // submit defaults to manual review, so missing credentials never strand a proof.
     const token = randomUUID();
@@ -23,7 +25,8 @@ export class SlipVerificationService implements OnModuleDestroy {
     try {
       const order = await run(async c => (await c.query('SELECT worker.claim_slip($1,$2) AS value', [proofId, token])).rows[0].value);
       if (!order) return;
-      const result = await this.provider.verify(image, order);
+      const provider = this.runtime ? new EasySlip((await this.runtime.slipKey()) ?? '') : this.provider;
+      const result = await provider.verify(image, order);
       await run(c => c.query('SELECT worker.finish_slip($1,$2,$3::jsonb)', [proofId, token, JSON.stringify(result)]));
     } catch {
       // The proof remains pending and visible to admin. Never log provider keys or slip bodies.

@@ -1,5 +1,9 @@
 # EasySlip immediate payment verification — 2026-10-04
 
+The receiving account and encrypted EasySlip key can now be set in `/console` → Platform settings.
+Console values override environment values without restart. Existing invoices retain their receiver
+snapshot; provider registration and the fs_worker connection remain required. See [CONSOLE.md](CONSOLE.md).
+
 The owner uploads a private slip from `/shop` or the mobile app. The API immediately calls
 [EasySlip v2](https://document.easyslip.com/en/v2/verify/bank/image) using multipart `image`,
 `matchAccount=true`, `matchAmount` in baht, `checkDuplicate=true` and the invoice ID as `remark`.

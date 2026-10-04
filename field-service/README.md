@@ -57,3 +57,5 @@ RLS เป็นชั้นป้องกันข้อมูลข้าม�
 เพิ่ม Stripe สำหรับ QR PromptPay และบัตรเครดิต/เดบิต ตั้งค่าบัญชีในเว็บแพลตฟอร์มและเปิดสิทธิ์ร้านจากผลชำระที่ยืนยันแล้ว ดู [docs/STRIPE.md](docs/STRIPE.md)
 
 เลือก DeeSMSx สำหรับส่ง OTP แล้ว ดูการตั้งค่า server-only keys และชื่อผู้ส่งใน [docs/DEESMSX.md](docs/DEESMSX.md) ยังไม่มีการตั้ง keys หรือส่ง SMS จริง
+
+หน้า `/console` เพิ่มบัญชีรับเงิน DeeSMSx/EasySlip และบัญชีผู้ดูแลส่วนตัวแล้ว ตั้งค่าได้จากหน้าเว็บพร้อม TOTP และเก็บกุญแจแบบเข้ารหัส ดู [docs/CONSOLE.md](docs/CONSOLE.md)

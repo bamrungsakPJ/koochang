@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Inject, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import type { PoolClient } from 'pg';
+import { RuntimeSettingsService } from '../platform/runtime-settings.service.js';
 import { PLATFORM_SETTINGS, MEDIA_SETTINGS, type MediaSettings, type PlatformSettings } from '../config.js';
 import { Session, Tenant, type SessionContext, type TenantContext } from '../auth/session.guard.js';
 import { TenantGuard } from '../auth/tenant.guard.js';
@@ -17,16 +18,19 @@ import { StripeService } from './stripe.service.js';
 export class BillingController {
   constructor(private readonly database: DatabaseService, @Inject(PLATFORM_SETTINGS) private readonly settings: PlatformSettings,
     @Inject(MEDIA_SETTINGS) private readonly media: MediaSettings, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null,
-    private readonly slips: SlipVerificationService, private readonly stripe: StripeService) {}
+    private readonly slips: SlipVerificationService, private readonly stripe: StripeService,
+    @Optional() private readonly runtime?: RuntimeSettingsService) {}
+  private bank() { return this.runtime ? this.runtime.bank() : Promise.resolve(this.settings.payment); }
 
   /** Paid plans at their current published price (proposal prices until launch). */
   @Get('plans')
   async plans(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
     this.ownerOnly(tenant);
     const stripe = await this.stripe.methods();
+    const bank = await this.bank();
     return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
-      payment_available: Boolean(this.settings.payment) || stripe.stripe_card || stripe.stripe_qr,
-      methods: { transfer: Boolean(this.settings.payment), ...stripe },
+      payment_available: Boolean(bank) || stripe.stripe_card || stripe.stripe_qr,
+      methods: { transfer: Boolean(bank), ...stripe },
       items: (await client.query(
         `SELECT DISTINCT ON (p.id) p.code, p.name_th, p.name_en, pv.technician_seats, pv.storage_bytes, pv.ocr_per_period, pv.grace_days,
            pr.id AS price_version_id, pr.amount_minor, pr.currency, pr.interval_unit
@@ -57,14 +61,15 @@ export class BillingController {
     const key = typeof body.request_key === 'string' && uuidPattern.test(body.request_key) ? body.request_key : (check.fail('request_key', 'field.required'), '');
     check.done();
     const methods = await this.stripe.methods();
-    if (!this.settings.payment && !methods.stripe_card && !methods.stripe_qr) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
+    const bank = await this.bank();
+    if (!bank && !methods.stripe_card && !methods.stripe_qr) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
     const row = await this.database.identity(async c => (await c.query('SELECT * FROM auth.create_invoice($1,$2,$3,$4)', [session.userId, tenant.organizationId, price, key])).rows[0]);
     if (row.outcome === 'forbidden') throw apiError(403, 'TENANT_ACCESS_DENIED');
     if (row.outcome === 'suspended') throw apiError(403, 'ORGANIZATION_SUSPENDED');
     if (row.outcome === 'not_found') throw apiError(400, 'VALIDATION_ERROR', { field_errors: { price_version_id: 'field.required' } });
     if (row.outcome === 'seats') throw apiError(422, 'SEAT_LIMIT_REACHED');
-    if (this.settings.payment) await this.database.identity(c => c.query('SELECT auth.freeze_invoice_receiver($1,$2,$3,$4::jsonb)',
-      [session.userId, tenant.organizationId, row.invoice_id, JSON.stringify(this.settings.payment)]));
+    if (bank) await this.database.identity(c => c.query('SELECT auth.freeze_invoice_receiver($1,$2,$3,$4::jsonb)',
+      [session.userId, tenant.organizationId, row.invoice_id, JSON.stringify(bank)]));
     return this.database.withTenant(session.userId, tenant.organizationId, client => this.detail(client, tenant, row.invoice_id));
   }
 
@@ -144,7 +149,7 @@ export class BillingController {
       FROM billing.payments p WHERE p.organization_id = $1 AND p.invoice_id = $2`, [tenant.organizationId, invoiceId])).rows[0] ?? null;
     const period = (await client.query('SELECT start_at, end_at FROM billing.subscription_periods WHERE organization_id = $1 AND invoice_id = $2',
       [tenant.organizationId, invoiceId])).rows[0] ?? null;
-    const channel = invoice.receiver_snapshot ?? this.settings.payment;
+    const channel = invoice.receiver_snapshot ?? await this.bank();
     const { receiver_snapshot: _receiver, ...publicInvoice } = invoice;
     const checkouts = (await client.query('SELECT id,method,status,reason,created_at,expires_at,checkout_url FROM billing.stripe_checkouts WHERE organization_id=$1 AND invoice_id=$2 ORDER BY created_at DESC',[tenant.organizationId,invoiceId])).rows;
     const methods = {transfer:Boolean(channel),...await this.stripe.methods()};

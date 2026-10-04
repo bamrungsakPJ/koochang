@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 — DeeSMSx)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 — Console settings)
 
 - Branch `field-service-a02` — พัฒนาฟังก์ชัน A01 → D ฝั่ง API/mobile/platform console แล้ว และรอบนี้เพิ่มเว็บเจ้าของร้านโดยเฉพาะที่ `/shop`; การยืนยันบนอุปกรณ์จริงและ production providers ยังไม่ครบ
 - เว็บเจ้าของร้าน MVP ครอบคลุมภาพรวมร้าน ทีม ลูกค้า/สถานที่/พิกัด อุปกรณ์/OCR งาน/ผลบริการ/ร่าง รอบดูแล สมาชิก/สลิป ซัพพอร์ต และบัญชี ไทย/อังกฤษ ดู [OWNER_WEB.md](OWNER_WEB.md)
@@ -15,12 +15,14 @@
 - ใช้ EasySlip v2 ตรวจทันทีหลังอัปโหลด: ผ่านแล้วบันทึกยอด/ใบแจ้งชำระ/รอบสมาชิกและเปิดสิทธิ์อัตโนมัติ เฉพาะรายการมีปัญหาเข้าคิวแอดมิน เว็บร้าน/มือถือ/console แสดงผลไทยและอังกฤษแล้ว ดู [EASYSLIP.md](EASYSLIP.md); ยังไม่ตั้งค่าหรือทดสอบกับบริการและเงินโอนจริง
 - เพิ่มการตั้งค่าบัญชี Stripe ใน console และเลือก QR PromptPay/บัตรเครดิตบนเว็บร้านกับมือถือแล้ว ยืนยันยอดจาก Stripe ฝั่ง server ก่อนเปิดสิทธิ์ทันที เก็บ EasySlip เป็นอีกช่องทาง ดู [STRIPE.md](STRIPE.md); ยังไม่ได้เชื่อมบัญชีจริงหรือเปิดรับเงินจริง
 - เลือกและเพิ่ม DeeSMSx ส่ง OTP ไทย/อังกฤษแล้ว เก็บ keys เฉพาะ server และปิดการขอ OTP หากตั้งค่าไม่ครบ ดู [DEESMSX.md](DEESMSX.md); ยังไม่ได้ใส่บัญชีจริงหรือส่ง SMS จริง
+- `/console` เพิ่มตั้งค่าบัญชีรับเงิน DeeSMSx/EasySlip เปิด/ปิดบริการ และบัญชีผู้ดูแลส่วนตัว (ชื่อ ภาษา รหัสผ่าน อุปกรณ์ ออกจากเครื่องอื่น) แล้ว พร้อมปรับ Stripe webhook เป็น URL เต็ม; ค่าที่บันทึกมีผลทันทีและกุญแจเข้ารหัส ดู [CONSOLE.md](CONSOLE.md)
 - ผู้ใช้แจ้งว่ายังไม่พร้อมทดสอบ จึงเลื่อน UAT/การตรวจมือถือจริงไว้ และให้ทำเว็บเจ้าของร้านก่อน การตรวจรอบนี้ทำโดยผู้พัฒนาด้วยข้อมูลสังเคราะห์ในฐานทดสอบแยก
 - **ยังไม่ได้ push**: repo ยังไม่มี git remote และเครื่องไม่มี `gh` → รอ URL ของ repo
 - รอบก่อนเริ่มทดสอบบน Android จริงผ่าน Expo Go (LAN, PC = 192.168.1.99); รอบนี้ยังไม่ได้ควบคุมหรือยืนยันผลบนมือถือจริง
 - เพิ่มข้อความบัญชีที่กำลังใช้บนหน้าลิงก์เข้าร่วม และปุ่มออกจากระบบเพื่อใช้เบอร์อื่น โดยกลับมาลิงก์ร้านเดิม (th/en)
 
 ### งานถัดไป
+0. ใช้ migration 016 และตั้ง PLATFORM_DATABASE_URL / PLATFORM_SECRET_KEY สำหรับหน้า console settings; กรอกบัญชีรับเงินและ credentials ใน `/console` เมื่อพร้อม ใบแจ้งชำระเดิมคง receiver snapshot เดิม
 0. DeeSMSx: ตั้ง SMS_PROVIDER=deesmsx, DEESMSX_API_KEY, DEESMSX_SECRET_KEY และ DEESMSX_SENDER ที่ได้รับอนุมัติ แล้วตรวจส่ง OTP จริงเมื่อผู้ใช้พร้อมและอนุญาต
 0. Stripe: ใช้ migration 015, ตั้ง PAYMENT_DATABASE_URL (fs_worker), PLATFORM_SECRET_KEY และ OWNER_WEB_URL; ตั้งบัญชี/ช่องทางชำระและ webhook ตาม STRIPE.md แล้วทดสอบกับ Stripe test mode เมื่อผู้ใช้พร้อม ก่อนเปิด live
 0. ก่อนเปิดรับเงินจริง: ตั้ง EasySlip API key ใน server secret, ลงทะเบียนบัญชีรับใน branch, PAYMENT_BANK_CODE และ SLIP_DATABASE_URL (fs_worker), ใช้ migration 014 และตรวจเงินโอนจริงเมื่อได้รับอนุญาต
@@ -50,6 +52,16 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-04 — ทำส่วนตั้งค่า /console และบัญชีผู้ดูแล
+
+- ทำอะไร: เพิ่มหน้า platform settings ตั้งบัญชีรับเงิน/รหัสธนาคาร/PromptPay, DeeSMSx sender + keys และ EasySlip key พร้อมเปิด/ปิด; เพิ่ม my account แก้ชื่อ/ภาษา เปลี่ยนรหัสผ่านและออกจากระบบเครื่องอื่น; Stripe แสดง webhook URL เต็ม อ่านค่าล่าสุดและสถานะการตั้งค่า
+- การใช้งานจริง: settings ที่บันทึก override environment และมีผลในคำขอถัดไปโดยไม่ restart รวมปิดบริการที่เคยตั้ง env; ใบแจ้งชำระใหม่ freeze บัญชีรับ ขณะที่ใบเดิมยังใช้ snapshot เดิม; ไม่เพิ่มปุ่มที่แอบส่ง SMS หรือสร้างค่าใช้จ่ายจริง
+- ความปลอดภัย: permission settings.manage สำหรับ platform_admin/super_admin, TOTP step-up และ optimistic version; API/service keys เก็บเข้ารหัสและไม่คืนหน้าเว็บ/audit; SQL ผูก profile/session กับบัญชีของผู้เรียก ผู้ใช้แก้ของคนอื่นไม่ได้; เปลี่ยนรหัสต้องรหัสเดิม >=12 ตัวอักษรใหม่และใช้ lockout เดิม พร้อม revoke เครื่องอื่น
+- ปัญหา/แก้ไข: test adapter แรกไม่ได้ส่ง identity/tenant transaction ให้ billing จึงแก้ fixture ให้ใช้ fs_api จริง; คำแนะนำ webhook เดิมบอกให้เติมโดเมนทั้งที่เปลี่ยนเป็น URL เต็มแล้ว จึงแก้ไทย/อังกฤษหลังตรวจ browser; แสดง browser/OS อ่านง่ายแทน user-agent ยาว; production diagnostics อ่าน console override ก่อนแจ้งค่าที่ขาด
+- ตรวจแล้ว: workspace typecheck และ API/Next production build ผ่าน; PGlite full ก่อนเพิ่ม diagnostics test สุดท้าย 142 ข้อ ผ่าน 115 / skipped 27 / failed 0 และ targeted ล่าสุด 21 ผ่านทั้งหมด; PostgreSQL 16 full ล่าสุด 143 ผ่าน / skipped 0 / failed 0 รวม console 8 กรณี OTP/EasySlip/Stripe และ workflow/concurrency เดิม
+- Browser QA: ฐานแยก owner_web ผ่านบัญชีสังเคราะห์ ลงชื่อเข้าใช้ MFA, บันทึกธนาคาร/ชื่อผู้ดูแลและอ่านกลับ, หน้า DeeSMSx/EasySlip/Stripe และบัญชี, สลับไทย/อังกฤษ, ตรวจ My account/Stripe ที่ 320px ไม่มีล้น; ไม่เปลี่ยนรหัสผ่านผ่าน browser (ตรวจด้วย HTTP tests แล้ว) ไม่ใช้ keys/provider/ข้อมูลร้านจริง
+- สถานะ: โค้ดและคู่มือพร้อม ไม่มี deploy/UAT/เงินจริง/SMS จริง; การสร้าง/กำหนด role บัญชีแพลตฟอร์มยังใช้ operator tool ตามเดิม OCR/Push และบริการจริงยังอยู่ในงานก่อน pilot
 
 ### 2026-10-04 — DeeSMSx สำหรับ OTP
 

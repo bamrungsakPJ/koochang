@@ -5,6 +5,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { ApiExceptionFilter } from './shared/api-exception.filter.js';
 import { productionProblems } from './config-check.js';
+import { RuntimeSettingsService } from './platform/runtime-settings.service.js';
 async function main() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   // Image uploads arrive as raw bytes; JSON stays the default for everything else.
@@ -28,7 +29,9 @@ async function main() {
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCors({ origin: (process.env.ADMIN_ORIGIN ?? 'http://localhost:3000').split(',').map(o => o.trim()), credentials: false });
   app.enableShutdownHooks();
-  for (const problem of productionProblems()) console.warn('CONFIG_MISSING', problem);
+  let saved;
+  if(production){try{saved=await app.get(RuntimeSettingsService).read();}catch{console.warn('Console settings unavailable; runtime features remain closed until database recovers.');}}
+  for (const problem of productionProblems(process.env,saved)) console.warn('CONFIG_MISSING', problem);
   await app.listen(Number(process.env.PORT ?? 4000), process.env.HOST ?? '127.0.0.1');
 }
 void main().catch(() => { console.error('API_START_FAILED'); process.exitCode = 1; });
