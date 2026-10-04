@@ -1,5 +1,6 @@
 export type Language = 'th' | 'en';
 const th = {
+  'ownerWeb.pagination': 'หน้ารายการ', 'ownerWeb.previousPage': 'หน้าก่อน', 'ownerWeb.nextPage': 'หน้าถัดไป', 'ownerWeb.pageNumber': 'หน้า {n}',
   'ownerWeb.technicianAccount': 'บัญชีช่างใช้งานผ่านแอปมือถือได้ เว็บนี้สำหรับเจ้าของร้าน',
   'ownerWeb.workspace': 'พื้นที่จัดการร้าน', 'ownerWeb.navigation': 'เมนูร้าน',
   "ownerWeb.search_name_or_phone": "ค้นหาชื่อหรือเบอร์โทร",
@@ -260,6 +261,7 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
+  'ownerWeb.pagination': 'List pages', 'ownerWeb.previousPage': 'Previous', 'ownerWeb.nextPage': 'Next', 'ownerWeb.pageNumber': 'Page {n}',
   'ownerWeb.technicianAccount': 'Technicians use the mobile app. This workspace is for shop owners.',
   'ownerWeb.workspace': 'Shop workspace', 'ownerWeb.navigation': 'Shop navigation',
   "ownerWeb.search_name_or_phone": "Search name or phone",

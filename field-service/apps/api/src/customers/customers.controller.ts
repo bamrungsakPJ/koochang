@@ -5,6 +5,7 @@ import { RequestId, Session, Tenant, type SessionContext, type TenantContext } f
 import { TenantGuard } from '../auth/tenant.guard.js';
 import { DatabaseService } from '../database/database.service.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
+import { pagination, pageRows } from '../shared/pagination.js';
 
 interface LocationInput { label?: string; address?: string | null; travel_note?: string | null }
 const customerTypes = ['individual', 'business'];
@@ -18,20 +19,18 @@ export class CustomersController {
 
   /** Search by phone (any format) or name. Phone digits match anywhere, name is case-insensitive. */
   @Get('customers')
-  list(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Query('q') q?: string, @Query('limit') limit?: string) {
-    const size = Math.min(Math.max(Number(limit) || 30, 1), 100);
+  list(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Query('q') q?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    const page = pagination(limit, offset, 30, 100);
     const text = (q ?? '').trim().slice(0, 80);
     const digits = text.replace(/\D/g, '');
     const phone = digits.length >= 3 ? (digits.startsWith('0') ? digits.slice(1) : digits.replace(/^66/, '')) : null;
-    return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
-      items: (await client.query(
+    return this.database.withTenant(session.userId, tenant.organizationId, async client => pageRows((await client.query(
         `SELECT c.id, c.name, c.phone_normalized, c.customer_type, c.version, c.updated_at,
            count(l.id)::int AS location_count, count(l.latitude)::int AS located_count
          FROM core.customers c LEFT JOIN core.customer_locations l ON l.organization_id = c.organization_id AND l.customer_id = c.id AND l.archived_at IS NULL
          WHERE c.organization_id = $1 AND c.archived_at IS NULL
            AND ($2 = '' OR lower(coalesce(c.name, '')) LIKE '%' || lower($2) || '%' OR ($3::text IS NOT NULL AND c.phone_normalized LIKE '%' || $3 || '%'))
-         GROUP BY c.id ORDER BY c.updated_at DESC LIMIT $4`, [tenant.organizationId, text, phone, size])).rows,
-    }));
+         GROUP BY c.id ORDER BY c.updated_at DESC, c.id DESC LIMIT $4 OFFSET $5`, [tenant.organizationId, text, phone, page.limit + 1, page.offset])).rows, page));
   }
 
   /** Create a customer, optionally with the first location, in one transaction. The same

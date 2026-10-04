@@ -21,6 +21,17 @@ function environment(t) {
 }
 const response = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
+test('owner list requests preserve search and filters while requesting another page', async t => {
+  const client = environment(t); await client.setTokens({ access_token: 'owner', refresh_token: 'refresh' });
+  const urls = []; globalThis.fetch.mock.mockImplementation(async url => { urls.push(new URL(url)); return response(200, { items: [], has_more: false, next_offset: null }); });
+  await client.customers('shop', 'สมชาย & Sons', 50, 50);
+  assert.equal(urls[0].searchParams.get('q'), 'สมชาย & Sons');
+  assert.equal(urls[0].searchParams.get('offset'), '50'); assert.equal(urls[0].searchParams.get('limit'), '50');
+  await client.jobs('shop', { status: 'completed', assignee: 'member', from: '2026-10-04', to: '2026-10-05', offset: '100', limit: '50' });
+  assert.equal(urls[1].searchParams.get('status'), 'completed'); assert.equal(urls[1].searchParams.get('assignee'), 'member');
+  assert.equal(urls[1].searchParams.get('from'), '2026-10-04'); assert.equal(urls[1].searchParams.get('offset'), '100');
+});
+
 test('owner web tab tokens are separate from platform sessions and survive an API network failure', async t => {
   const client = environment(t);
   sessionStorage.setItem('console.session', 'platform-token');

@@ -358,6 +358,11 @@ test('customers: phone-first create with first location, retry-safe, duplicate w
 
   assert.equal((await call('GET', `${path}?q=555-12`, { token: owner.access_token })).body.items.length, 2);
   assert.equal((await call('GET', `${path}?q=somsri`, { token: owner.access_token })).body.items.length, 1);
+  const page1 = (await call('GET', `${path}?q=555-12&limit=1`, { token: owner.access_token })).body;
+  const page2 = (await call('GET', `${path}?q=555-12&limit=1&offset=${page1.next_offset}`, { token: owner.access_token })).body;
+  assert.equal(page1.has_more, true); assert.equal(page2.has_more, false);
+  assert.deepEqual(new Set([...page1.items, ...page2.items].map(c => c.id)), new Set([first.body.id, second.body.id]));
+  assert.equal((await call('GET', `${path}?offset=-1`, { token: owner.access_token })).status, 400);
   assert.equal((await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID() } })).status, 400, 'name or phone required');
 });
 
@@ -516,6 +521,11 @@ test('jobs: create and assign, technician sees only that job and place, conflict
     scheduled_start: '2026-11-10T10:00:00+07:00', scheduled_end: '2026-11-10T12:00:00+07:00' } });
   assert.equal(overlap.status, 201, 'a time clash is a warning, not a block');
   assert.deepEqual(overlap.body.conflicts.map(c => c.id), [job.id]);
+  const firstPage = (await call('GET', `${jobs}?from=2026-11-01&to=2026-12-01&limit=1`, { token: owner.access_token })).body;
+  const lastPage = (await call('GET', `${jobs}?from=2026-11-01&to=2026-12-01&limit=1&offset=${firstPage.next_offset}`, { token: owner.access_token })).body;
+  assert.equal(firstPage.has_more, true); assert.equal(lastPage.has_more, false);
+  assert.deepEqual(new Set([...firstPage.items, ...lastPage.items].map(j => j.id)), new Set([job.id, overlap.body.job.id]));
+  assert.equal((await call('GET', `${jobs}?limit=1.5`, { token: owner.access_token })).status, 400);
   // Cancel the clash so the first technician has no other open job at this customer.
   await call('POST', `${jobs}/${overlap.body.job.id}/cancel`, { token: owner.access_token, body: { expected_version: overlap.body.job.version, reason: 'test' } });
 

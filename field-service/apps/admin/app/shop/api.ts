@@ -9,6 +9,7 @@ export class ApiFailure extends Error {
     super(message);
   }
 }
+export interface Page<T> { items: T[]; limit: number; offset: number; has_more: boolean; next_offset: number | null }
 
 export interface Membership {
   member_id: string; organization_id: string; organization_name: string | null; organization_status: string;
@@ -143,7 +144,7 @@ export class Api {
   changeMember(organizationId: string, memberId: string, action: string, expectedVersion: number) {
     return this.call('POST', `/organizations/${organizationId}/members/${memberId}/${action}`, { expected_version: expectedVersion });
   }
-  customers(organizationId: string, q: string) { return this.call<{ items: CustomerSummary[] }>('GET', `/organizations/${organizationId}/customers?limit=100&q=${encodeURIComponent(q)}`); }
+  customers(organizationId: string, q: string, offset = 0, limit = 100) { return this.call<Page<CustomerSummary>>('GET', `/organizations/${organizationId}/customers?limit=${limit}&offset=${offset}&q=${encodeURIComponent(q)}`); }
   customer(organizationId: string, id: string) { return this.call<Customer>('GET', `/organizations/${organizationId}/customers/${id}`); }
   createCustomer(organizationId: string, body: { request_key: string; name?: string; phone?: string; note?: string; customer_type?: string; confirm_duplicate?: boolean;
     location?: { label: string; address?: string; travel_note?: string } }) { return this.call<Customer>('POST', `/organizations/${organizationId}/customers`, body); }
@@ -183,9 +184,9 @@ export class Api {
     return this.call<Equipment>('POST', `/organizations/${organizationId}/equipment/${id}/photos`, { photos });
   }
   // jobs ------------------------------------------------------------------------------------
-  jobs(organizationId: string, query: { from?: string; to?: string; status?: string; assignee?: string } = {}) {
+  jobs(organizationId: string, query: { from?: string; to?: string; status?: string; assignee?: string; limit?: string; offset?: string } = {}) {
     const q = Object.entries(query).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&');
-    return this.call<{ items: JobSummary[] }>('GET', `/organizations/${organizationId}/jobs${q ? `?${q}` : ''}`);
+    return this.call<Page<JobSummary>>('GET', `/organizations/${organizationId}/jobs${q ? `?${q}` : ''}`);
   }
   job(organizationId: string, id: string) { return this.call<Job>('GET', `/organizations/${organizationId}/jobs/${id}`); }
   updateJob(organizationId: string, id: string, body: { expected_version: number; job_type?: string; description?: string; estimated_equipment_count?: number | null; equipment_ids?: string[] }) {

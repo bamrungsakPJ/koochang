@@ -4,6 +4,7 @@ import { RequestId, Session, Tenant, type SessionContext, type TenantContext } f
 import { TenantGuard } from '../auth/tenant.guard.js';
 import { DatabaseService } from '../database/database.service.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
+import { pagination, pageRows } from '../shared/pagination.js';
 
 const jobTypes = ['installation', 'repair', 'inspection', 'maintenance', 'other'];
 const open = ['unassigned', 'scheduled', 'in_progress'];
@@ -21,19 +22,18 @@ export class JobsController {
    * work remains visible so owners can assign it even without an appointment. */
   @Get()
   list(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Query('from') from?: string, @Query('to') to?: string,
-    @Query('status') status?: string, @Query('assignee') assignee?: string) {
+    @Query('status') status?: string, @Query('assignee') assignee?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    const page = pagination(limit, offset, 200, 200);
     const start = from && !Number.isNaN(Date.parse(from)) ? new Date(from) : new Date(Date.now() - 86400000);
     const end = to && !Number.isNaN(Date.parse(to)) ? new Date(to) : new Date(start.getTime() + 14 * 86400000);
     const statuses = status ? status.split(',').filter(s => [...open, 'completed', 'cancelled'].includes(s)) : open;
-    return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
-      items: (await client.query(
+    return this.database.withTenant(session.userId, tenant.organizationId, async client => pageRows((await client.query(
         `${this.selectJobs} WHERE j.organization_id = $1 AND j.status = ANY($2::text[])
            AND ((coalesce(j.scheduled_start, j.started_at, j.created_at) >= $3 AND coalesce(j.scheduled_start, j.started_at, j.created_at) < $4)
              OR (j.scheduled_start IS NULL AND j.status IN ('unassigned','scheduled','in_progress')))
            AND ($5::uuid IS NULL OR j.current_assignee_id = $5)
-         ORDER BY j.scheduled_start NULLS FIRST, j.created_at LIMIT 200`,
-        [tenant.organizationId, statuses, start, end, assignee && uuidPattern.test(assignee) ? assignee : null])).rows,
-    }));
+         ORDER BY j.scheduled_start NULLS FIRST, j.created_at, j.id LIMIT $6 OFFSET $7`,
+        [tenant.organizationId, statuses, start, end, assignee && uuidPattern.test(assignee) ? assignee : null, page.limit + 1, page.offset])).rows, page));
   }
 
   /** Create a job for a customer location. Same request_key → same job. With an assignee the job

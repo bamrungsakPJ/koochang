@@ -32,6 +32,14 @@ export function Note({ label, ...props }: React.TextareaHTMLAttributes<HTMLTextA
 export function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) { return Children.toArray(children).some(v => typeof v !== 'string' || !!v.trim()) ? <p role={error ? 'alert' : 'status'} className={error ? 'error' : 'ok-box'}>{children}</p> : null; }
 export function Panel({ title, children }: { title?: string; children: ReactNode }) { return <section className="panel">{title ? <h2>{title}</h2> : null}{children}</section>; }
 export function Empty() { const t = useText(); return <p className="muted">{t('ownerWeb.no_records_yet')}</p>; }
+export function Pagination({ offset, size, more, busy, onPage }: { offset: number; size: number; more: boolean; busy: boolean; onPage: (offset: number) => void }) {
+  const t = useText();
+  return <nav className="actions" aria-label={t('ownerWeb.pagination')}>
+    <Button disabled={busy || offset === 0} onClick={() => onPage(Math.max(0, offset - size))}>{t('ownerWeb.previousPage')}</Button>
+    <span aria-live="polite">{t('ownerWeb.pageNumber', { n: Math.floor(offset / size) + 1 })}</span>
+    <Button disabled={busy || !more} onClick={() => onPage(offset + size)}>{t('ownerWeb.nextPage')}</Button>
+  </nav>;
+}
 export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) { return <div className="page-title"><h1>{children}</h1>{action}</div>; }
 export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
   const [data, setData] = useState<T | null>(null), [error, setError] = useState<unknown>(null), [loading, setLoading] = useState(true);

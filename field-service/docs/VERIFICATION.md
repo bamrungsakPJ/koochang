@@ -1,3 +1,13 @@
+# Owner list pagination — 2026-10-04
+
+- All workspace typechecks and Next.js production build passed.
+- PGlite suite before the final added client assertion: 106 total, 81 passed / 25 skipped / 0 failed. Owner-client suite after that addition: 5 passed / 0 failed.
+- New SQL/controller tests run the actual customer/job list controllers under fs_api with RLS. Confirmed 106 matching customers and 205 jobs across pages, identical timestamp boundaries without duplicates, filters, cross-shop denial, default/capped sizes, and rejection of fractional/negative/nonfinite paging input.
+- PostgreSQL 16.15 targeted verification: 5 passed / 0 skipped / 0 failed (customer/job HTTP workflows plus all 3 new SQL/controller pagination tests). Added assertions verify next-page metadata, no repeated ids and invalid paging input. Run: `node --env-file=.env --test --test-concurrency=1 --test-name-pattern='customers: phone-first|jobs: create and assign|pagination' tests/auth-http.test.mjs tests/pagination.test.mjs`.
+- No new manual browser/device/UAT checks this round. Previous owner browser verification below remains historical evidence for the earlier workspace; new paging controls were checked through compilation, transport tests and API tests.
+
+---
+
 # Owner web verification — 2026-10-04
 
 - Added the owner workspace at `/shop`; root `/` redirects there. Platform staff continue to use `/console` with separate sessions.
