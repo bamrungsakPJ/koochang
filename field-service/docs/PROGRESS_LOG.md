@@ -7,13 +7,19 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 — Console ครบตาม MVP แล้ว)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 ดึก — จุดส่งต่อก่อนเคลียร์แชท)
 
-- **Console `/console` ครบตามขอบเขต MVP และ commit แล้ว** (migration 017–020, 64 ตาราง) ทีมผู้ดูแล/คำเชิญ/กู้บัญชี, แพ็กเกจและราคาแบบอนุมัติสองคน, นโยบายระบบ, ประกาศ/เหตุขัดข้อง, เครื่องมือคิว, คำขอข้อมูล/ส่งออก/ปิดร้าน/ลบข้อมูล, รายงานการเงิน, แบ่งหน้ารายการ ดู [CONSOLE.md](CONSOLE.md)
-- ผลตรวจ: PostgreSQL 16 **164/164 ผ่าน**, PGlite 137 ผ่าน 27 ข้าม 0 ล้มเหลว, typecheck ทุก workspace และ Next production build ผ่าน, ตรวจหน้าจอในเบราว์เซอร์ด้วยข้อมูลสังเคราะห์ (th/en, 320px)
-- **Staging บน server2 ติดตั้งแล้ว** (ใช้ภายใน LAN: http://192.168.1.127:3200/console) ดู [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
-- OCR ป้ายเครื่องเลือก **Claude API** แล้ว โค้ดพร้อม รอ `ANTHROPIC_API_KEY` และทดสอบกับรูปจริง ดู [OCR_CLAUDE.md](OCR_CLAUDE.md)
-- ยังไม่ใช่ production: ยังไม่ได้ใช้ migration กับเครื่องจริง ไม่มี provider keys/เงินจริง/UAT และต้องกำหนดที่เก็บ `ERASURE_REGISTRY_FILE` นอก backup ตอน deploy
+**เริ่มต่อจากตรงนี้**
+- โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด 9a47066 + commit บันทึกนี้) **ยังไม่ได้ push — ไม่มี git remote**
+- **Staging บน server2 (ใช้ภายใน LAN)**: console http://192.168.1.127:3200/console, เว็บร้าน http://192.168.1.127:3200/shop, API http://192.168.1.127:4100 — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api` บน server2), ฐานข้อมูล cluster 16/staging พอร์ต 5434, ยังไม่มีบัญชี console และยังไม่มีแพ็กเกจ วิธีอัปเดต/คำสั่งทั้งหมดใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
+- **เครื่อง dev**: API :4000, console :3001 (`/console`), ฐานข้อมูล dev บน server2 16/main รัน migration ถึง 020 แล้ว; บัญชี console ทดลองอยู่ในไฟล์ `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
+- **งานล่าสุด**: ปรับดีไซน์ console เป็นแนว SaaS สว่าง (เมนูแบ่งกลุ่มมีไอคอน, top bar, ฟอนต์ Inter + Noto Sans Thai) ขึ้น staging แล้ว — รอผู้ใช้ดูและให้ความเห็น
+- **ผู้ใช้กำลังทำ**: สร้างบัญชี console 2 คนบน staging เอง (Claude ไม่สร้างบัญชี/รหัสผ่านบนเครื่องจริง) แล้วสร้างแพ็กเกจ trial + รายเดือนใน console
+- **ยังไม่มี**: ชื่อระบบ, โดเมน, DeeSMSx key, EasySlip/Stripe key, ANTHROPIC_API_KEY, ผู้ให้บริการ Push
+
+**สรุปสิ่งที่ทำเสร็จ**
+- Console `/console` ครบตาม MVP (migration 017–020) + ดีไซน์ใหม่; เว็บเจ้าของร้าน `/shop`; แอปมือถือ (Expo); ชำระเงิน EasySlip/Stripe; OTP DeeSMSx; OCR ป้ายเครื่องด้วย Claude API ([OCR_CLAUDE.md](OCR_CLAUDE.md))
+- ผลตรวจล่าสุด: PostgreSQL 16 164/164 ผ่าน; PGlite 141 ผ่าน 27 ข้าม 0 ล้มเหลว; typecheck + Next production build ผ่าน
 
 - Branch `field-service-a02` — พัฒนาฟังก์ชัน A01 → D ฝั่ง API/mobile/platform console แล้ว และรอบนี้เพิ่มเว็บเจ้าของร้านโดยเฉพาะที่ `/shop`; การยืนยันบนอุปกรณ์จริงและ production providers ยังไม่ครบ
 - เว็บเจ้าของร้าน MVP ครอบคลุมภาพรวมร้าน ทีม ลูกค้า/สถานที่/พิกัด อุปกรณ์/OCR งาน/ผลบริการ/ร่าง รอบดูแล สมาชิก/สลิป ซัพพอร์ต และบัญชี ไทย/อังกฤษ ดู [OWNER_WEB.md](OWNER_WEB.md)
