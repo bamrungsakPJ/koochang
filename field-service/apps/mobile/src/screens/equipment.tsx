@@ -3,6 +3,7 @@ import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Equipment, type EquipmentSummary, type Media, type Membership } from '../api';
 import { CameraDeniedError, pickPhoto, uploadPhoto, uuid } from '../photos';
+import { EquipmentHistoryView } from './service';
 import { Banner, Button, Card, colors, Field, fonts, Icon, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
 export const categories = ['air_conditioner', 'water_filter', 'cctv', 'solar', 'pump', 'refrigeration', 'other'] as const;
@@ -263,6 +264,7 @@ export function EquipmentDetail({ membership, equipmentId, onBack }: { membershi
         setValues({ name: item.name ?? '', brand: item.brand ?? '', model: item.model ?? '', serial_number: item.serial_number ?? '' }); setEditing(true);
       }} />
     </Card>}
+    <EquipmentHistoryView membership={membership} equipmentId={item.id} />
   </Screen>;
 }
 

@@ -560,3 +560,118 @@ test('jobs: unassign returns the job to the queue; reschedule notifies; an expir
   assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED');
   assert.equal((await call('GET', jobs, { token: owner.access_token })).status, 200);
 });
+
+async function serviceSetup(label) {
+  const { owner, tech, shopId } = await shopWithTechnician(label);
+  const members = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members;
+  const techMember = members.find(m => m.role === 'technician').member_id;
+  const customer = (await call('POST', `/organizations/${shopId}/customers`, { token: owner.access_token,
+    body: { request_key: randomUUID(), name: `${label} customer`, phone: '0855500011', location: { label: 'บ้าน' } } })).body;
+  const locationId = customer.locations[0].id;
+  const unit = async name => (await call('POST', `/organizations/${shopId}/locations/${locationId}/equipment`, { token: owner.access_token,
+    body: { request_key: randomUUID(), category: 'air_conditioner', name } })).body;
+  return { owner, tech, shopId, techMember, customer, locationId, unit };
+}
+async function startedJob(s, assignee, token, equipmentIds) {
+  const job = (await call('POST', `/organizations/${s.shopId}/jobs`, { token: s.owner.access_token, body: { request_key: randomUUID(), customer_id: s.customer.id,
+    location_id: s.locationId, job_type: 'maintenance', equipment_ids: equipmentIds, assignee_member_id: assignee } })).body.job;
+  return (await call('POST', `/organizations/${s.shopId}/jobs/${job.id}/start`, { token, body: { expected_version: job.version } })).body;
+}
+
+test('service: complete a job with per-unit results, photos and calendar-month next cycle; retries return the same result', { skip }, async () => {
+  const s = await serviceSetup('Svc');
+  const [a, b] = [await s.unit('ห้องนอน'), await s.unit('ห้องนั่งเล่น')];
+  const job = await startedJob(s, s.techMember, s.tech.access_token, [a.id, b.id]);
+  assert.equal(job.status, 'in_progress');
+  const before = await uploadPhoto(s.tech.access_token, s.shopId);
+  const after = await uploadPhoto(s.tech.access_token, s.shopId);
+  const clientEventId = randomUUID();
+  const body = { expected_version: job.version, client_event_id: clientEventId, occurred_at: '2026-08-31T10:00:00+07:00', note: 'ล้างเสร็จ 1 เครื่อง',
+    items: [
+      { equipment_id: a.id, service_type: 'maintenance', outcome: 'done', work_note: 'ล้างคอยล์', photos: [{ media_asset_id: before, photo_type: 'before' }, { media_asset_id: after, photo_type: 'after' }],
+        next_maintenance: { mode: 'months', interval_months: 6 } },
+      { equipment_id: b.id, service_type: 'maintenance', outcome: 'not_done', not_done_reason: 'ลูกค้าไม่สะดวก' },
+    ] };
+  const path = `/organizations/${s.shopId}/jobs/${job.id}/complete`;
+  assert.equal((await call('POST', path, { token: s.owner.access_token, body })).status, 403, 'only the assignee records the service');
+  const done = await call('POST', path, { token: s.tech.access_token, body });
+  assert.equal(done.status, 201, JSON.stringify(done.body));
+  assert.equal(done.body.job_status, 'completed');
+  assert.deepEqual(done.body.items.map(i => [i.outcome, i.next_due_on]), [['done', '2027-02-28'], ['not_done', null]], '31 Aug + 6 months → last day of February');
+  const retry = await call('POST', path, { token: s.tech.access_token, body });
+  assert.equal(retry.body.service_event_id, done.body.service_event_id);
+  assert.equal(retry.body.replayed, true);
+  const changed = await call('POST', path, { token: s.tech.access_token, body: { ...body, note: 'คนละข้อมูล' } });
+  assert.equal(changed.status, 409);
+  assert.equal(changed.body.code, 'IDEMPOTENCY_MISMATCH');
+
+  const detail = (await call('GET', `/organizations/${s.shopId}/jobs/${job.id}`, { token: s.owner.access_token })).body;
+  assert.equal(detail.status, 'completed');
+  assert.equal(detail.history.at(-1).to_status, 'completed');
+  assert.ok((await call('GET', `/organizations/${s.shopId}/notifications`, { token: s.owner.access_token })).body.items.some(n => n.template_key === 'job_completed'));
+
+  const historyA = (await call('GET', `/organizations/${s.shopId}/equipment/${a.id}/history`, { token: s.owner.access_token })).body;
+  assert.equal(historyA.items.length, 1);
+  assert.equal(historyA.items[0].performed_by_name, 'Tech Svc');
+  assert.deepEqual(historyA.items[0].photos.map(p => p.photo_type), ['before', 'after']);
+  assert.deepEqual(historyA.maintenance.map(m => [m.service_type, m.interval_months, m.due_date]), [['maintenance', 6, '2027-02-28']]);
+  const historyB = (await call('GET', `/organizations/${s.shopId}/equipment/${b.id}/history`, { token: s.owner.access_token })).body;
+  assert.equal(historyB.items[0].outcome, 'not_done');
+  assert.deepEqual(historyB.maintenance, [], 'a unit not serviced gets no new cycle');
+
+  const none = await startedJob(s, s.techMember, s.tech.access_token, [b.id]);
+  const noneDone = await call('POST', `/organizations/${s.shopId}/jobs/${none.id}/complete`, { token: s.tech.access_token, body: { expected_version: none.version,
+    client_event_id: randomUUID(), occurred_at: new Date().toISOString(), items: [{ equipment_id: b.id, service_type: 'maintenance', outcome: 'deferred', not_done_reason: 'ฝนตก' }] } });
+  assert.equal(noneDone.status, 400);
+  assert.equal(noneDone.body.field_errors.items, 'field.noneDone');
+});
+
+test('service: next round by another technician keeps the first one in history; back-dated work does not move the cycle; no-reminder disables', { skip }, async () => {
+  const s = await serviceSetup('Round');
+  const second = await addTechnician(s.owner, s.shopId, 'Tech Next');
+  const unit = await s.unit('แอร์');
+  const complete = async (job, token, occurredAt, next) => (await call('POST', `/organizations/${s.shopId}/jobs/${job.id}/complete`, { token, body: {
+    expected_version: job.version, client_event_id: randomUUID(), occurred_at: occurredAt,
+    items: [{ equipment_id: unit.id, service_type: 'maintenance', outcome: 'done', next_maintenance: next }] } })).body;
+  const first = await complete(await startedJob(s, s.techMember, s.tech.access_token, [unit.id]), s.tech.access_token, '2026-04-02T09:00:00+07:00', { mode: 'months', interval_months: 6 });
+  assert.equal(first.items[0].next_due_on, '2026-10-02');
+  const nextRound = await complete(await startedJob(s, second.memberId, second.access_token, [unit.id]), second.access_token, '2026-10-01T09:00:00+07:00', null);
+  assert.equal(nextRound.items[0].next_due_on, '2027-04-01', 'existing 6-month schedule is reused');
+  const history = (await call('GET', `/organizations/${s.shopId}/equipment/${unit.id}/history`, { token: s.owner.access_token })).body;
+  assert.deepEqual(history.items.map(i => i.performed_by_name), ['Tech Next', 'Tech Round'], 'earlier work keeps its technician');
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM core.maintenance_cycles WHERE organization_id = $1 AND status = 'open'", [s.shopId])).rows[0].n, 1);
+
+  const backdated = await complete(await startedJob(s, second.memberId, second.access_token, [unit.id]), second.access_token, '2026-06-01T09:00:00+07:00', { mode: 'months', interval_months: 3 });
+  assert.equal(backdated.items[0].next_due_on, null, 'older than the latest service: recorded, cycle unchanged');
+  assert.equal((await call('GET', `/organizations/${s.shopId}/equipment/${unit.id}/history`, { token: s.owner.access_token })).body.maintenance[0].due_date, '2027-04-01');
+
+  await complete(await startedJob(s, second.memberId, second.access_token, [unit.id]), second.access_token, new Date().toISOString(), { mode: 'none' });
+  const afterNone = (await call('GET', `/organizations/${s.shopId}/equipment/${unit.id}/history`, { token: s.owner.access_token })).body.maintenance[0];
+  assert.deepEqual([afterNone.enabled, afterNone.due_date], [false, null]);
+});
+
+test('service: ad-hoc on-site work creates a completed job; late submission after expiry only for jobs started before', { skip }, async () => {
+  const s = await serviceSetup('Adhoc');
+  const own = (await call('POST', `/organizations/${s.shopId}/customers`, { token: s.tech.access_token, body: { request_key: randomUUID(), phone: '0855500022', location: { label: 'ร้าน' } } })).body;
+  const unit = (await call('POST', `/organizations/${s.shopId}/locations/${own.locations[0].id}/equipment`, { token: s.tech.access_token, body: { request_key: randomUUID(), category: 'pump' } })).body;
+  const recorded = await call('POST', `/organizations/${s.shopId}/service-events`, { token: s.tech.access_token, body: {
+    client_event_id: randomUUID(), customer_id: own.id, location_id: own.locations[0].id, occurred_at: new Date().toISOString(),
+    items: [{ equipment_id: unit.id, service_type: 'repair', outcome: 'done', work_note: 'เปลี่ยนสวิตช์แรงดัน' }] } });
+  assert.equal(recorded.status, 201, JSON.stringify(recorded.body));
+  const adhocJob = (await call('GET', `/organizations/${s.shopId}/jobs/${recorded.body.job_id}`, { token: s.owner.access_token })).body;
+  assert.deepEqual([adhocJob.status, adhocJob.job_type, adhocJob.assignee_name], ['completed', 'repair', 'Tech Adhoc']);
+
+  // Plan ends 1 hour ago: a job started 2 hours ago may still be finished within 24 hours.
+  const unitA = await s.unit('A');
+  const job = await startedJob(s, s.techMember, s.tech.access_token, [unitA.id]);
+  await db.query("UPDATE core.jobs SET started_at = now() - interval '2 hours' WHERE id = $1", [job.id]);
+  await db.query(`UPDATE billing.subscription_periods SET start_at = now() - interval '15 days', end_at = now() - interval '1 hour' WHERE organization_id = $1`, [s.shopId]);
+  const version = (await db.query('SELECT version FROM core.jobs WHERE id = $1', [job.id])).rows[0].version;
+  const late = await call('POST', `/organizations/${s.shopId}/jobs/${job.id}/complete`, { token: s.tech.access_token, body: { expected_version: version,
+    client_event_id: randomUUID(), occurred_at: new Date().toISOString(), items: [{ equipment_id: unitA.id, service_type: 'maintenance', outcome: 'done' }] } });
+  assert.equal(late.status, 201, JSON.stringify(late.body));
+  const refused = await call('POST', `/organizations/${s.shopId}/service-events`, { token: s.tech.access_token, body: {
+    client_event_id: randomUUID(), customer_id: own.id, location_id: own.locations[0].id, occurred_at: new Date().toISOString(),
+    items: [{ equipment_id: unit.id, service_type: 'repair', outcome: 'done' }] } });
+  assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED', 'no new work after expiry');
+});

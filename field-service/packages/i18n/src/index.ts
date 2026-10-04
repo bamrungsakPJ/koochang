@@ -121,6 +121,15 @@ const th = {
   history: 'ประวัติ', reasonOptional: 'เหตุผล', reasonRequiredInProgress: 'ต้องใส่เหตุผลเมื่อเปลี่ยนช่างระหว่างทำงาน', viewJob: 'ดูงาน', myJobs: 'งานของฉัน',
   'notify.job_assigned': 'คุณได้รับงานใหม่ {when}', 'notify.job_unassigned': 'งานหนึ่งถูกย้ายไปให้ช่างคนอื่น',
   'notify.job_rescheduled': 'งานของคุณเลื่อนเป็น {when}', 'notify.job_cancelled': 'งานของคุณถูกยกเลิก',
+  IDEMPOTENCY_MISMATCH: 'รายการนี้ถูกส่งไปแล้วด้วยข้อมูลต่างกัน กรุณาโหลดข้อมูลล่าสุด', 'field.noneDone': 'ต้องมีอย่างน้อยหนึ่งเครื่องที่ทำเสร็จ ถ้าไม่ได้ทำเลยให้เลื่อนหรือยกเลิกงาน',
+  recordService: 'บันทึกผลบริการ', recordAdhoc: 'บันทึกงานหน้างาน', adhocHint: 'งานที่ไม่ได้นัดล่วงหน้า ระบบจะสร้างงานให้อัตโนมัติ',
+  serviceType: 'บริการที่ทำจริง', outcome: 'ผล', 'outcome.done': 'ทำแล้ว', 'outcome.not_done': 'ไม่ได้ทำ', 'outcome.deferred': 'เลื่อนไปก่อน',
+  notDoneReason: 'เหตุผลที่ไม่ได้ทำ', workNote: 'สิ่งที่ทำ', problemNote: 'สิ่งที่พบ / อาการ', beforePhoto: 'รูปก่อนทำ', afterPhoto: 'รูปหลังทำ',
+  nextMaintenance: 'ดูแลครั้งถัดไป', keepSchedule: 'ใช้รอบเดิม', months: '{n} เดือน', noReminder: 'ไม่ต้องเตือน', nextDue: 'ครั้งถัดไป {date}',
+  serviceNote: 'สรุปงาน', finishJob: 'บันทึกและปิดงาน', selectEquipment: 'เลือกเครื่องที่ทำจริง', selectAtLeastOne: 'เลือกอย่างน้อยหนึ่งเครื่อง',
+  jobFinished: 'ปิดงานแล้ว', serviceSaved: 'บันทึกผลบริการแล้ว', serviceHistory: 'ประวัติบริการ', noHistory: 'ยังไม่มีประวัติบริการ',
+  performedBy: 'โดย {name}', maintenanceDue: 'ถึงรอบ {date}', 'notify.job_completed': '{name} ปิดงานแล้ว', sending: 'กำลังส่ง…',
+  unsentHint: 'ยังส่งไม่สำเร็จ ข้อมูลยังอยู่ กดส่งอีกครั้งได้',
   noPhone: 'ไม่มีเบอร์', technicianCustomersHint: 'คุณเห็นเฉพาะลูกค้าที่คุณเพิ่ม และลูกค้าของงานที่ได้รับมอบหมาย',
 };
 type Catalog = { [K in keyof typeof th]: string };
@@ -245,6 +254,15 @@ const en: Catalog = {
   history: 'History', reasonOptional: 'Reason', reasonRequiredInProgress: 'A reason is required when changing the technician during work.', viewJob: 'View job', myJobs: 'My jobs',
   'notify.job_assigned': 'You have a new job {when}', 'notify.job_unassigned': 'A job was moved to another technician',
   'notify.job_rescheduled': 'Your job moved to {when}', 'notify.job_cancelled': 'Your job was cancelled',
+  IDEMPOTENCY_MISMATCH: 'This was already sent with different details. Please reload the latest data.', 'field.noneDone': 'At least one unit must be done. If nothing was done, reschedule or cancel the job.',
+  recordService: 'Record service', recordAdhoc: 'Record on-site work', adhocHint: 'Work without an appointment; a job is created for it automatically.',
+  serviceType: 'Service done', outcome: 'Result', 'outcome.done': 'Done', 'outcome.not_done': 'Not done', 'outcome.deferred': 'Deferred',
+  notDoneReason: 'Why not done', workNote: 'What was done', problemNote: 'What was found', beforePhoto: 'Before', afterPhoto: 'After',
+  nextMaintenance: 'Next maintenance', keepSchedule: 'Keep schedule', months: '{n} months', noReminder: 'No reminder', nextDue: 'Next on {date}',
+  serviceNote: 'Summary', finishJob: 'Save and finish job', selectEquipment: 'Pick the units actually serviced', selectAtLeastOne: 'Pick at least one unit',
+  jobFinished: 'Job finished', serviceSaved: 'Service recorded', serviceHistory: 'Service history', noHistory: 'No service history yet',
+  performedBy: 'by {name}', maintenanceDue: 'Due {date}', 'notify.job_completed': '{name} finished a job', sending: 'Sending…',
+  unsentHint: 'Not sent yet. Your entries are kept; tap send again.',
   noPhone: 'No phone', technicianCustomersHint: 'You see the customers you added and those of jobs assigned to you.',
 };
 export const catalogs = { th, en };

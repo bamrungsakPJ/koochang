@@ -158,7 +158,8 @@ function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organ
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications, onOpenJob }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void; onOpenJob: (id: string) => void }) {
+export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRecordAdhoc }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void;
+  onOpenJob: (id: string) => void; onRecordAdhoc: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
@@ -191,7 +192,10 @@ export function Home({ me, membership, onTeam, onNotifications, onOpenJob }: { m
       <Card padded={false}><Row icon="people" tone="blue" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
       {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} /></> : null}
     </> : null}
-    {!owner ? <><Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} /></> : null}
+    {!owner ? <>
+      <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
+      <Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} />
+    </> : null}
   </Screen>;
 }
 

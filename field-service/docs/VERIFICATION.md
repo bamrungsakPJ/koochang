@@ -142,3 +142,18 @@ Tests (`pnpm test`, 90 total): PostgreSQL 16.15: 90 passed. PGlite: 72 passed, 1
 - New HTTP tests: create + assign with planned equipment and estimate, retry → same job, technicians cannot plan, technician sees the job, its customer and only the job's location, job_assigned notification, overlapping job → conflict warning, stale version, reassignment → previous technician loses job and customer access and gets job_unassigned, start by assignee only, cancel needs a reason and is owner-only, history scheduled → in_progress → cancelled, cancelled job cannot start; unassigned job without time, assign, reschedule → job_rescheduled, unassign removes access, invalid time rejected, expired plan → SUBSCRIPTION_EXPIRED while reading works.
 
 Checked by hand on Expo web (clicks through the DOM because the window was not drawing): Jobs tab → create job → customer → "I will do it" → repair → confirm → detail shows the appointment tomorrow 09:00, "assigned", history → start → "in progress" with the "service recording comes next" note.
+
+# B04 service records and completing jobs — 2026-10-04
+
+Decisions: [DECISIONS_B04.md](DECISIONS_B04.md). Migration `008_service.sql`.
+
+Done:
+- API: `POST /organizations/:id/jobs/:jobId/complete`, `POST …/service-events` (on-site work), `GET …/equipment/:id/history`.
+- Next maintenance cycles on completion; bookings fulfilled; owners notified when a job is completed; late submission within 24 hours after the plan ends for jobs started before.
+- Mobile: "record service" on a job in progress (units of the place, preselected from the plan, add equipment on the way, per-unit type/result/reason/notes/before-after photos/next maintenance with preview date, summary), success screen with next due dates, technician "record on-site work", equipment history with due date and who did each service.
+- Dev database on server2: migration 008 applied.
+
+Tests (`pnpm test`, 93 total): PostgreSQL 16.15: 93 passed. PGlite: 72 passed, 21 skipped.
+- New HTTP tests: assignee-only completion with done + not done units and photos, 31 Aug + 6 months → 28 Feb, retry returns the same event, changed body → IDEMPOTENCY_MISMATCH, job history completed, owner notified, unit history with technician name and photos, no cycle for the unit not serviced, all-deferred rejected; next round by another technician keeps the first technician in history and reuses the 6-month schedule, back-dated work leaves the cycle, no-reminder disables the schedule; ad-hoc work creates a completed technician_adhoc job; finishing a job started before expiry works within 24 hours while new work is refused.
+
+Checked by hand on Expo web: in-progress job → record service → pick the water filter, 6 months → finish → "job finished, next 4 April 2570" → equipment history shows the repair by Web Tester and the due date.

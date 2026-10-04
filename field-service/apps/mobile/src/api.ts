@@ -48,6 +48,18 @@ export interface Job extends JobSummary {
   equipment: { id: string; name: string | null; category: string; brand: string | null; model: string | null; serial_number: string | null }[];
   history: { from_status: string | null; to_status: string; reason: string | null; created_at: string; actor: string | null }[];
 }
+export type NextMaintenance = { mode: 'months'; interval_months: number } | { mode: 'custom_date'; due_on: string } | { mode: 'none' } | null;
+export interface ServiceItemInput {
+  equipment_id: string; service_type: string; outcome: 'done' | 'not_done' | 'deferred'; work_note?: string; problem_note?: string; not_done_reason?: string;
+  photos: { media_asset_id: string; photo_type: 'before' | 'after' | 'issue' | 'other' }[]; next_maintenance?: NextMaintenance;
+}
+export interface ServiceBody { client_event_id: string; occurred_at: string; note?: string; items: ServiceItemInput[]; }
+export interface ServiceResult { service_event_id: string; job_id: string; job_status: string; items: { equipment_id: string; outcome: string; next_due_on: string | null }[]; replayed?: boolean; }
+export interface EquipmentHistory {
+  maintenance: { service_type: string; enabled: boolean; schedule_mode: string; interval_months: number | null; due_date: string | null }[];
+  items: { id: string; occurred_at: string; performed_by_name: string | null; service_type: string; outcome: string; work_note: string | null; problem_note: string | null;
+    not_done_reason: string | null; next_due_on: string | null; note: string | null; photos: { photo_type: string; url: string | null; thumbnail_url: string | null }[] }[];
+}
 export interface InboxItem { id: string; template_key: string; parameters: Record<string, string | number>; target_type: string | null; target_id: string | null; created_at: string; read_at: string | null; }
 export interface Inbox { items: InboxItem[]; unread: number; }
 /** Owners get the full object; technicians only state and writable. */
@@ -163,6 +175,14 @@ export class Api {
   jobAction(organizationId: string, id: string, action: 'assign' | 'unassign' | 'reschedule' | 'cancel' | 'start', body: Record<string, unknown>) {
     return this.call<Job | { job: Job; conflicts: { id: string }[] }>('POST', `/organizations/${organizationId}/jobs/${id}/${action}`, body);
   }
+  // service -----------------------------------------------------------------------------------
+  completeJob(organizationId: string, jobId: string, body: ServiceBody & { expected_version: number }) {
+    return this.call<ServiceResult>('POST', `/organizations/${organizationId}/jobs/${jobId}/complete`, body);
+  }
+  recordAdhoc(organizationId: string, body: ServiceBody & { customer_id: string; location_id: string }) {
+    return this.call<ServiceResult>('POST', `/organizations/${organizationId}/service-events`, body);
+  }
+  equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
   notifications(organizationId: string) { return this.call<Inbox>('GET', `/organizations/${organizationId}/notifications`); }
   markRead(organizationId: string, ids?: string[]) { return this.call<Inbox>('POST', `/organizations/${organizationId}/notifications/read`, ids ? { ids } : {}); }
   subscription(organizationId: string) { return this.call<Subscription>('GET', `/organizations/${organizationId}/subscription`); }

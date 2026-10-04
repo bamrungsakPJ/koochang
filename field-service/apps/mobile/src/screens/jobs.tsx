@@ -192,8 +192,8 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
   </Screen>;
 }
 
-export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer }: {
-  membership: Membership; jobId: string; conflicts?: number; onBack: () => void; onOpenCustomer: (id: string) => void;
+export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer, onRecordService }: {
+  membership: Membership; jobId: string; conflicts?: number; onBack: () => void; onOpenCustomer: (id: string) => void; onRecordService: (job: Job) => void;
 }) {
   const t = useT();
   const language = useContext(LanguageContext);
@@ -258,7 +258,7 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
     </Card>
 
     {!owner && mine && job.status === 'scheduled' ? <Button icon="play" title={t('startJob')} busy={busy} onPress={() => act('start')} /> : null}
-    {job.status === 'in_progress' ? <Banner tone="info" text={t('serviceComing')} /> : null}
+    {mine && job.status === 'in_progress' ? <Button icon="clipboard" title={t('recordService')} onPress={() => onRecordService(job)} /> : null}
     {job.status === 'cancelled' && job.cancellation_reason ? <Banner text={`${t('cancelReason')}: ${job.cancellation_reason}`} /> : null}
 
     {owner && openJob ? <>

@@ -3,7 +3,8 @@ import { Linking, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
 import { Language, normalizeLanguage } from '@field-service/core';
-import { api, tokenFromLink, type Challenge, type CustomerLocation, type JoinLink, type Me } from './src/api';
+import { api, tokenFromLink, type Challenge, type CustomerLocation, type Job, type JoinLink, type Me, type ServiceResult } from './src/api';
+import { ServiceDone, ServiceForm } from './src/screens/service';
 import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './src/screens/customers';
 import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
 import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens/jobs';
@@ -27,7 +28,9 @@ type Route =
   | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' }
   | { screen: 'customers' } | { screen: 'customer'; id: string } | { screen: 'customerNew'; search: string }
   | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
-  | { screen: 'equipmentNew'; customerId: string; locationId: string } | { screen: 'equipment'; customerId: string; id: string }
+  | { screen: 'equipmentNew'; customerId: string; locationId: string; returnTo?: Route } | { screen: 'equipment'; customerId: string; id: string }
+  | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
+  | { screen: 'serviceDone'; result: ServiceResult; back: Route }
   | { screen: 'jobs' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -156,10 +159,20 @@ export default function App() {
         onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onCreated={(id, conflicts) => setRoute({ screen: 'job', id, conflicts })} /> : <Loading />; break;
     case 'job': content = membership?.status === 'active'
       ? <JobDetail key={route.id} membership={membership} jobId={route.id} conflicts={route.conflicts}
-        onBack={() => setRoute({ screen: membership.role === 'owner' ? 'jobs' : 'shop' })} onOpenCustomer={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
+        onBack={() => setRoute({ screen: membership.role === 'owner' ? 'jobs' : 'shop' })} onOpenCustomer={id => setRoute({ screen: 'customer', id })}
+        onRecordService={job => setRoute({ screen: 'service', job })} /> : <Loading />; break;
     case 'equipmentNew': content = membership?.status === 'active'
-      ? <EquipmentForm membership={membership} locationId={route.locationId} onBack={() => setRoute({ screen: 'customer', id: route.customerId })}
-        onDone={() => setRoute({ screen: 'customer', id: route.customerId })} onOpenExisting={id => setRoute({ screen: 'equipment', customerId: route.customerId, id })} /> : <Loading />; break;
+      ? <EquipmentForm membership={membership} locationId={route.locationId} onBack={() => setRoute(route.returnTo ?? { screen: 'customer', id: route.customerId })}
+        onDone={() => setRoute(route.returnTo ?? { screen: 'customer', id: route.customerId })} onOpenExisting={id => setRoute({ screen: 'equipment', customerId: route.customerId, id })} /> : <Loading />; break;
+    case 'service': case 'serviceAdhoc': content = membership?.status === 'active'
+      ? <ServiceForm key={route.screen === 'service' ? route.job.id : route.locationId} membership={membership}
+        job={route.screen === 'service' ? route.job : undefined} adhoc={route.screen === 'serviceAdhoc' ? { customerId: route.customerId, locationId: route.locationId } : undefined}
+        onBack={() => setRoute(route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' })}
+        onAddEquipment={locationId => setRoute({ screen: 'equipmentNew', customerId: route.screen === 'service' ? route.job.customer_id : route.customerId, locationId, returnTo: route })}
+        onDone={result => setRoute({ screen: 'serviceDone', result, back: route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' } })} /> : <Loading />; break;
+    case 'serviceDone': content = <ServiceDone result={route.result} onDone={() => setRoute(route.back)} />; break;
+    case 'adhocPick': content = membership?.status === 'active'
+      ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'shop' })} onPicked={(customerId, locationId) => setRoute({ screen: 'serviceAdhoc', customerId, locationId })} /> : <Loading />; break;
     case 'equipment': content = membership?.status === 'active'
       ? <EquipmentDetail key={route.id} membership={membership} equipmentId={route.id} onBack={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;
     case 'customerNew': content = membership?.status === 'active'
@@ -184,7 +197,7 @@ export default function App() {
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} />;
       else content = <Loading />;
       if (membership && active) {
         const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);

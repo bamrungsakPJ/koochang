@@ -12,13 +12,14 @@ import { FilesController, MediaController } from './media/media.controller.js';
 import { DevicesController, NotificationsController } from './notifications/notifications.controller.js';
 import { EquipmentController } from './equipment/equipment.controller.js';
 import { JobsController } from './jobs/jobs.controller.js';
+import { ServiceController } from './service/service.controller.js';
 import { AUTH_SETTINGS, loadAuthSettings, loadMediaSettings, MEDIA_SETTINGS } from './config.js';
 import { SMS_SENDER, createSmsSender } from './sms/sms.sender.js';
 import { createStorage, OBJECT_STORAGE } from './media/object-storage.js';
 import { createOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
 @Module({
   controllers: [HealthController, AuthController, MeController, OrganizationsController, JoinController, CustomersController,
-    MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController],
+    MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController],
   providers: [
     DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService,
     { provide: AUTH_SETTINGS, useFactory: () => loadAuthSettings() },
