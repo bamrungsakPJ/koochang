@@ -1,4 +1,5 @@
 import { loadAuthSettings, loadMediaSettings, loadPlatformSettings } from './config.js';
+import { deeSmsxSettings } from './sms/sms.sender.js';
 
 /** Settings a production start is missing, by name only (never values). Each missing item makes
  * its feature answer 503 (fail closed); the list is logged at start so it is noticed before a
@@ -11,7 +12,12 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env): string
   if (!auth.otpSecret) problems.push('OTP_SECRET (32+ bytes base64)');
   if (!auth.joinLinkKey) problems.push('JOIN_LINK_KEY (32 bytes base64)');
   if (!auth.joinLinkBaseUrl.startsWith('https://')) problems.push('JOIN_LINK_BASE_URL (https)');
-  if (!env.SMS_PROVIDER || env.SMS_PROVIDER === 'development') problems.push('SMS_PROVIDER (no production SMS provider chosen)');
+  if (env.SMS_PROVIDER !== 'deesmsx') problems.push('SMS_PROVIDER (deesmsx required for production SMS)');
+  else if (!deeSmsxSettings(env)) {
+    for (const name of ['DEESMSX_API_KEY', 'DEESMSX_SECRET_KEY', 'DEESMSX_SENDER']) {
+      if (!env[name]?.trim()) problems.push(name);
+    }
+  }
   if (!media.mediaDir) problems.push('MEDIA_DIR');
   if (!media.urlSecret) problems.push('MEDIA_URL_SECRET (32+ bytes base64)');
   if (!env.OCR_PROVIDER || env.OCR_PROVIDER === 'development') problems.push('OCR_PROVIDER (OCR answers 503 until chosen)');

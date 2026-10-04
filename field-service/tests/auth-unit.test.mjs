@@ -101,7 +101,7 @@ test('production start lists missing settings by name; development lists none', 
   }
   const key = randomBytes(32).toString('base64');
   const complete = productionProblems({ NODE_ENV: 'production', DATABASE_URL: 'postgres://x', OTP_SECRET: key, JOIN_LINK_KEY: key, JOIN_LINK_BASE_URL: 'https://join.example.co/join',
-    SMS_PROVIDER: 'some-provider', MEDIA_DIR: '/srv/media', MEDIA_URL_SECRET: key, OCR_PROVIDER: 'some-ocr', PLATFORM_DATABASE_URL: 'postgres://y', PLATFORM_SECRET_KEY: key,
+    SMS_PROVIDER: 'deesmsx', DEESMSX_API_KEY: 'test-api', DEESMSX_SECRET_KEY: 'test-secret', DEESMSX_SENDER: 'Test', MEDIA_DIR: '/srv/media', MEDIA_URL_SECRET: key, OCR_PROVIDER: 'some-ocr', PLATFORM_DATABASE_URL: 'postgres://y', PLATFORM_SECRET_KEY: key,
     PAYMENT_BANK_NAME: 'Bank', PAYMENT_ACCOUNT_NAME: 'Co', PAYMENT_ACCOUNT_NUMBER: '1', PAYMENT_BANK_CODE: '004', EASYSLIP_API_KEY: 'test-only', SLIP_DATABASE_URL: 'postgres://fs_worker:test@localhost/test', ADMIN_ORIGIN: 'https://console.example.co' });
   assert.deepEqual(complete, []);
   assert.ok(productionProblems({ NODE_ENV: 'production', ADMIN_ORIGIN: 'http://console.example.co' }).some(p => p.startsWith('ADMIN_ORIGIN')), 'plain http origin refused');

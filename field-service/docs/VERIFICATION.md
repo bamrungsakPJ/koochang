@@ -1,3 +1,12 @@
+# DeeSMSx OTP — 2026-10-04
+
+- API TypeScript build passed. `node --test tests/sms.test.mjs tests/auth-unit.test.mjs`: **13 passed / 0 skipped / 0 failed**. The initial sandbox attempt blocked process spawning with EPERM; the authorized rerun passed.
+- New provider tests use mocked fetch for official JSON fields, E.164-to-digits recipient, Thai/English text, mandatory credentials, unknown providers, fixed HTTPS endpoint, redirect rejection setting, timeout signal, HTTP rejection, malformed response, sanitized errors and no automatic retries.
+- Actual AuthService integration with a synthetic database proves provider acknowledgment returns `delivery: sms`, codes stay out of the response and are hashed for storage, and failed sending returns generic 503. Existing OTP/phone/configuration/security tests remain passing.
+- No real account keys, SMS delivery, credits, deployment or human UAT. Provider acceptance is not a handset delivery receipt. See [DEESMSX.md](DEESMSX.md).
+
+---
+
 # Stripe QR/card and platform account settings — 2026-10-04
 
 - Final workspace typechecks and API/Next.js production build passed. Windows sandbox initially blocked child processes with spawn EPERM; the authorized verification rerun succeeded.

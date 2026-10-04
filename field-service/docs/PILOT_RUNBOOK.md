@@ -10,7 +10,7 @@ decision or a person. This is not a deployment script and grants no credentials.
 | Server with PostgreSQL 16, roles from `infra/postgres/00-roles.sql` (fs_migrator, fs_api, fs_worker, fs_platform; none superuser/BYPASSRLS) | Ready to apply; verified on server2 dev | Team |
 | Migrations `pnpm db:migrate` (001–015), no seed in production | Ready | Team |
 | API start prints `CONFIG_MISSING <name>` for every production setting not set (names only); each missing feature answers 503 | Done | — |
-| SMS provider for OTP (`SMS_PROVIDER`) | **Not chosen** — production sign-in is closed until then | Business |
+| SMS provider for OTP (`SMS_PROVIDER`) | **DeeSMSx chosen and adapter implemented** — account keys/approved sender and authorized live delivery verification pending; see [DEESMSX.md](DEESMSX.md) | Business |
 | OCR provider (`OCR_PROVIDER`) | Not chosen — nameplate reading answers 503; manual entry works | Business |
 | Push provider (`PUSH_PROVIDER`) | Not chosen — in-app inbox works, pushes are skipped | Business |
 | Receiving bank account (`PAYMENT_*`) confirmed by the team | **Not set** — owners cannot create invoices until set | Business |

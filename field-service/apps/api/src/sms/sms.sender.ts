@@ -1,5 +1,4 @@
-/** SMS delivery. No production provider has been chosen yet, so production has no sender and
- * every OTP request answers 503 until one is configured (fail closed). */
+/** OTP delivery. Missing provider credentials fail closed. */
 export abstract class SmsSender {
   abstract readonly delivery: 'development' | 'sms';
   abstract send(phoneE164: string, message: string): Promise<void>;
@@ -18,10 +17,39 @@ export class DevelopmentSmsSender extends SmsSender {
   }
 }
 
+export function deeSmsxSettings(env: NodeJS.ProcessEnv) {
+  const apiKey = env.DEESMSX_API_KEY?.trim(), secretKey = env.DEESMSX_SECRET_KEY?.trim(), sender = env.DEESMSX_SENDER?.trim();
+  return apiKey && secretKey && sender ? { apiKey, secretKey, sender } : null;
+}
+
+export class DeeSmsxSender extends SmsSender {
+  readonly delivery = 'sms' as const;
+  constructor(private readonly settings: NonNullable<ReturnType<typeof deeSmsxSettings>>) { super(); }
+  async send(phoneE164: string, message: string): Promise<void> {
+    if (!/^\+[1-9]\d{7,14}$/.test(phoneE164) || !message.trim()) throw new Error('SMS_INVALID_REQUEST');
+    try {
+      // No retry: a timeout can occur after the provider accepted a billable SMS.
+      const response = await fetch('https://apicall.deesmsx.com/v1/SMSWebService', {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10_000),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ ...this.settings, to: phoneE164.slice(1), msg: message }),
+      });
+      if (response.status !== 200) { await response.body?.cancel(); throw new Error('SMS_REJECTED'); }
+      // Published 200 schema has no specified fields. Acceptance is not handset delivery.
+      const result: unknown = await response.json();
+      if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('SMS_INVALID_RESPONSE');
+    } catch { throw new Error('SMS_DELIVERY_UNAVAILABLE'); }
+  }
+}
+
 export function createSmsSender(env: NodeJS.ProcessEnv = process.env): SmsSender | null {
   const production = env.NODE_ENV === 'production';
   const provider = env.SMS_PROVIDER ?? (production ? undefined : 'development');
   if (provider === 'development' && !production) return new DevelopmentSmsSender(production);
+  if (provider === 'deesmsx') {
+    const settings = deeSmsxSettings(env);
+    return settings ? new DeeSmsxSender(settings) : null;
+  }
   return null;
 }
 
