@@ -7,15 +7,16 @@ import { DatabaseService } from '../database/database.service.js';
 import { InvalidImageError, processImage } from '../media/image.js';
 import { OBJECT_STORAGE, type ObjectStorage } from '../media/object-storage.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
+import { SlipVerificationService } from './slip-verification.service.js';
 
-/** Owner side of bank-transfer payments: pick a plan, get an invoice with the receiving account
- * and reference, send a private proof, follow the status. None of this changes what the shop
- * may use; only the platform's confirmation of money received does. Technicians never reach it. */
+/** Owner bank transfers. EasySlip-confirmed payments activate immediately; exceptional proofs
+ * stay in the platform review queue. Technicians never reach the billing routes. */
 @Controller('organizations/:organizationId/billing')
 @UseGuards(TenantGuard)
 export class BillingController {
   constructor(private readonly database: DatabaseService, @Inject(PLATFORM_SETTINGS) private readonly settings: PlatformSettings,
-    @Inject(MEDIA_SETTINGS) private readonly media: MediaSettings, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null) {}
+    @Inject(MEDIA_SETTINGS) private readonly media: MediaSettings, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null,
+    private readonly slips: SlipVerificationService) {}
 
   /** Paid plans at their current published price (proposal prices until launch). */
   @Get('plans')
@@ -58,6 +59,8 @@ export class BillingController {
     if (row.outcome === 'suspended') throw apiError(403, 'ORGANIZATION_SUSPENDED');
     if (row.outcome === 'not_found') throw apiError(400, 'VALIDATION_ERROR', { field_errors: { price_version_id: 'field.required' } });
     if (row.outcome === 'seats') throw apiError(422, 'SEAT_LIMIT_REACHED');
+    await this.database.identity(c => c.query('SELECT auth.freeze_invoice_receiver($1,$2,$3,$4::jsonb)',
+      [session.userId, tenant.organizationId, row.invoice_id, JSON.stringify(this.settings.payment)]));
     return this.database.withTenant(session.userId, tenant.organizationId, client => this.detail(client, tenant, row.invoice_id));
   }
 
@@ -80,7 +83,6 @@ export class BillingController {
     const open = await this.database.withTenant(session.userId, tenant.organizationId, async c =>
       (await c.query('SELECT status FROM billing.invoices WHERE organization_id = $1 AND id = $2', [tenant.organizationId, invoiceId])).rows[0]);
     if (!open) throw apiError(404, 'RESOURCE_NOT_FOUND');
-    if (open.status !== 'open') throw apiError(422, 'INVOICE_CLOSED');
     let processed;
     try { processed = await processImage(bytes, this.media.maxStoredBytes); }
     catch (error) {
@@ -88,29 +90,34 @@ export class BillingController {
       throw error;
     }
     const key = `billing/${tenant.organizationId}/${invoiceId}/${proofId.toLowerCase()}.jpg`;
-    await this.storage.put(key, processed.image);
     const row = await this.database.identity(async c => (await c.query('SELECT * FROM auth.submit_payment_proof($1,$2,$3,$4,$5,$6,$7)',
       [session.userId, tenant.organizationId, invoiceId, proofId, key, processed.checksum, processed.image.length])).rows[0]);
     if (row.outcome === 'closed') throw apiError(422, 'INVOICE_CLOSED');
-    if (row.outcome !== 'ok') throw apiError(404, 'RESOURCE_NOT_FOUND');
+    if (row.outcome === 'mismatch') throw apiError(409, 'VERSION_CONFLICT');
+    if (!['ok', 'existing'].includes(row.outcome)) throw apiError(404, 'RESOURCE_NOT_FOUND');
+    if (open.status === 'open') {
+      await this.storage.put(key, processed.image);
+      await this.slips.verify(proofId, processed.image);
+    }
     return this.database.withTenant(session.userId, tenant.organizationId, client => this.detail(client, tenant, invoiceId));
   }
 
   private async detail(client: PoolClient, tenant: TenantContext, invoiceId: string) {
     const invoice = (await client.query(
       `SELECT i.id, i.number, i.amount_minor, i.currency, i.status, i.created_at, i.due_at, i.paid_at, i.voided_at, i.void_reason,
-         i.plan_snapshot->>'name_th' AS plan_name_th, i.plan_snapshot->>'name_en' AS plan_name_en, (i.plan_snapshot->>'technician_seats')::int AS technician_seats
+         i.receiver_snapshot, i.plan_snapshot->>'name_th' AS plan_name_th, i.plan_snapshot->>'name_en' AS plan_name_en, (i.plan_snapshot->>'technician_seats')::int AS technician_seats
        FROM billing.invoices i WHERE i.organization_id = $1 AND i.id = $2`, [tenant.organizationId, invoiceId])).rows[0];
     if (!invoice) throw apiError(404, 'RESOURCE_NOT_FOUND');
-    const proofs = (await client.query(`SELECT id, status, reason, created_at, reviewed_at FROM billing.payment_proofs
+    const proofs = (await client.query(`SELECT id, status, reason, created_at, reviewed_at, verification_code, verification_at FROM billing.payment_proofs
       WHERE organization_id = $1 AND invoice_id = $2 ORDER BY created_at DESC`, [tenant.organizationId, invoiceId])).rows;
     const payment = (await client.query(`SELECT p.amount_minor, p.verified_at,
         coalesce((SELECT sum(r.amount_minor) FROM billing.refunds r WHERE r.organization_id = p.organization_id AND r.payment_id = p.id AND r.status = 'succeeded'), 0) AS refunded_minor
       FROM billing.payments p WHERE p.organization_id = $1 AND p.invoice_id = $2`, [tenant.organizationId, invoiceId])).rows[0] ?? null;
     const period = (await client.query('SELECT start_at, end_at FROM billing.subscription_periods WHERE organization_id = $1 AND invoice_id = $2',
       [tenant.organizationId, invoiceId])).rows[0] ?? null;
-    const channel = this.settings.payment;
-    return { ...invoice, proofs, payment, period,
+    const channel = invoice.receiver_snapshot ?? this.settings.payment;
+    const { receiver_snapshot: _receiver, ...publicInvoice } = invoice;
+    return { ...publicInvoice, proofs, payment, period,
       pay_to: invoice.status === 'open' && channel ? { bank_name: channel.bankName, account_name: channel.accountName, account_number: channel.accountNumber,
         promptpay_id: channel.promptPayId ?? null, reference: invoice.number } : null };
   }

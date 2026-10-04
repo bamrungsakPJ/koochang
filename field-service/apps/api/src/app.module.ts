@@ -15,6 +15,7 @@ import { JobsController } from './jobs/jobs.controller.js';
 import { ServiceController } from './service/service.controller.js';
 import { MaintenanceController } from './maintenance/maintenance.controller.js';
 import { BillingController } from './billing/billing.controller.js';
+import { SlipVerificationService } from './billing/slip-verification.service.js';
 import { PlatformDatabaseService } from './platform/platform-database.service.js';
 import { PlatformGuard } from './platform/platform.guard.js';
 import { PlatformAuthController } from './platform/platform-auth.controller.js';
@@ -30,7 +31,7 @@ import { createOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
     MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController, MaintenanceController,
     BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController],
   providers: [
-    DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard,
+    DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard, SlipVerificationService,
     { provide: PLATFORM_SETTINGS, useFactory: () => loadPlatformSettings() },
     { provide: AUTH_SETTINGS, useFactory: () => loadAuthSettings() },
     { provide: SMS_SENDER, useFactory: () => createSmsSender() },

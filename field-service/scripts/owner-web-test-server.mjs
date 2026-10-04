@@ -23,7 +23,7 @@ const url = new URL(db.url); url.username = 'fs_api'; url.password = password;
 // fixture process when an SSH tunnel reconnects, so close it as soon as setup is finished.
 await db.close();
 const mediaDir = await mkdtemp(join(tmpdir(), 'fs-owner-web-'));
-const { TEST_DATABASE_URL, MIGRATION_DATABASE_URL, SEED_DATABASE_URL, PLATFORM_DATABASE_URL, WORKER_DATABASE_URL, DATABASE_URL, ...safeEnv } = process.env;
+const { TEST_DATABASE_URL, MIGRATION_DATABASE_URL, SEED_DATABASE_URL, PLATFORM_DATABASE_URL, WORKER_DATABASE_URL, DATABASE_URL, SLIP_DATABASE_URL, EASYSLIP_API_KEY, ...safeEnv } = process.env;
 const api = spawn(process.execPath, [fileURLToPath(new URL('../apps/api/dist/main.js', import.meta.url))], {
   env: { ...safeEnv, NODE_ENV: 'test', HOST: '127.0.0.1', PORT: '4101', DATABASE_URL: url.toString(),
     SMS_PROVIDER: 'development', OCR_PROVIDER: 'development', PUSH_PROVIDER: 'development',

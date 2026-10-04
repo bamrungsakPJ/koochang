@@ -34,7 +34,7 @@ notification recipient language, retry/dedup, delivery status; search/history �
 ## C01 Subscription และเงินของแพลตฟอร์ม
 ข้อเสนอ baseline: Starter 590 THB/mo, 3 active technicians, 10 GB, OCR100/cycle; Team1290, 10 technicians,30GB,OCR300; trial14วัน 3tech1GB OCR20; paid renewal grace7วัน
 Owner หลักไม่กิน seat ช่าง; pending/suspended/removed ไม่นับ; จำกัดการอนุมัติและ reserve/release storage/OCR แบบ atomic
-เริ่ม manual bank payment: invoice/proof/ตรวจยอดรับจริง/approval; entitlement เปลี่ยนเมื่อยืนยันแล้ว ไม่ใช้การ upload slip เป็นหลักฐานว่าจ่ายแล้ว
+ตามคำสั่งผู้ใช้ 2026-10-04 ใช้ EasySlip ตรวจทันที: ตรวจผ่านแล้วบันทึกการชำระและเปิดสิทธิ์อัตโนมัติใน transaction เดียว; เฉพาะรายการมีปัญหาให้ admin ตรวจยอดจริงต่อ การอัปโหลดอย่างเดียวไม่เปิดสิทธิ์ ดู EASYSLIP.md
 กัน duplicate reference/idempotency, refund sum และ separation requester/approver; price version history; ดำเนินงานที่เริ่มแล้วตาม baseline ห้ามบล็อกทุกอย่างแบบกว้างโดยไม่อ่าน policy
 เกณฑ์: จ่ายซ้ำ/approve ซ้ำไม่เพิ่มรอบซ้ำ concurrent quota ไม่เกิน ไม่เผยข้อมูลการเงินให้ช่าง ราคายังเป็นข้อเสนอทดสอบ ไม่ใช่ราคาเผยแพร่
 

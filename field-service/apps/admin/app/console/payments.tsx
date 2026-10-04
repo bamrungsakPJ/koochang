@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
-import type { AdminKey } from '@field-service/i18n';
+import { translate, type TranslationKey, type AdminKey } from '@field-service/i18n';
 import { call, ConsoleError, dateOnly, dateTime, download, money, useLanguage, useStepUp, useText, type Me } from './api';
 
 interface QueueRow { invoice_id: string; number: string; organization_name: string; amount_minor: string; status: string; plan_name_th: string; plan_name_en: string;
   created_at: string; proof_id: string | null; proof_status: string | null; proof_submitted_at: string | null; paid_at: string | null; bank_reference: string | null }
 interface Detail {
   invoice: { id: string; number: string; organization_name: string; amount_minor: number; status: string; created_at: string; plan_snapshot: { name_th: string; name_en: string } };
-  proofs: { id: string; status: string; reason: string | null; created_at: string }[];
+  proofs: { id: string; status: string; reason: string | null; created_at: string; verification_code?: string }[];
   payment: { id: string; amount_minor: number; bank_reference: string; received_at: string; verified_at: string; verified_by: string; refunded_minor: number } | null;
   refunds: { id: string; amount_minor: number; status: string; reason: string; requested_by: string; requested_by_id: string; approved_by: string | null; bank_reference: string | null; created_at: string }[];
   period: { start_at: string; end_at: string } | null;
@@ -102,6 +102,7 @@ export function InvoiceView({ id, me, onBack }: { id: string; me: Me; onBack: ()
         <h2>{t('proof')}</h2>
         {detail.proofs.length ? <ul className="plain">{detail.proofs.map(p => <li key={p.id}>
           <Pill kind="proof" value={p.status} /> {dateTime(p.created_at, lang)} {p.reason ? <span className="muted">— {p.reason}</span> : null}
+          {p.verification_code ? <p className="muted">{translate(lang, `slip.${p.verification_code}` as TranslationKey)}</p> : null}
           {' '}<button className="link" onClick={() => download(`/platform/billing/proofs/${p.id}/file`).then(r => setImage(r.url), e => setError(message(e)))}>{t('showProof')}</button>
         </li>)}</ul> : <p className="muted">{t('empty')}</p>}
         {image ? <figure><img className="proof" src={image} alt={t('proofImage')} /><figcaption className="muted">{t('proofImage')}</figcaption></figure> : null}

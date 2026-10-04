@@ -37,7 +37,7 @@ before(async () => {
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
   base = `http://127.0.0.1:${port}/v1`;
-  const { TEST_DATABASE_URL, MIGRATION_DATABASE_URL, SEED_DATABASE_URL, ...env } = process.env;
+  const { TEST_DATABASE_URL, MIGRATION_DATABASE_URL, SEED_DATABASE_URL, SLIP_DATABASE_URL, EASYSLIP_API_KEY, ...env } = process.env;
   child = spawn(process.execPath, [fileURLToPath(new URL('../apps/api/dist/main.js', import.meta.url))], {
     env: { ...env, NODE_ENV: 'test', PORT: String(port), HOST: '127.0.0.1', DATABASE_URL: url.toString(),
       OTP_SECRET: randomBytes(32).toString('base64'), JOIN_LINK_KEY: randomBytes(32).toString('base64'),

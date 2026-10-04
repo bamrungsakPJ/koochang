@@ -98,9 +98,10 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
       setBusy(true);
       proofId.current ??= uuid();
       const data = await (await fetch(picked.uri)).blob();
-      setInvoice(await api.uploadProof(org, invoiceId, proofId.current, data, picked.mimeType));
+      const updated = await api.uploadProof(org, invoiceId, proofId.current, data, picked.mimeType);
+      setInvoice(updated);
       proofId.current = null;
-      setDone(t('proofSent'));
+      setDone(t(updated.status === 'paid' ? 'paymentActivated' : 'proofSent'));
     } catch (e) { setError(e instanceof CameraDeniedError ? t('cameraDenied') : errorText(e)); }
     finally { setBusy(false); }
   }
@@ -140,7 +141,7 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
       <Section>{t('sendProof')}</Section>
       <Card padded={false}>{invoice.proofs.map((p, i) =>
         <Row key={p.id} last={i === invoice.proofs.length - 1} icon="document-attach" tone={p.status === 'rejected' ? 'rose' : p.status === 'accepted' ? 'green' : 'sky'}
-          title={formatDate(new Date(p.created_at), language)} subtitle={p.status === 'rejected' && p.reason ? p.reason : undefined}
+          title={formatDate(new Date(p.created_at), language)} subtitle={p.reason || (p.verification_code ? t(`slip.${p.verification_code}` as TranslationKey) : undefined)}
           trailing={<Badge text={t(`proof.${p.status}` as TranslationKey)} tone={proofTone(p.status)} />} />)}
       </Card>
     </> : null}

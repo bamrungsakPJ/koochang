@@ -79,14 +79,14 @@ export interface PlatformSettings {
   /** AES-256-GCM key sealing platform TOTP secrets. */
   secretKey?: Buffer;
   /** Receiving account shown on invoices; without it owners cannot create invoices (503). */
-  payment?: { bankName: string; accountName: string; accountNumber: string; promptPayId?: string };
+  payment?: { bankName: string; accountName: string; accountNumber: string; bankCode?: string; promptPayId?: string };
 }
 
 export function loadPlatformSettings(env: NodeJS.ProcessEnv = process.env): PlatformSettings {
   const production = env.NODE_ENV === 'production';
   const key = secret(env.PLATFORM_SECRET_KEY, 32);
   const payment = env.PAYMENT_BANK_NAME && env.PAYMENT_ACCOUNT_NAME && env.PAYMENT_ACCOUNT_NUMBER
-    ? { bankName: env.PAYMENT_BANK_NAME, accountName: env.PAYMENT_ACCOUNT_NAME, accountNumber: env.PAYMENT_ACCOUNT_NUMBER, promptPayId: env.PAYMENT_PROMPTPAY_ID || undefined }
+    ? { bankName: env.PAYMENT_BANK_NAME, accountName: env.PAYMENT_ACCOUNT_NAME, accountNumber: env.PAYMENT_ACCOUNT_NUMBER, bankCode: env.PAYMENT_BANK_CODE, promptPayId: env.PAYMENT_PROMPTPAY_ID || undefined }
     : undefined;
   return { production, secretKey: key && key.length === 32 ? key : undefined, payment };
 }

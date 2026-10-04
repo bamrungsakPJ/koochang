@@ -8,12 +8,13 @@ decision or a person. This is not a deployment script and grants no credentials.
 | Gate | State | Owner of the decision |
 |---|---|---|
 | Server with PostgreSQL 16, roles from `infra/postgres/00-roles.sql` (fs_migrator, fs_api, fs_worker, fs_platform; none superuser/BYPASSRLS) | Ready to apply; verified on server2 dev | Team |
-| Migrations `pnpm db:migrate` (001–013), no seed in production | Ready | Team |
+| Migrations `pnpm db:migrate` (001–014), no seed in production | Ready | Team |
 | API start prints `CONFIG_MISSING <name>` for every production setting not set (names only); each missing feature answers 503 | Done | — |
 | SMS provider for OTP (`SMS_PROVIDER`) | **Not chosen** — production sign-in is closed until then | Business |
 | OCR provider (`OCR_PROVIDER`) | Not chosen — nameplate reading answers 503; manual entry works | Business |
 | Push provider (`PUSH_PROVIDER`) | Not chosen — in-app inbox works, pushes are skipped | Business |
 | Receiving bank account (`PAYMENT_*`) confirmed by the team | **Not set** — owners cannot create invoices until set | Business |
+| EasySlip (`EASYSLIP_API_KEY`, `PAYMENT_BANK_CODE`, `SLIP_DATABASE_URL`) | Provider chosen; integration implemented; real credentials/account registration and live checks pending — see [EASYSLIP.md](EASYSLIP.md) | Team |
 | Receipt / tax document format | Not decided (invoices carry snapshots; no receipt PDF yet) | Business/accounting |
 | Final prices | Seed values are pilot proposals (Starter 590, Team 1,290 THB/month) and labelled as such | Business |
 | Two different people for refunds (requester ≠ approver) | Enforced by code; needs two staff accounts | Team |
@@ -37,7 +38,7 @@ auditor. Give each person only what they do. Disabling revokes sessions at once.
 
 ## 3. Daily work in the console (`/console`)
 
-- **Payments → Proofs to check**: open the proof, compare with the bank statement (amount, receiver,
+- Valid EasySlip payments activate the shop immediately and appear as paid. **Payments → Proofs to check** handles exceptions: read the automatic verification reason, open the proof, compare with the bank statement (amount, receiver,
   reference), enter the bank reference and time → *Confirm money received*. A wrong amount is refused
   and stays for an exception decision. Target: within 1 business day.
 - **Refunds**: operator requests, a different approver approves, operator records the transfer reference.

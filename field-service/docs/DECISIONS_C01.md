@@ -1,5 +1,9 @@
 # C01 decisions — bank-transfer payments and the platform identity they need (2026-10-04)
 
+Updated by the user's explicit EasySlip requirement: valid slips now activate immediately;
+admin verifies only exceptions. The original manual-only decisions below are historical.
+Current behavior, credentials, acceptance criteria and limitations: [EASYSLIP.md](EASYSLIP.md).
+
 | # | Topic | Decision | Why |
 |---|---|---|---|
 | 1 | Channel | Bank transfer only. The invoice shows bank, account name, number, optional PromptPay ID and the invoice number as reference. Without `PAYMENT_*` settings owners cannot create invoices (503); no account is hard-coded. | Commercial §5. The real receiving account is a business decision for the team. |

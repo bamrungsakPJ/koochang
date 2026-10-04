@@ -18,6 +18,9 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env): string
   if (!env.PLATFORM_DATABASE_URL) problems.push('PLATFORM_DATABASE_URL');
   if (!platform.secretKey) problems.push('PLATFORM_SECRET_KEY (32 bytes base64)');
   if (!platform.payment) problems.push('PAYMENT_BANK_NAME / PAYMENT_ACCOUNT_NAME / PAYMENT_ACCOUNT_NUMBER');
+  if (!/^\d{3}$/.test(env.PAYMENT_BANK_CODE ?? '')) problems.push('PAYMENT_BANK_CODE (EasySlip three-digit bank code)');
+  if (!env.EASYSLIP_API_KEY) problems.push('EASYSLIP_API_KEY');
+  if (!env.SLIP_DATABASE_URL) problems.push('SLIP_DATABASE_URL (fs_worker)');
   const origins = (env.ADMIN_ORIGIN ?? '').split(',').map(o => o.trim()).filter(Boolean);
   if (!origins.length || origins.some(o => !o.startsWith('https://'))) problems.push('ADMIN_ORIGIN (https origins only)');
   return problems;

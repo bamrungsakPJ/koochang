@@ -1,3 +1,17 @@
+# EasySlip immediate activation — 2026-10-04
+
+- All workspace typechecks and production API/Next.js build passed.
+- Latest full PGlite suite: **118 total, 92 passed / 26 skipped / 0 failed**. PostgreSQL HTTP/concurrency checks are intentionally skipped there.
+- Latest isolated PostgreSQL 16 EasySlip suite: **11 passed / 0 skipped / 0 failed** (`node --env-file=.env --test tests/easyslip.test.mjs`).
+- Existing payments HTTP workflow separately passed: owner upload/private proof, operator TOTP and permission checks, duplicate confirmation, rejection, two-person refund and append-only audit. No live provider was invoked.
+- EasySlip tests cover official authenticated multipart v2 options, sanitized evidence, duplicates, exact amount/account and corroborating mask digits, currency/date errors, missing response fields, timeout/errors/configuration and image size.
+- Actual controller and service use mocked provider HTTP plus real SQL/roles to prove synchronous paid upload response, immutable bytes, lost-response replay without a second call/period, and tenant protection. Real PostgreSQL concurrent claims issue one attempt; concurrent matching references pay one invoice only.
+- Confirmed expired-shop authorization opens immediately, one payment/period/audit/notification on replay, automatic payments remain visible in console and reconciliation, admin can confirm exceptions, late automation cannot extend a manual confirmation, security suspension wins and failed period insertion rolls back the whole activation.
+- Initial real-DB synthetic timestamps were four seconds behind database creation time. Fixtures now use database timestamps; the transfer-date acceptance rule was not relaxed.
+- Tests/QA child processes strip real EasySlip credentials. No real EasySlip key/account registration, charged API call, bank transfer, deployment, new browser/device QA or human UAT was performed. Setup and operational limits: [EASYSLIP.md](EASYSLIP.md).
+
+---
+
 # Owner list pagination — 2026-10-04
 
 - All workspace typechecks and Next.js production build passed.
