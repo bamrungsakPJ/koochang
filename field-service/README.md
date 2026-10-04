@@ -1,12 +1,12 @@
-# ระบบงานบริการภาคสนาม ฐานโครงการ
+# ระบบงานบริการภาคสนาม
 
-โครงเริ่มต้นสำหรับ Mobile-first SaaS: Expo/React Native, Next.js, NestJS และ PostgreSQL 16 รองรับ th/en ใช้ชื่อกลาง ยังไม่ใช่แอปงานบริการพร้อมเปิดขาย
+Mobile-first SaaS: Expo/React Native, Next.js, NestJS และ PostgreSQL 16 รองรับ th/en พัฒนาฟังก์ชัน MVP แล้ว แต่ยังต้องยืนยันบนอุปกรณ์จริงและตั้ง production providers ก่อนเปิดขาย
 
 ## สิ่งที่ส่งแล้ว
 
-- `apps/mobile` แอปมือถือฐาน พร้อมเลือกภาษาและจำบนอุปกรณ์
-- `apps/admin` เว็บหลังบ้านฐาน พร้อมเลือกภาษาและตรวจ API
-- `apps/api` NestJS health/readiness, ข้อผิดพลาดสองภาษา และ business guard ที่ปิดการเข้าถึงจนมี verified session
+- `apps/mobile` แอปเจ้าของร้านและช่าง: ทีม ลูกค้า อุปกรณ์ งาน ผลบริการ รอบดูแล และสมาชิก
+- `apps/admin` เว็บเจ้าของร้าน `/shop`, เว็บแพลตฟอร์ม `/console` และหน้าเข้าร่วม `/join/<token>`; หน้าแรกเปิดพื้นที่ร้าน
+- `apps/api` NestJS: verified session, tenant/role authorization, quotas, งานบริการ และระบบแพลตฟอร์ม
 - `packages/core`, `packages/i18n` code สถานะและข้อความร่วม
 - `database/migrations` ตารางและ RLS หลายร้าน, composite FK, indexes และสิทธิ์แยก migration/runtime
 - `database/seeds` ข้อมูลจำลอง 2 ร้าน สำหรับ local development เท่านั้น
@@ -38,13 +38,15 @@ pnpm mobile:check
 pnpm mobile:export
 ```
 
-`/v1/health` ตรวจ process, `/v1/ready` ตรวจการต่อด้วย role fs_api และตารางพื้นฐาน Business endpoint จะตอบ 401 เสมอในฐานโครงการนี้ ห้ามเอา guard ออกหรือเชื่อ x-user-id / x-organization-id แทนการเข้าสู่ระบบ
+เว็บเจ้าของร้านเปิดที่ `http://localhost:3001/shop`; พื้นที่แพลตฟอร์มอยู่ที่ `/console` ใช้บัญชีและสิทธิ์แยกกัน รายละเอียดขอบเขตและวิธีตรวจด้วยข้อมูลสังเคราะห์อยู่ใน [docs/OWNER_WEB.md](docs/OWNER_WEB.md)
+
+`/v1/health` ตรวจ process, `/v1/ready` ตรวจการต่อด้วย role fs_api และตารางพื้นฐาน Business endpoint ต้องมี verified session ห้ามเอา guard ออกหรือเชื่อ x-user-id / x-organization-id แทนการเข้าสู่ระบบ
 
 ## ฐานข้อมูลและการติดตั้ง
 
 Docker Compose เป็นตัวเลือก local ที่เตรียมไว้ ไม่จำเป็นต้องใช้ Docker บน Ubuntu จริง PostgreSQL 16 ติดตั้งแบบ native ได้ ใช้ 00-roles.sql เป็นแนวทางเตรียม role และใช้ migration runner เดียวกัน อย่าใช้ fs_owner หรือ fs_migrator ใน API
 
-RLS เป็นชั้นป้องกันข้อมูลข้ามร้าน Context ต้องมาจาก session ที่ยืนยันแล้วและตรวจ membership API ยังต้องตรวจ role/assignment/subscription/quota/version รายคำสั่ง สิทธิ์ช่างรายงานและระบบผู้ดูแลเต็มรูปแบบเป็นงาน A02 และ B/C ต่อไป
+RLS เป็นชั้นป้องกันข้อมูลข้ามร้าน Context มาจาก session ที่ยืนยันแล้วและตรวจ membership; API ตรวจ role/assignment/subscription/quota/version รายคำสั่ง
 
 ## สถานะการทดสอบ
 

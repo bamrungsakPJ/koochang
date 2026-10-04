@@ -17,7 +17,8 @@ interface JobRow { id: string; status: string; version: number; current_assignee
 export class JobsController {
   constructor(private readonly database: DatabaseService) {}
 
-  /** Jobs in a time window (by scheduled start), plus unassigned/unscheduled open jobs. */
+  /** Jobs in a time window; unscheduled history uses start/creation time. Open unscheduled
+   * work remains visible so owners can assign it even without an appointment. */
   @Get()
   list(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Query('from') from?: string, @Query('to') to?: string,
     @Query('status') status?: string, @Query('assignee') assignee?: string) {
@@ -27,7 +28,8 @@ export class JobsController {
     return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
       items: (await client.query(
         `${this.selectJobs} WHERE j.organization_id = $1 AND j.status = ANY($2::text[])
-           AND ((j.scheduled_start >= $3 AND j.scheduled_start < $4) OR (j.scheduled_start IS NULL AND j.status IN ('unassigned','scheduled','in_progress')))
+           AND ((coalesce(j.scheduled_start, j.started_at, j.created_at) >= $3 AND coalesce(j.scheduled_start, j.started_at, j.created_at) < $4)
+             OR (j.scheduled_start IS NULL AND j.status IN ('unassigned','scheduled','in_progress')))
            AND ($5::uuid IS NULL OR j.current_assignee_id = $5)
          ORDER BY j.scheduled_start NULLS FIRST, j.created_at LIMIT 200`,
         [tenant.organizationId, statuses, start, end, assignee && uuidPattern.test(assignee) ? assignee : null])).rows,

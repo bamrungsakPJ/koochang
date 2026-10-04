@@ -1,4 +1,19 @@
-# Verification — 2026-10-03
+# Owner web verification — 2026-10-04
+
+- Added the owner workspace at `/shop`; root `/` redirects there. Platform staff continue to use `/console` with separate sessions.
+- Workspace typechecks passed; final production API/Next.js build after draft/OCR refinements passed with `/shop`, `/console` and `/join/[token]`.
+- PGlite suite: 103 total, **78 passed / 25 skipped / 0 failed**. Skipped HTTP/concurrency cases require real PostgreSQL.
+- Four new owner browser transport tests exercise the actual TypeScript API/storage client: shop/platform session isolation, network failure preservation and restoration, access-token refresh, temporary refresh outage versus revocation, and raw Blob uploads.
+- Final real PostgreSQL 16.15 suite: **103 passed / 0 skipped / 0 failed**, including HTTP pilot journey, cross-tenant authorization, concurrent approvals/quotas/renewals, service replay, unscheduled completed-job history, and worker retries. Run: `node --env-file=.env --test --test-concurrency=1 tests/*.test.mjs` after API build; isolated test cluster over SSH.
+- Browser QA used synthetic data on a separate PostgreSQL 16.15 test database via `scripts/owner-web-test-server.mjs`, API 4101 / Next dev 3101. No real SMS, payments or shop data were used.
+- Confirmed through the web UI: OTP registration/sign-in; shop creation and switching; phone-only customer with first location; manual equipment; planned job creation/self-assignment/reschedule/start; Bangkok 09:00–10:00 appointments; service draft restoration after page reload including photo IDs and custom due date; photo upload/retry after test DB outage; successful service completion; maintenance cycle and follow-up booking; invoice creation/payment destination; synthetic proof pending review; support ticket; team QR and pause joining; Thai/English; team layout at 320px (document width equals viewport).
+- Captured final Thai owner overview. A Next dev RSC navigation fetch failed during test connectivity interruption and recovered after retry; no claim of a completely error-free browser session. The fixture no longer holds its setup DB connection idle.
+- Browser checks did not exercise every team status transition, support consent/revocation, actual GPS permission, OCR provider, browser print dialog, or every device. Server authorization/concurrency is covered by the API suite; human UAT and real-device checks remain deferred at the user's request.
+- No production deployment/providers, live payment or mobile device testing in this work session. Detailed owner scope, run instructions and API list limits: [OWNER_WEB.md](OWNER_WEB.md).
+
+---
+
+# Verification — 2026-10-03 (historical baseline)
 
 - All workspace typechecks passed.
 - API compilation and Next.js production build passed.

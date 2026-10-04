@@ -666,6 +666,10 @@ test('service: ad-hoc on-site work creates a completed job; late submission afte
   assert.equal(recorded.status, 201, JSON.stringify(recorded.body));
   const adhocJob = (await call('GET', `/organizations/${s.shopId}/jobs/${recorded.body.job_id}`, { token: s.owner.access_token })).body;
   assert.deepEqual([adhocJob.status, adhocJob.job_type, adhocJob.assignee_name], ['completed', 'repair', 'Tech Adhoc']);
+  const completedList = await call('GET', `/organizations/${s.shopId}/jobs?status=completed`, { token: s.owner.access_token });
+  assert.ok(completedList.body.items.some(j => j.id === adhocJob.id), 'unscheduled on-site service appears in completed job history');
+  const oldWindow = await call('GET', `/organizations/${s.shopId}/jobs?status=completed&from=2000-01-01&to=2000-02-01`, { token: s.owner.access_token });
+  assert.ok(!oldWindow.body.items.some(j => j.id === adhocJob.id), 'unscheduled history still respects the requested time window');
 
   // Plan ends 1 hour ago: a job started 2 hours ago may still be finished within 24 hours.
   const unitA = await s.unit('A');

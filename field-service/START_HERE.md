@@ -1,6 +1,8 @@
 # เริ่มจากไฟล์นี้
 
-ชุดส่งต่อให้ Claude Code ณ 3 ตุลาคม 2569 มีเอกสารรุ่นล่าสุด 5 ฉบับทั้ง DOCX และ Markdown โค้ด foundation 41 ตาราง/25 tests และต้นแบบ UI 2 ชุด
+สถานะล่าสุด 4 ตุลาคม 2569: พัฒนา mobile MVP, เว็บเจ้าของร้าน `/shop`, เว็บแพลตฟอร์ม `/console` และ API ธุรกิจแล้ว ดู [docs/PROGRESS_LOG.md](docs/PROGRESS_LOG.md), [docs/OWNER_WEB.md](docs/OWNER_WEB.md) และ [docs/VERIFICATION.md](docs/VERIFICATION.md) สำหรับงานที่เสร็จ ผลตรวจจริง และงานที่ยังเหลือ
+
+รายละเอียดชุดส่งต่อเดิม ณ 3 ตุลาคม 2569 ด้านล่างเป็นประวัติตั้งต้น ไม่ใช่สถานะโค้ดปัจจุบัน
 
 ## วิธีใช้
 1. แตก ZIP ไปยังโฟลเดอร์ทำงาน
@@ -17,7 +19,7 @@
 - apps/packages/database/infra/scripts/tests: source code, migration, seeds, lockfile, CI
 - docs/VERIFICATION.md: ผลตรวจจริงและข้อจำกัด
 
-## สถานะที่ต้องเข้าใจ
+## สถานะของชุดส่งต่อเดิม (3 ตุลาคม)
 มีโค้ดเริ่มต้นแล้ว แต่ยังไม่ใช่ระบบบริการพร้อมใช้งาน ไม่มี verified auth, business workflow, subscription/payment และ platform operations จริงครบ
 ทดสอบ 25 ข้อผ่านบน PGlite/PostgreSQL18.3 ต้องตรวจเป้าหมาย PostgreSQL16; ยังไม่ได้ติดตั้งบน Ubuntu24.04 ยังไม่ได้ device test หรือ native APK/IPA
 ไม่ต้องสร้างใหม่จากศูนย์ เริ่ม A02 identity/organization หลังตรวจ baseline และพัฒนาตามแผน ไม่มี production secrets ในชุดนี้
