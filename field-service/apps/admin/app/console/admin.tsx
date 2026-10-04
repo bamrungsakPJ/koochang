@@ -1,6 +1,7 @@
 'use client';
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { AdminKey } from '@field-service/i18n';
+import { DatabaseZap, KeyRound, LifeBuoy, ReceiptText, RotateCcw, type LucideIcon } from 'lucide-react';
 import { call, ConsoleError, dateOnly, dateTime, money, useLanguage, useStepUp, useText, type Me } from './api';
 
 const message = (e: unknown) => e instanceof ConsoleError ? e.message : String(e);
@@ -46,14 +47,14 @@ export function OverviewView({ onNavigate }: { onNavigate: (view: string) => voi
     call<IncidentSummary>('GET', '/platform/incidents/summary').then(setIncidents, () => setIncidents(null));
   }, []);
   const pct = (a?: number | null, b?: number | null) => (b ? `${Math.round(((a ?? 0) / b) * 100)}%` : '–');
-  const tiles: [AdminKey, number | undefined, string, string][] = [
-    ['proofsPending', data?.proofs_pending, 'payments', 'amber'], ['refundsOpen', data?.refunds_open, 'refunds', 'rose'], ['ticketsOpen', data?.tickets_open, 'support', 'sky'],
-    ['accessPending', data?.access_pending, 'access', 'violet'], ['dataOpen', data?.data_requests_open, 'data', 'teal'],
+  const tiles: [AdminKey, number | undefined, string, string, LucideIcon][] = [
+    ['proofsPending', data?.proofs_pending, 'payments', 'amber', ReceiptText], ['refundsOpen', data?.refunds_open, 'refunds', 'rose', RotateCcw], ['ticketsOpen', data?.tickets_open, 'support', 'sky', LifeBuoy],
+    ['accessPending', data?.access_pending, 'access', 'violet', KeyRound], ['dataOpen', data?.data_requests_open, 'data', 'teal', DatabaseZap],
   ];
   return <section>
     <h1>{t('navOverview')}</h1>
     {error ? <p className="error">{error}</p> : null}
-    <div className="tiles">{tiles.map(([key, n, view, tone]) => <button key={key} className={`tile ${tone}`} onClick={() => onNavigate(view)}><strong>{n ?? '–'}</strong><span>{t(key)}</span></button>)}</div>
+    <div className="tiles">{tiles.map(([key, n, view, tone, Icon]) => <button key={key} className={`tile ${tone}`} onClick={() => onNavigate(view)}><span className="tile-icon"><Icon size={18} /></span><strong>{n ?? '–'}</strong><span>{t(key)}</span></button>)}</div>
     {incidents ? <div className="panel">
       <h2>{t('openIncidents')}</h2>
       {incidents.open.length ? <ul className="incident-list">{incidents.open.map(i => <li key={i.id}>
@@ -96,7 +97,7 @@ export function ShopsView({ onOpen }: { onOpen: (id: string) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const load = (event?: FormEvent, at = 0) => { event?.preventDefault(); setRows(null); setOffset(at);
+  const load = (event?: FormEvent, at = 0) => { event?.preventDefault(); setRows(null); setError(null); setOffset(at);
     call<Page<ShopRow>>('GET', `/platform/shops?q=${encodeURIComponent(q)}&state=${state}&offset=${at}`).then(r => { setRows(r.items); setHasMore(r.has_more); }, e => setError(message(e))); };
   useEffect(() => { load(); }, [state]);
   return <section>

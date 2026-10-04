@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Language } from '@field-service/core';
 import type { AdminKey } from '@field-service/i18n';
 import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useText, type Me } from './api';
@@ -10,30 +10,33 @@ import { AccountSettingsView, PlatformSettingsView } from './settings';
 import { ApprovalsView, CatalogView, Enrollment, PolicyView, StaffView } from './management';
 import { CommunicationsView, OperationsView } from './operations';
 import { PrivacyView } from './privacy';
+import { Activity, CircleUserRound, ClipboardCheck, CreditCard, DatabaseZap, FileSpreadsheet, KeyRound, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Menu,
+  RotateCcw, Scale, ScrollText, Settings, ShieldCheck, Store, Tags, Users, Wallet, Wrench, X, type LucideIcon } from 'lucide-react';
 
 type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
   | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'} | {name:'settings'} | {name:'account'} | {name:'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations'};
 type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings' | 'settings' | 'account' | 'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations';
-const nav: { name: NavName; key: AdminKey; permission?: string }[] = [
-  { name: 'overview', key: 'navOverview', permission: 'shops.read' },
-  { name: 'shops', key: 'navShops', permission: 'shops.read' },
-  { name: 'catalog', key: 'navCatalog', permission: 'plans.manage' },
-  { name: 'staff', key: 'navStaff', permission: 'accounts.manage' },
-  { name: 'approvals', key: 'navApprovals', permission: 'approvals.read' },
-  { name: 'payments', key: 'navPayments', permission: 'billing.read' },
-  { name: 'refunds', key: 'navRefunds', permission: 'billing.read' },
-  { name: 'reconcile', key: 'navReconcile', permission: 'billing.read' },
-  { name: 'support', key: 'navSupport', permission: 'support.read' },
-  { name: 'access', key: 'navAccess', permission: 'access.approve' },
-  { name: 'data', key: 'navData', permission: 'data.manage' },
-  { name: 'audit', key: 'navAudit', permission: 'audit.read' },
-  { name: 'system', key: 'navSystem', permission: 'system.read' },
-  { name: 'operations', key: 'navOperations', permission: 'system.read' },
-  { name: 'communications', key: 'navCommunications', permission: 'communications.manage' },
-  { name: 'paymentSettings', key: 'paymentSettings', permission: 'payments.manage' },
-  { name: 'settings', key: 'platformSettings', permission: 'settings.manage' },
-  { name: 'policy', key: 'navPolicy', permission: 'settings.manage' },
-  { name: 'account', key: 'accountSettings' },
+type Group = 'navGroupMain' | 'navGroupFinance' | 'navGroupSupport' | 'navGroupTeam' | 'navGroupSystem' | 'navGroupSettings';
+const nav: { name: NavName; key: AdminKey; group: Group; icon: LucideIcon; permission?: string }[] = [
+  { name: 'overview', key: 'navOverview', group: 'navGroupMain', icon: LayoutDashboard, permission: 'shops.read' },
+  { name: 'shops', key: 'navShops', group: 'navGroupMain', icon: Store, permission: 'shops.read' },
+  { name: 'payments', key: 'navPayments', group: 'navGroupFinance', icon: CreditCard, permission: 'billing.read' },
+  { name: 'refunds', key: 'navRefunds', group: 'navGroupFinance', icon: RotateCcw, permission: 'billing.read' },
+  { name: 'reconcile', key: 'navReconcile', group: 'navGroupFinance', icon: FileSpreadsheet, permission: 'billing.read' },
+  { name: 'catalog', key: 'navCatalog', group: 'navGroupFinance', icon: Tags, permission: 'plans.manage' },
+  { name: 'support', key: 'navSupport', group: 'navGroupSupport', icon: LifeBuoy, permission: 'support.read' },
+  { name: 'access', key: 'navAccess', group: 'navGroupSupport', icon: KeyRound, permission: 'access.approve' },
+  { name: 'data', key: 'navData', group: 'navGroupSupport', icon: DatabaseZap, permission: 'data.manage' },
+  { name: 'staff', key: 'navStaff', group: 'navGroupTeam', icon: Users, permission: 'accounts.manage' },
+  { name: 'approvals', key: 'navApprovals', group: 'navGroupTeam', icon: ClipboardCheck, permission: 'approvals.read' },
+  { name: 'system', key: 'navSystem', group: 'navGroupSystem', icon: Activity, permission: 'system.read' },
+  { name: 'operations', key: 'navOperations', group: 'navGroupSystem', icon: Wrench, permission: 'system.read' },
+  { name: 'communications', key: 'navCommunications', group: 'navGroupSystem', icon: Megaphone, permission: 'communications.manage' },
+  { name: 'audit', key: 'navAudit', group: 'navGroupSystem', icon: ScrollText, permission: 'audit.read' },
+  { name: 'paymentSettings', key: 'paymentSettings', group: 'navGroupSettings', icon: Wallet, permission: 'payments.manage' },
+  { name: 'settings', key: 'platformSettings', group: 'navGroupSettings', icon: Settings, permission: 'settings.manage' },
+  { name: 'policy', key: 'navPolicy', group: 'navGroupSettings', icon: Scale, permission: 'settings.manage' },
+  { name: 'account', key: 'accountSettings', group: 'navGroupSettings', icon: CircleUserRound },
 ];
 const parent: Partial<Record<View['name'], NavName>> = { invoice: 'payments', shop: 'shops', ticket: 'support' };
 
@@ -101,30 +104,68 @@ export function Console() {
   return <LanguageContext.Provider value={language}>
     <StepUpContext.Provider value={askStepUp}>
       <div className="console">
-        <LanguageSelect value={language} onChange={changeLanguage} />
-        {content}
+        {me && !invite ? null : <LanguageSelect value={language} onChange={changeLanguage} floating />}
+        {me && !invite && content ? <LanguageBridge value={language} onChange={changeLanguage}>{content}</LanguageBridge> : content}
         {stepUpOpen ? <StepUpDialog onDone={closeStepUp} /> : null}
       </div>
     </StepUpContext.Provider>
   </LanguageContext.Provider>;
 }
 
-function LanguageSelect({ value, onChange }: { value: Language; onChange: (v: Language) => void }) {
-  return <select className="lang" aria-label="Language" value={value} onChange={e => onChange(normalizeLanguage(e.target.value))}>
+function LanguageSelect({ value, onChange, floating }: { value: Language; onChange: (v: Language) => void; floating?: boolean }) {
+  return <select className={floating ? 'lang floating' : 'lang'} aria-label="Language" value={value} onChange={e => onChange(normalizeLanguage(e.target.value))}>
     <option value="th">ไทย</option><option value="en">English</option>
   </select>;
 }
 
+/** Hands the language control to the signed-in shell's top bar. */
+const LanguageControl = createContext<ReactNode>(null);
+function LanguageBridge({ value, onChange, children }: { value: Language; onChange: (v: Language) => void; children: ReactNode }) {
+  return <LanguageControl.Provider value={<LanguageSelect value={value} onChange={onChange} />}>{children}</LanguageControl.Provider>;
+}
+
+const rolePriority = ['super_admin', 'platform_admin', 'billing_approver', 'billing_operator', 'operations', 'support_agent', 'auditor'];
+const mainRole = (roles: string[]) => [...roles].sort((a, b) => (rolePriority.indexOf(a) + 1 || 99) - (rolePriority.indexOf(b) + 1 || 99))[0] ?? '';
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
+
 function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; view: string; items: typeof nav; onNavigate: (name: NavName) => void; onSignOut: () => void; children: ReactNode }) {
   const t = useText();
-  return <div className="shell">
-    <aside className="side">
-      <div className="logo">{t('consoleTitle')}</div>
-      <nav>{items.map(n => <button key={n.name} className={view === n.name ? 'nav on' : 'nav'} onClick={() => onNavigate(n.name)}>{t(n.key)}</button>)}</nav>
-      <div className="who"><strong>{me.display_name}</strong><span>{me.email}</span><span className="muted">{t('roles')}: {me.roles.join(', ')}</span>
-        <button className="ghost" onClick={onSignOut}>{t('signOut')}</button></div>
+  const language = useContext(LanguageControl);
+  const [open, setOpen] = useState(false);
+  const current = items.find(n => n.name === view);
+  const groups = items.reduce<{ group: Group; items: typeof nav }[]>((list, n) => {
+    const last = list.at(-1);
+    if (last?.group === n.group) last.items.push(n); else list.push({ group: n.group, items: [n] });
+    return list;
+  }, []);
+  const go = (name: NavName) => { setOpen(false); onNavigate(name); };
+  return <div className={open ? 'shell open' : 'shell'}>
+    <aside className="side" aria-label={t('consoleTitle')}>
+      <div className="brand-row">
+        <span className="brand-mark" aria-hidden><ShieldCheck size={18} strokeWidth={2.2} /></span>
+        <span className="brand-text"><strong>{t('consoleTitle')}</strong><small>Field Service</small></span>
+        <button className="icon-btn close-nav" aria-label={t('cancel')} onClick={() => setOpen(false)}><X size={18} /></button>
+      </div>
+      <nav>{groups.map(g => <div className="nav-group" key={g.group}>
+        <div className="nav-label">{t(g.group)}</div>
+        {g.items.map(n => { const Icon = n.icon; return <button key={n.name} className={view === n.name ? 'nav on' : 'nav'} aria-current={view === n.name ? 'page' : undefined} onClick={() => go(n.name)}>
+          <Icon size={18} strokeWidth={1.9} aria-hidden /><span>{t(n.key)}</span></button>; })}
+      </div>)}</nav>
+      <div className="who">
+        <span className="avatar" aria-hidden>{initials(me.display_name)}</span>
+        <span className="who-text"><strong>{me.display_name}</strong><small>{me.email}</small></span>
+        <button className="icon-btn" title={t('signOut')} aria-label={t('signOut')} onClick={onSignOut}><LogOut size={17} /></button>
+      </div>
     </aside>
-    <main className="work">{children}</main>
+    <div className="scrim" onClick={() => setOpen(false)} aria-hidden />
+    <div className="main-col">
+      <header className="topbar">
+        <button className="icon-btn menu-btn" aria-label={t('openMenu')} onClick={() => setOpen(true)}><Menu size={20} /></button>
+        <div className="crumbs">{current ? <><span>{t(current.group)}</span><span className="sep">/</span><strong>{t(current.key)}</strong></> : null}</div>
+        <div className="top-actions">{language}<span className="role-chip" title={me.roles.join(', ')}>{mainRole(me.roles)}{me.roles.length > 1 ? ` +${me.roles.length - 1}` : ''}</span></div>
+      </header>
+      <main className="work">{children}</main>
+    </div>
   </div>;
 }
 
@@ -155,8 +196,9 @@ function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
       if (step === 'mfa') { setStep('password'); setCode(''); }
     } finally { setBusy(false); }
   }
-  return <form className="signin" onSubmit={submit}>
-    <h1>{t('consoleTitle')}</h1>
+  return <div className="signin-page"><form className="signin" onSubmit={submit}>
+    <div className="signin-brand"><span className="brand-mark lg" aria-hidden><ShieldCheck size={22} strokeWidth={2.2} /></span>
+      <span><h1>{t('consoleTitle')}</h1><small>Field Service</small></span></div>
     {step === 'password' ? <>
       <h2>{t('signIn')}</h2>
       <label>{t('email')}<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
@@ -167,7 +209,7 @@ function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
     </>}
     {error ? <p className="error" role="alert">{error}</p> : null}
     <button className="primary" disabled={busy}>{step === 'password' ? t('next') : t('confirm')}</button>
-  </form>;
+  </form></div>;
 }
 
 function StepUpDialog({ onDone }: { onDone: (ok: boolean) => void }) {
@@ -183,6 +225,7 @@ function StepUpDialog({ onDone }: { onDone: (ok: boolean) => void }) {
   }
   return <div className="backdrop" role="dialog" aria-modal="true" aria-labelledby="stepup-title">
     <form className="dialog" onSubmit={submit}>
+      <span className="dialog-icon" aria-hidden><KeyRound size={20} /></span>
       <h2 id="stepup-title">{t('stepUpTitle')}</h2><p className="muted">{t('stepUpHint')}</p>
       <label>{t('code')}<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} required autoFocus value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></label>
       {error ? <p className="error" role="alert">{error}</p> : null}
