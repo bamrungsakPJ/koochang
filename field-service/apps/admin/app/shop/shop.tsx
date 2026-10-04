@@ -1,6 +1,7 @@
 'use client';
 import { useContext, useState } from 'react';
 import { translate, type TranslationKey } from '@field-service/i18n';
+import { Bell, CalendarClock, ClipboardList, UserPlus } from 'lucide-react';
 import { api, type Me, type TeamMember } from './api';
 import type { Go } from './OwnerApp';
 import { ActionState, Button, dateTime, Empty, Field, LanguageContext, Notice, PageTitle, Panel, ResourceState, statusText, useAction, useResource, useText } from './ui';
@@ -10,10 +11,10 @@ export function Dashboard({ org, go }: { org: string; go: Go }) {
   const r = useResource(async () => { const [jobs, maintenance, team, subscription, inbox] = await Promise.all([api.jobs(org), api.maintenance(org), api.team(org), api.subscription(org), api.notifications(org)]); return { jobs, maintenance, team, subscription, inbox }; }, [org]);
   const d = r.data;
   return <><PageTitle action={<Button kind="primary" onClick={() => go({ section: 'jobNew' })}>{t('createJob')}</Button>}>{t('ownerWeb.shop_overview')}</PageTitle><p className="lead muted">{t('ownerWeb.what_needs_your_attention_today')}</p><ResourceState resource={r} />
-    {d ? <><div className="tiles"><Button className="tile sky" onClick={() => go({ section: 'jobs' })}><strong>{d.jobs.items.filter(j => !['completed', 'cancelled'].includes(j.status)).length}</strong><span>{t('jobs')}</span></Button>
-      <Button className="tile rose" onClick={() => go({ section: 'maintenance' })}><strong>{d.maintenance.counts.overdue}</strong><span>{t('maintenanceOverdue')}</span></Button>
-      <Button className="tile amber" onClick={() => go({ section: 'team' })}><strong>{d.team.members.filter(m => m.status === 'pending').length}</strong><span>{t('ownerWeb.join_requests')}</span></Button>
-      <Button className="tile teal" onClick={() => go({ section: 'notifications' })}><strong>{d.inbox.unread}</strong><span>{t('notifications')}</span></Button></div>
+    {d ? <><div className="tiles"><Button className="tile sky" onClick={() => go({ section: 'jobs' })}><span className="tile-icon"><ClipboardList size={18} /></span><strong>{d.jobs.items.filter(j => !['completed', 'cancelled'].includes(j.status)).length}</strong><span>{t('jobs')}</span></Button>
+      <Button className="tile rose" onClick={() => go({ section: 'maintenance' })}><span className="tile-icon"><CalendarClock size={18} /></span><strong>{d.maintenance.counts.overdue}</strong><span>{t('maintenanceOverdue')}</span></Button>
+      <Button className="tile amber" onClick={() => go({ section: 'team' })}><span className="tile-icon"><UserPlus size={18} /></span><strong>{d.team.members.filter(m => m.status === 'pending').length}</strong><span>{t('ownerWeb.join_requests')}</span></Button>
+      <Button className="tile teal" onClick={() => go({ section: 'notifications' })}><span className="tile-icon"><Bell size={18} /></span><strong>{d.inbox.unread}</strong><span>{t('notifications')}</span></Button></div>
       {!d.subscription.writable ? <Notice error>{t('SUBSCRIPTION_EXPIRED')}</Notice> : null}
       <div className="grid2"><Panel title={t('subscription')}><p>{d.subscription.plan ? lang === 'th' ? d.subscription.plan.name_th : d.subscription.plan.name_en : '—'} <span className="pill">{statusText(lang, 'sub', d.subscription.state)}</span></p><p>{dateTime(d.subscription.period_end, lang)}</p>
         {d.subscription.limits && d.subscription.usage ? <div className="usage"><p>{t('team')} {d.subscription.usage.technician_seats} / {d.subscription.limits.technician_seats}</p><p>{t('ownerWeb.photo_storage')} {(d.subscription.usage.storage_bytes / 1e9).toFixed(2)} / {(d.subscription.limits.storage_bytes / 1e9).toFixed(0)} GB</p><p>OCR {d.subscription.usage.ocr} / {d.subscription.limits.ocr_per_period}</p></div> : null}<Button onClick={() => go({ section: 'billing' })}>{t('subscription')}</Button></Panel>

@@ -10,6 +10,7 @@ import { Dashboard, TeamView, AccountView, NotificationsView } from './shop';
 import { CustomersView, CustomerView, EquipmentView } from './customers';
 import { JobsView, JobView, JobForm, ServiceForm } from './jobs';
 import { MaintenanceView, BillingView, InvoiceView, SupportView } from './operations';
+import { Bell, CalendarClock, CircleUserRound, ClipboardList, CreditCard, LayoutDashboard, LifeBuoy, LogOut, Menu, Plus, Store, UserCog, Users, Wrench, X, type LucideIcon } from 'lucide-react';
 
 export type Section = 'home' | 'customers' | 'customer' | 'equipment' | 'jobs' | 'job' | 'jobNew' | 'service' | 'maintenance' | 'team' | 'billing' | 'invoice' | 'support' | 'notifications' | 'account';
 export interface Route { section: Section; id?: string; customerId?: string; locationId?: string }
@@ -27,7 +28,7 @@ function readRoute(): Route {
 export function OwnerApp() {
   const router = useRouter();
   const [language, setLanguage] = useState<Language>('th'), [me, setMe] = useState<Me | null>(null), [org, setOrg] = useState(''), [boot, setBoot] = useState(true);
-  const [route, setRoute] = useState<Route>({ section: 'home' }), [creating, setCreating] = useState(false), [offline, setOffline] = useState(false);
+  const [route, setRoute] = useState<Route>({ section: 'home' }), [creating, setCreating] = useState(false), [offline, setOffline] = useState(false), [menu, setMenu] = useState(false);
   const a = useAction();
   const go: Go = r => { const q = new URLSearchParams(Object.entries(r).filter(([, v]) => v) as [string, string][]); void storage.set(keys.route, q.toString()).catch(() => {}); router.push(`/shop?${q.toString()}`); setRoute(r); };
   async function loadMe(prefer?: string) {
@@ -57,26 +58,61 @@ export function OwnerApp() {
   const membership = me?.memberships.find(m => m.organization_id === org && m.role === 'owner');
   const active = membership?.status === 'active', suspended = membership?.organization_status === 'suspended';
   async function signOut() { await api.signOut(); await storage.set(keys.organization, null); setMe(null); setOrg(''); go({ section: 'home' }); }
+  const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const languageSelect = <select className="lang" aria-label={tr('language')} value={language} onChange={e => void languageChange(e.target.value as Language)}><option value="th">ไทย</option><option value="en">English</option></select>;
+  const card = (children: React.ReactNode) => <div className="signin-page"><div className="owner-language">{languageSelect}</div><main className="signin owner-card">{children}</main></div>;
+  const visible: Section[] = navigation.filter(s => active && !suspended || s === 'account' || active && s === 'support');
+  const current = navMeta[route.section] ? route.section : (parentSection[route.section] ?? 'home');
+  const navTo = (s: Section) => { setMenu(false); go({ section: s }); };
   return <LanguageContext.Provider value={language}><div className="console owner-app">
-    <div className="owner-language"><label>{translate(language, 'language')} <select value={language} onChange={e => void languageChange(e.target.value as Language)}><option value="th">ไทย</option><option value="en">English</option></select></label></div>
-    {boot ? <main className="signin"><p role="status">{translate(language, 'loading')}</p></main>
-      : offline ? <main className="signin"><Notice error>{translate(language, 'networkError')}</Notice><Button kind="primary" busy={a.busy} onClick={() => a.run(loadMe)}>{translate(language, 'retry')}</Button><Button onClick={signOut}>{translate(language, 'signOut')}</Button><ActionState action={a} /></main>
-      : !me ? <Auth onDone={async id => { await loadMe(id); go({ section: 'home' }); }} />
-      : creating || !membership ? <main className="signin"><CreateShop onCreated={async id => { await loadMe(id); setCreating(false); go({ section: 'home' }); }} />
-          {me.memberships.some(m => m.role === 'owner') ? <Button onClick={() => setCreating(false)}>{translate(language, 'cancel')}</Button> : null}
-          {!me.memberships.some(m => m.role === 'owner') ? <p>{translate(language, 'ownerWeb.technicianAccount')}</p> : null}<Button onClick={signOut}>{translate(language, 'signOut')}</Button></main>
-      : <div className="shell"><aside className="side"><a href="/shop" className="logo">Field Service<span>{translate(language, 'ownerWeb.workspace')}</span></a>
-        <label className="shop-switch">{translate(language, 'myShops')}<select aria-label={translate(language, 'myShops')} value={org} onChange={e => void a.run(async () => { await loadMe(e.target.value); go({ section: 'home' }); })}>
-          {me.memberships.filter(m => m.role === 'owner').map(m => <option key={m.organization_id} value={m.organization_id}>{m.organization_name}</option>)}</select></label>
-        <nav aria-label={translate(language, 'ownerWeb.navigation')}>{navigation.filter(s => active && !suspended || s === 'account' || active && s === 'support').map(s => <Button key={s} className={`nav ${route.section === s ? 'on' : ''}`} onClick={() => go({ section: s })}>{translate(language, s === 'home' ? 'home' : s === 'billing' ? 'subscription' : s)}</Button>)}</nav>
-        <div className="who"><strong>{me.user.display_name}</strong><span>{me.user.phone_e164}</span><Button onClick={() => setCreating(true)}>{translate(language, 'createShop')}</Button><Button onClick={signOut}>{translate(language, 'signOut')}</Button></div></aside>
-        <main className="work" key={org}><ActionState action={a} />
-          {!active ? <Panel><Notice error>{translate(language, 'MEMBERSHIP_INACTIVE')}</Notice><Button busy={a.busy} onClick={() => a.run(loadMe)}>{translate(language, 'checkStatus')}</Button></Panel>
-            : suspended && route.section !== 'support' && route.section !== 'account' ? <Panel><Notice error>{translate(language, 'ORGANIZATION_SUSPENDED')}</Notice><Button onClick={() => go({ section: 'support' })}>{translate(language, 'support')}</Button></Panel>
-            : <Workspace key={`${org}:${route.section}:${route.id ?? ''}:${route.locationId ?? ''}`} membership={membership} me={me} route={route} go={go} onMe={() => loadMe(org)} />}
-        </main></div>}
+    {boot ? card(<p role="status">{tr('loading')}</p>)
+      : offline ? card(<><Notice error>{tr('networkError')}</Notice><Button kind="primary" busy={a.busy} onClick={() => a.run(loadMe)}>{tr('retry')}</Button><Button onClick={signOut}>{tr('signOut')}</Button><ActionState action={a} /></>)
+      : !me ? <Auth language={languageSelect} onDone={async id => { await loadMe(id); go({ section: 'home' }); }} />
+      : creating || !membership ? card(<><CreateShop onCreated={async id => { await loadMe(id); setCreating(false); go({ section: 'home' }); }} />
+          {me.memberships.some(m => m.role === 'owner') ? <Button onClick={() => setCreating(false)}>{tr('cancel')}</Button> : null}
+          {!me.memberships.some(m => m.role === 'owner') ? <p>{tr('ownerWeb.technicianAccount')}</p> : null}<Button onClick={signOut}>{tr('signOut')}</Button></>)
+      : <div className={menu ? 'shell open' : 'shell'}><aside className="side" aria-label={tr('ownerWeb.navigation')}>
+          <div className="brand-row"><span className="brand-mark" aria-hidden><Wrench size={17} strokeWidth={2.2} /></span>
+            <span className="brand-text"><strong>Field Service</strong><small>{tr('ownerWeb.workspace')}</small></span>
+            <button className="icon-btn close-nav" aria-label={tr('ownerWeb.closeMenu')} onClick={() => setMenu(false)}><X size={18} /></button></div>
+          <div className="shop-switch"><span className="shop-avatar" aria-hidden><Store size={16} /></span>
+            <select aria-label={tr('myShops')} value={org} onChange={e => void a.run(async () => { setMenu(false); await loadMe(e.target.value); go({ section: 'home' }); })}>
+              {me.memberships.filter(m => m.role === 'owner').map(m => <option key={m.organization_id} value={m.organization_id}>{m.organization_name}</option>)}</select>
+            <button className="icon-btn" title={tr('createShop')} aria-label={tr('createShop')} onClick={() => { setMenu(false); setCreating(true); }}><Plus size={17} /></button></div>
+          <nav>{navGroups.map(g => { const items = g.items.filter(s => visible.includes(s)); return items.length ? <div className="nav-group" key={g.key}>
+            <div className="nav-label">{tr(g.key)}</div>
+            {items.map(s => { const { icon: Icon, key } = navMeta[s]!; return <button key={s} className={current === s ? 'nav on' : 'nav'} aria-current={current === s ? 'page' : undefined} onClick={() => navTo(s)}>
+              <Icon size={18} strokeWidth={1.9} aria-hidden /><span>{tr(key)}</span></button>; })}</div> : null; })}</nav>
+          <div className="who"><span className="avatar" aria-hidden>{initials(me.user.display_name)}</span>
+            <span className="who-text"><strong>{me.user.display_name}</strong><small>{me.user.phone_e164}</small></span>
+            <button className="icon-btn" title={tr('signOut')} aria-label={tr('signOut')} onClick={signOut}><LogOut size={17} /></button></div>
+        </aside>
+        <div className="scrim" onClick={() => setMenu(false)} aria-hidden />
+        <div className="main-col">
+          <header className="topbar"><button className="icon-btn menu-btn" aria-label={tr('ownerWeb.openMenu')} onClick={() => setMenu(true)}><Menu size={20} /></button>
+            <div className="crumbs"><span>{membership.organization_name}</span><span className="sep">/</span><strong>{tr(navMeta[current]!.key)}</strong></div>
+            <div className="top-actions">{languageSelect}</div></header>
+          <main className="work" key={org}><ActionState action={a} />
+            {!active ? <Panel><Notice error>{tr('MEMBERSHIP_INACTIVE')}</Notice><Button busy={a.busy} onClick={() => a.run(loadMe)}>{tr('checkStatus')}</Button></Panel>
+              : suspended && route.section !== 'support' && route.section !== 'account' ? <Panel><Notice error>{tr('ORGANIZATION_SUSPENDED')}</Notice><Button onClick={() => go({ section: 'support' })}>{tr('support')}</Button></Panel>
+              : <Workspace key={`${org}:${route.section}:${route.id ?? ''}:${route.locationId ?? ''}`} membership={membership} me={me} route={route} go={go} onMe={() => loadMe(org)} />}
+          </main></div></div>}
   </div></LanguageContext.Provider>;
 }
+const initials = (name: string) => name.replace(/^\+\d+/, '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '•';
+type NavKey = Parameters<typeof translate>[1];
+const navMeta: Partial<Record<Section, { icon: LucideIcon; key: NavKey }>> = {
+  home: { icon: LayoutDashboard, key: 'home' }, jobs: { icon: ClipboardList, key: 'jobs' }, customers: { icon: Users, key: 'customers' },
+  maintenance: { icon: CalendarClock, key: 'maintenance' }, team: { icon: UserCog, key: 'team' }, billing: { icon: CreditCard, key: 'subscription' },
+  notifications: { icon: Bell, key: 'notifications' }, support: { icon: LifeBuoy, key: 'support' }, account: { icon: CircleUserRound, key: 'account' },
+};
+/** Detail pages highlight the list they belong to. */
+const parentSection: Partial<Record<Section, Section>> = { customer: 'customers', equipment: 'customers', job: 'jobs', jobNew: 'jobs', service: 'jobs', invoice: 'billing' };
+const navGroups: { key: NavKey; items: Section[] }[] = [
+  { key: 'ownerWeb.groupWork', items: ['home', 'jobs', 'customers', 'maintenance'] },
+  { key: 'ownerWeb.groupShop', items: ['team', 'billing', 'notifications'] },
+  { key: 'ownerWeb.groupHelp', items: ['support', 'account'] },
+];
 function Workspace({ membership: m, me, route: r, go, onMe }: { membership: Membership; me: Me; route: Route; go: Go; onMe: () => Promise<void> }) {
   switch (r.section) {
     case 'customers': return <CustomersView org={m.organization_id} go={go} />;
@@ -96,7 +132,7 @@ function Workspace({ membership: m, me, route: r, go, onMe }: { membership: Memb
     default: return <Dashboard org={m.organization_id} go={go} />;
   }
 }
-function Auth({ onDone }: { onDone: (org?: string) => Promise<void> }) {
+function Auth({ onDone, language }: { onDone: (org?: string) => Promise<void>; language: React.ReactNode }) {
   const t = useText(), a = useAction();
   const [register, setRegister] = useState(false), [name, setName] = useState(''), [phone, setPhone] = useState(''), [code, setCode] = useState(''), [challenge, setChallenge] = useState<Challenge | null>(null), [wait, setWait] = useState(0);
   const request = useRef<string | null>(null);
@@ -105,7 +141,9 @@ function Auth({ onDone }: { onDone: (org?: string) => Promise<void> }) {
     const normalized = normalizePhone(phone); if (!normalized || normalized.startsWith('+66') && !isThaiMobile(normalized)) throw new ApiFailure(400, 'VALIDATION_ERROR', '', { phone: 'field.phone' });
     setPhone(normalized); const next = await api.requestOtp(normalized); setChallenge(next); setWait(next.resend_after); setCode('');
   });
-  return <main className="signin owner-signin"><a className="logo" href="/shop">Field Service</a><h1>{t('ownerWeb.your_shop_organized')}</h1><p className="muted">{t('ownerWeb.jobs_people_and_customers_in_one_workspace')}</p>
+  return <div className="signin-page owner-auth"><div className="owner-language">{language}</div><main className="signin owner-card">
+    <div className="signin-brand"><span className="brand-mark lg" aria-hidden><Wrench size={22} strokeWidth={2.2} /></span><span><strong className="brand-name">Field Service</strong><small>{t('ownerWeb.workspace')}</small></span></div>
+    <h1>{t('ownerWeb.your_shop_organized')}</h1><p className="muted">{t('ownerWeb.jobs_people_and_customers_in_one_workspace')}</p>
     <form onSubmit={e => { e.preventDefault(); if (!challenge) void requestOtp(); else void a.run(async () => {
       if (!api.signedIn) await api.verifyOtp(challenge.challenge_id, code);
       if (register) { const result = await api.createOrganization(name.trim(), request.current ?? (request.current = uuid())); await onDone(result.organization.id); } else await onDone();
@@ -114,7 +152,7 @@ function Auth({ onDone }: { onDone: (org?: string) => Promise<void> }) {
       <Button kind="primary" type="submit" busy={a.busy}>{register ? t('createShop') : t('signIn')}</Button></>
       : <><Notice>{t('otpSentTo', { phone })}</Notice><Field label={t('otpCode')} required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} />
         {challenge.delivery === 'development' ? <Notice>{t('devOtpNotice')}</Notice> : null}<Button kind="primary" type="submit" busy={a.busy}>{t('confirm')}</Button><Button disabled={wait > 0 || a.busy} onClick={requestOtp}>{wait ? t('resendIn', { seconds: wait }) : t('resend')}</Button><Button disabled={a.busy} onClick={() => { setChallenge(null); request.current = null; }}>{t('changePhone')}</Button></>}
-    </form><ActionState action={a} />{!challenge ? <Button onClick={() => { setRegister(!register); request.current = null; }}>{register ? t('signIn') : t('createShop')}</Button> : null}<a className="platform-link" href="/console">{t('ownerWeb.platform_staff_sign_in')}</a></main>;
+    </form><ActionState action={a} />{!challenge ? <Button onClick={() => { setRegister(!register); request.current = null; }}>{register ? t('signIn') : t('createShop')}</Button> : null}<a className="platform-link" href="/console">{t('ownerWeb.platform_staff_sign_in')}</a></main></div>;
 }
 function CreateShop({ onCreated }: { onCreated: (id: string) => Promise<void> }) {
   const t = useText(), a = useAction(), [name, setName] = useState(''), key = useRef<string | null>(null);
