@@ -41,7 +41,7 @@
 8. ผู้ให้บริการ Push (ยังไม่เลือก ตอนนี้ใช้กล่องแจ้งเตือนในแอปแทน)
 9. ข้อความนโยบายความเป็นส่วนตัวสำหรับร้าน: แจ้งว่ารูปป้ายเครื่องถูกส่งให้บริการ AI (Anthropic) อ่าน
 
-**B. งานติดตั้งระบบจริง (ทีม)**
+**B. งานติดตั้งระบบ (ทีม) — เลือก server2, เริ่ม staging ก่อน ดู [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)**
 1. เซิร์ฟเวอร์ production + PostgreSQL 16, สร้าง roles ตาม `infra/postgres/00-roles.sql`, ใช้ migration 001–020 (ไม่ใส่ seed)
 2. โดเมน HTTPS สำหรับ API, console, เว็บร้าน และลิงก์เข้าร่วม (`JOIN_LINK_BASE_URL`, `ADMIN_ORIGIN`, `OWNER_WEB_URL`)
 3. ตั้ง `PLATFORM_DATABASE_URL`, `PLATFORM_SECRET_KEY`, `PAYMENT_DATABASE_URL`/`SLIP_DATABASE_URL` (fs_worker), worker เป็น service
@@ -85,6 +85,14 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-04 (ค่ำ) — เลือก server2 สำหรับติดตั้ง staging/pilot
+
+**ทำอะไร:** ผู้ใช้เลือกติดตั้งบน server2, เริ่มเป็น staging/pilot ก่อน, ใช้ subdomain ผ่าน Cloudflare Tunnel และ PostgreSQL cluster ใหม่แยก (16/staging พอร์ต 5434); สำรวจ server2 แบบอ่านอย่างเดียว (ไม่ได้แก้อะไร) แล้วเขียนแผนใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
+
+**สิ่งที่พบ:** server2 ใช้ร่วมกับระบบอื่น ~20 แอป (pm2, Apache 80/443, cloudflared แบบ token จัดการจาก dashboard); Node ระบบเป็น v18 (ต้องติดตั้ง Node 24 แยกใน /opt); ไม่มี pnpm; ดิสก์ / เหลือ 23 GB จึงเก็บรูปและ backup บน /data
+
+**ยังต้องการ:** ชื่อโดเมนใน Cloudflare และคนเพิ่ม hostname ใน dashboard; DeeSMSx key ถ้าจะให้มือถือจริงเข้าสู่ระบบบน staging แบบ production mode
 
 ### 2026-10-04 (ค่ำ) — OCR ป้ายเครื่องด้วย Claude API
 
