@@ -91,3 +91,33 @@ test('production refuses development OCR and push adapters', async () => {
   assert.equal(prod.mediaDir, undefined);
   assert.equal(prod.urlSecret, undefined);
 });
+
+test('production start lists missing settings by name; development lists none', async () => {
+  const { productionProblems } = await import('../apps/api/dist/config-check.js');
+  assert.deepEqual(productionProblems({ NODE_ENV: 'development' }), []);
+  const missing = productionProblems({ NODE_ENV: 'production' });
+  for (const name of ['DATABASE_URL', 'OTP_SECRET', 'SMS_PROVIDER', 'MEDIA_URL_SECRET', 'PLATFORM_SECRET_KEY', 'PAYMENT_BANK_NAME', 'ADMIN_ORIGIN']) {
+    assert.ok(missing.some(p => p.startsWith(name)), name);
+  }
+  const key = randomBytes(32).toString('base64');
+  const complete = productionProblems({ NODE_ENV: 'production', DATABASE_URL: 'postgres://x', OTP_SECRET: key, JOIN_LINK_KEY: key, JOIN_LINK_BASE_URL: 'https://join.example.co/join',
+    SMS_PROVIDER: 'some-provider', MEDIA_DIR: '/srv/media', MEDIA_URL_SECRET: key, OCR_PROVIDER: 'some-ocr', PLATFORM_DATABASE_URL: 'postgres://y', PLATFORM_SECRET_KEY: key,
+    PAYMENT_BANK_NAME: 'Bank', PAYMENT_ACCOUNT_NAME: 'Co', PAYMENT_ACCOUNT_NUMBER: '1', ADMIN_ORIGIN: 'https://console.example.co' });
+  assert.deepEqual(complete, []);
+  assert.ok(productionProblems({ NODE_ENV: 'production', ADMIN_ORIGIN: 'http://console.example.co' }).some(p => p.startsWith('ADMIN_ORIGIN')), 'plain http origin refused');
+});
+
+test('platform secrets: scrypt passwords verify, TOTP matches RFC 6238 and rejects other codes', async () => {
+  const { hashPassword, verifyPassword, totpCode, verifyTotp, base32Encode } = await import('../apps/api/dist/platform/secrets.js');
+  const hash = await hashPassword('correct horse');
+  assert.ok(hash.startsWith('scrypt$'));
+  assert.equal(await verifyPassword('correct horse', hash), true);
+  assert.equal(await verifyPassword('wrong', hash), false);
+  assert.equal(await verifyPassword('anything', null), false);
+  // RFC 6238 SHA-1 test secret "12345678901234567890" at T=59 s → 94287082 (8 digits) → 287082.
+  const secret = base32Encode(Buffer.from('12345678901234567890'));
+  assert.equal(totpCode(secret, 1), '287082');
+  assert.equal(verifyTotp(secret, '287082', 59_000), 1);
+  assert.equal(verifyTotp(secret, '000000', 59_000), null);
+  assert.equal(verifyTotp(secret, '28708', 59_000), null);
+});

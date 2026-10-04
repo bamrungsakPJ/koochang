@@ -20,7 +20,12 @@ export function OverviewView({ onNavigate }: { onNavigate: (view: string) => voi
   const t = useText();
   const [data, setData] = useState<{ shops: Record<string, number> | null; proofs_pending: number; refunds_open: number; tickets_open: number; access_pending: number; data_requests_open: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { call<typeof data>('GET', '/platform/overview').then(setData, e => setError(message(e))); }, []);
+  const [m, setM] = useState<Record<string, number | null> | null>(null);
+  useEffect(() => {
+    call<typeof data>('GET', '/platform/overview').then(setData, e => setError(message(e)));
+    call<Record<string, number | null>>('GET', '/platform/metrics?days=30').then(setM, () => setM(null));
+  }, []);
+  const pct = (a?: number | null, b?: number | null) => (b ? `${Math.round(((a ?? 0) / b) * 100)}%` : '–');
   const tiles: [AdminKey, number | undefined, string, string][] = [
     ['proofsPending', data?.proofs_pending, 'payments', 'amber'], ['refundsOpen', data?.refunds_open, 'refunds', 'rose'], ['ticketsOpen', data?.tickets_open, 'support', 'sky'],
     ['accessPending', data?.access_pending, 'access', 'violet'], ['dataOpen', data?.data_requests_open, 'data', 'teal'],
@@ -33,6 +38,20 @@ export function OverviewView({ onNavigate }: { onNavigate: (view: string) => voi
       <h2>{t('shopsByState')}</h2>
       <div className="tiles small">{states.map(s => <div key={s} className="tile plain"><strong>{data?.shops?.[s] ?? 0}</strong><span>{t(`state.${s}` as AdminKey)}</span></div>)}</div>
     </div>
+    {m ? <div className="panel">
+      <h2>{t('metrics', { days: m.days ?? 30 })}</h2>
+      <div className="tiles small">
+        <div className="tile plain"><strong>{m.service_records ?? 0}</strong><span>{t('serviceRecords')}</span></div>
+        <div className="tile plain"><strong>{m.record_minutes_median ?? '–'}</strong><span>{t('recordMinutes')}</span></div>
+        <div className="tile plain"><strong>{m.history_coverage === null || m.history_coverage === undefined ? '–' : `${Math.round(Number(m.history_coverage) * 100)}%`}</strong><span>{t('historyCoverage')}</span></div>
+        <div className="tile plain"><strong>{pct(m.maintenance_followed, m.maintenance_due)}</strong><span>{t('maintenanceFollowed')} ({m.maintenance_followed ?? 0}/{m.maintenance_due ?? 0})</span></div>
+        <div className="tile plain"><strong>{m.active_shops ?? 0}/{m.shops_total ?? 0}</strong><span>{t('activeShops')}</span></div>
+        <div className="tile plain"><strong>{m.active_technicians ?? 0}</strong><span>{t('activeTechnicians')}</span></div>
+        <div className="tile plain"><strong>{pct(m.trial_converted, m.trial_ended)}</strong><span>{t('trialConversion')} ({m.trial_converted ?? 0}/{m.trial_ended ?? 0})</span></div>
+        <div className="tile plain"><strong>{gb(m.storage_bytes ?? 0)}</strong><span>{t('storageTotal')}</span></div>
+        <div className="tile plain"><strong>{m.ocr_used ?? 0}</strong><span>{t('ocrUsed')}</span></div>
+      </div>
+    </div> : null}
   </section>;
 }
 

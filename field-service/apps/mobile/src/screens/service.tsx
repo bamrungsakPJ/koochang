@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatDateTime, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type EquipmentHistory, type EquipmentSummary, type Job, type Membership, type NextMaintenance, type ServiceItemInput, type ServiceResult } from '../api';
 import { CameraDeniedError, pickPhoto, uploadPhoto, uuid } from '../photos';
+import { clearDraft, loadDraft, saveDraft } from '../drafts';
 import { Badge, Banner, Button, Card, colors, Field, fonts, Icon, IconTile, LanguageContext, Loading, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
 import { categoryIcon, useEquipmentTitle } from './equipment';
 
@@ -31,9 +32,12 @@ function Chip({ label, on, onPress, tone }: { label: string; on: boolean; onPres
   </Pressable>;
 }
 
-/** Record what was actually done, unit by unit. The client event id is kept for the whole
- * screen, so sending again after a network error never records twice; entries stay on screen
- * until the server confirms. Nothing here reads the location. */
+interface SavedForm { clientEventId: string; occurredAt: string; drafts: Record<string, Draft>; note: string }
+
+/** Record what was actually done, unit by unit. The client event id is kept with the entries,
+ * so sending again after a network error never records twice. Entries are also kept on the
+ * device until the server confirms, so closing the app or losing signal loses nothing; reopening
+ * the same job restores them with the same client event id. Nothing here reads the location. */
 export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, onDone }: {
   membership: Membership; job?: Job; adhoc?: { customerId: string; locationId: string };
   onBack: () => void; onAddEquipment: (locationId: string) => void; onDone: (result: ServiceResult) => void;
@@ -44,8 +48,10 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   const equipmentTitle = useEquipmentTitle();
   const org = membership.organization_id;
   const locationId = job?.location_id ?? adhoc!.locationId;
-  const clientEventId = useRef(uuid()).current;
-  const occurredAt = useRef(new Date().toISOString()).current;
+  const draftKey = `service:${org}:${job ? job.id : `adhoc:${locationId}`}`;
+  const clientEventId = useRef(uuid());
+  const occurredAt = useRef(new Date().toISOString());
+  const [restored, setRestored] = useState<boolean | null>(null);
   const [units, setUnits] = useState<EquipmentSummary[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [note, setNote] = useState('');
@@ -62,7 +68,22 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
       return Object.fromEntries(job.equipment.map(e => [e.id, fresh()]));
     });
   }, e => setFailure(errorText(e)));
-  useEffect(() => { void reload(); }, [locationId]);
+  useEffect(() => {
+    void (async () => {
+      const saved = await loadDraft<SavedForm>(draftKey);
+      if (saved && Object.keys(saved.drafts).length) {
+        clientEventId.current = saved.clientEventId; occurredAt.current = saved.occurredAt;
+        setDrafts(saved.drafts); setNote(saved.note); setRestored(true);
+      } else setRestored(false);
+      await reload();
+    })();
+  }, [locationId]);
+  // Keep the device copy current (uploaded photo ids included) while the form is open.
+  useEffect(() => {
+    if (restored === null) return;
+    if (!Object.keys(drafts).length && !note) return;
+    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note });
+  }, [drafts, note, restored]);
 
   const toggle = (id: string) => setDrafts(prev => { const next = { ...prev }; if (next[id]) delete next[id]; else next[id] = fresh(); return next; });
   const update = (id: string, patch: Partial<Draft>) => setDrafts(prev => ({ ...prev, [id]: { ...prev[id]!, ...patch } }));
@@ -92,19 +113,22 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
         photos: [...d.before.map(p => ({ media_asset_id: p.id, photo_type: 'before' as const })), ...d.after.map(p => ({ media_asset_id: p.id, photo_type: 'after' as const }))],
         ...(next ? { next_maintenance: next } : {}) };
     });
-    const body = { client_event_id: clientEventId, occurred_at: occurredAt, note: note.trim() || undefined, items };
+    const body = { client_event_id: clientEventId.current, occurred_at: occurredAt.current, note: note.trim() || undefined, items };
     try {
-      onDone(job ? await api.completeJob(org, job.id, { ...body, expected_version: job.version }) : await api.recordAdhoc(org, { ...body, customer_id: adhoc!.customerId, location_id: locationId }));
+      const result = job ? await api.completeJob(org, job.id, { ...body, expected_version: job.version }) : await api.recordAdhoc(org, { ...body, customer_id: adhoc!.customerId, location_id: locationId });
+      await clearDraft(draftKey);
+      onDone(result);
     } catch (e) {
       setFailure(e instanceof ApiFailure && e.code === 'NETWORK_ERROR' ? t('unsentHint') : errorText(e));
     } finally { setBusy(false); }
   }
 
-  if (!units) return failure ? <Screen onBack={onBack}><Banner text={failure} /></Screen> : <Loading />;
+  if (!units || restored === null) return failure ? <Screen onBack={onBack}><Banner text={failure} /></Screen> : <Loading />;
   const today = todayBangkok();
   return <Screen onBack={onBack} footer={<Button icon="checkmark-done" title={job ? t('finishJob') : t('recordService')} busy={busy} onPress={submit} />}>
     <Title>{job ? t('recordService') : t('recordAdhoc')}</Title>
     {job ? <Sub>{[job.customer_name, job.location_label].filter(Boolean).join(' · ')}</Sub> : <Sub>{t('adhocHint')}</Sub>}
+    {restored ? <Banner tone="info" text={t('draftRestored')} /> : null}
     <Section action={<Button small kind="ghost" icon="add" title={t('addEquipment')} onPress={() => onAddEquipment(locationId)} />}>{t('selectEquipment')}</Section>
     {units.map(unit => {
       const d = drafts[unit.id];
@@ -148,7 +172,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
     })}
     <Field label={t('serviceNote')} value={note} onChangeText={setNote} multiline maxLength={2000} />
     <Banner text={failure} />
-    <Text style={styles.hint}>{formatDateTime(new Date(occurredAt), language)}</Text>
+    <Text style={styles.hint}>{formatDateTime(new Date(occurredAt.current), language)}</Text>
   </Screen>;
 }
 

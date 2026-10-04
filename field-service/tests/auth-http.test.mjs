@@ -977,3 +977,87 @@ test('platform admin: shop metadata only, suspend/restore and grants with audit;
   await db.exec('BEGIN; SET LOCAL ROLE fs_platform;');
   try { assert.equal((await db.query("SELECT padmin.person_name('+66812345678') AS n")).rows[0].n, '+66•••••5678'); } finally { await db.exec('ROLLBACK'); }
 });
+
+// D ---------------------------------------------------------------------------------------------
+test('pilot journey (th/en): sign up → team → customer without coordinates → multi-unit job → technician saves place, records with photos → maintenance due → owner books another technician → renewal → support → metrics', { skip }, async () => {
+  const { owner, tech: techA, shopId } = await shopWithTechnician('Journey');
+  const techB = await addTechnician(owner, shopId, 'Tech Journey B');
+  const members = (await call('GET', `/organizations/${shopId}/members`, { token: owner.access_token })).body.members;
+  const memberA = members.find(m => m.display_name === 'Tech Journey').member_id;
+  const shop = `/organizations/${shopId}`;
+
+  // Error messages follow the request language; codes do not change.
+  const th = await call('POST', `${shop}/customers`, { token: owner.access_token, body: {}, headers: { 'accept-language': 'th' } });
+  const en = await call('POST', `${shop}/customers`, { token: owner.access_token, body: {}, headers: { 'accept-language': 'en' } });
+  assert.deepEqual([th.body.code, en.body.code], ['VALIDATION_ERROR', 'VALIDATION_ERROR']);
+  assert.notEqual(th.body.message, en.body.message);
+  assert.match(th.body.message, /[฀-๿]/, 'Thai message');
+
+  // Customer and place without coordinates; two units.
+  const customer = (await call('POST', `${shop}/customers`, { token: owner.access_token, body: { request_key: randomUUID(), name: 'คุณสมศรี', phone: '0812223333', location: { label: 'บ้าน', address: 'ซอย 5' } } })).body;
+  const place = customer.locations[0];
+  assert.equal(place.latitude, null);
+  const unit = async name => (await call('POST', `${shop}/locations/${place.id}/equipment`, { token: owner.access_token, body: { request_key: randomUUID(), category: 'air_conditioner', name } })).body;
+  const [u1, u2] = [await unit('ห้องนอน'), await unit('ห้องรับแขก')];
+  const job = (await call('POST', `${shop}/jobs`, { token: owner.access_token, body: { request_key: randomUUID(), customer_id: customer.id, location_id: place.id,
+    job_type: 'maintenance', equipment_ids: [u1.id, u2.id], assignee_member_id: memberA, scheduled_start: new Date(Date.now() + 3600000).toISOString() } })).body.job;
+
+  // Technician A on site: saves the place once (explicit button), starts, records both units with photos.
+  const loc = (await call('GET', `${shop}/customers/${customer.id}`, { token: techA.access_token })).body.locations[0];
+  const saved = await call('PUT', `${shop}/locations/${loc.id}/coordinates`, { token: techA.access_token, body: { expected_version: loc.version, latitude: 13.7563, longitude: 100.5018, accuracy_m: 15, method: 'current_location' } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const started = (await call('POST', `${shop}/jobs/${job.id}/start`, { token: techA.access_token, body: { expected_version: job.version } })).body;
+  const [before, after] = [await uploadPhoto(techA.access_token, shopId), await uploadPhoto(techA.access_token, shopId)];
+  const done = await call('POST', `${shop}/jobs/${job.id}/complete`, { token: techA.access_token, body: { expected_version: started.version, client_event_id: randomUUID(),
+    occurred_at: new Date(Date.now() - 5 * 60000).toISOString(), items: [
+      { equipment_id: u1.id, service_type: 'maintenance', outcome: 'done', photos: [{ media_asset_id: before, photo_type: 'before' }, { media_asset_id: after, photo_type: 'after' }], next_maintenance: { mode: 'months', interval_months: 6 } },
+      { equipment_id: u2.id, service_type: 'maintenance', outcome: 'done', next_maintenance: { mode: 'months', interval_months: 6 } }] } });
+  assert.equal(done.status, 201, JSON.stringify(done.body));
+
+  // Six months later (simulated): both cycles are due soon; the scheduler tells the owner once.
+  await db.query(`UPDATE core.maintenance_cycles c SET due_date = (now() AT TIME ZONE 'Asia/Bangkok')::date + 5 FROM core.maintenance_schedules s
+    WHERE s.id = c.schedule_id AND s.organization_id = $1 AND c.status = 'open'`, [shopId]);
+  const worker = new pg.Pool({ connectionString: workerUrl, max: 1 });
+  try { await worker.query('SELECT worker.scan_maintenance(now())'); await worker.query('SELECT worker.scan_maintenance(now())'); } finally { await worker.end(); }
+  const due = (await call('GET', `${shop}/notifications`, { token: owner.access_token })).body.items.filter(n => n.template_key === 'maintenance_due_soon');
+  assert.equal(due.length, 2, 'one reminder per unit, not repeated');
+  const list = (await call('GET', `${shop}/maintenance`, { token: owner.access_token })).body;
+  assert.equal(list.counts.within_7, 2);
+
+  // Owner calls, books both units in one job for technician B.
+  await call('POST', `${shop}/maintenance/cycles/${list.items[0].id}/contacts`, { token: owner.access_token, body: { result: 'interested' } });
+  const booked = (await call('POST', `${shop}/maintenance/book`, { token: owner.access_token, body: { request_key: randomUUID(), cycle_ids: list.items.map(i => i.id),
+    assignee_member_id: techB.memberId, scheduled_start: new Date(Date.now() + 86400000).toISOString() } })).body;
+  assert.equal((await call('GET', `${shop}/jobs/${booked.job_id}`, { token: techA.access_token })).status, 404, 'technician A does not see the new job');
+  const jobB = (await call('GET', `${shop}/jobs/${booked.job_id}`, { token: techB.access_token })).body;
+  const startedB = (await call('POST', `${shop}/jobs/${jobB.id}/start`, { token: techB.access_token, body: { expected_version: jobB.version } })).body;
+  const doneB = await call('POST', `${shop}/jobs/${jobB.id}/complete`, { token: techB.access_token, body: { expected_version: startedB.version, client_event_id: randomUUID(),
+    occurred_at: new Date().toISOString(), items: [{ equipment_id: u1.id, service_type: 'maintenance', outcome: 'done' }, { equipment_id: u2.id, service_type: 'maintenance', outcome: 'done' }] } });
+  assert.equal(doneB.status, 201, JSON.stringify(doneB.body));
+  const history = (await call('GET', `${shop}/equipment/${u1.id}/history`, { token: owner.access_token })).body;
+  assert.deepEqual(history.items.map(i => i.performed_by_name), ['Tech Journey B', 'Tech Journey'], 'history keeps who did each round');
+  assert.equal((await call('GET', `${shop}/maintenance`, { token: owner.access_token })).body.counts.within_7, 0, 'done service closes the cycles');
+
+  // Renewal by bank transfer, confirmed by the platform.
+  const plans = (await call('GET', `${shop}/billing/plans`, { token: owner.access_token })).body.items;
+  const invoice = (await call('POST', `${shop}/billing/invoices`, { token: owner.access_token, body: { price_version_id: plans[0].price_version_id, request_key: randomUUID() } })).body;
+  const operator = await platformLogin(await platformAccount('JourneyOps', ['billing_operator', 'support_agent', 'platform_admin']));
+  const paid = await call('POST', `/platform/billing/invoices/${invoice.id}/confirm`, { token: operator, body: { amount_minor: Number(invoice.amount_minor), bank_reference: `J-${randomUUID().slice(0, 8)}`, received_at: new Date().toISOString() } });
+  assert.equal(paid.body.outcome, 'ok', JSON.stringify(paid.body));
+  assert.equal((await call('GET', `${shop}/subscription`, { token: owner.access_token })).body.state, 'active');
+
+  // Support and audit.
+  const ticket = (await call('POST', `${shop}/support/tickets`, { token: owner.access_token, body: { subject: 'Question', body: 'How do I add a technician?' } })).body;
+  assert.equal((await call('POST', `/platform/tickets/${ticket.ticket_id}`, { token: operator, body: { body: 'Share the join link from Team.', status: 'resolved' } })).status, 200);
+  assert.equal((await call('GET', `${shop}/support`, { token: owner.access_token })).body.tickets[0].status, 'resolved');
+  const auditor = await platformLogin(await platformAccount('JourneyAudit', ['auditor']));
+  const actions = (await call('GET', `/platform/audit?organization_id=${shopId}`, { token: auditor })).body.items.map(r => r.action);
+  assert.ok(actions.includes('payment.confirmed') && actions.includes('ticket.updated'));
+
+  // Pilot indicators see the activity.
+  const metrics = (await call('GET', '/platform/metrics?days=30', { token: operator })).body;
+  assert.ok(metrics.service_records >= 2 && metrics.active_shops >= 1 && metrics.active_technicians >= 2, JSON.stringify(metrics));
+  assert.ok(metrics.record_minutes_median >= 0);
+  assert.ok(metrics.maintenance_due >= 0);
+  assert.equal((await call('GET', '/platform/metrics', { token: auditor })).status, 200);
+});

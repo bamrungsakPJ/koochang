@@ -209,3 +209,24 @@ Tests (`pnpm test`, 96 total): PostgreSQL 16.15: 96 passed. PGlite: 72 passed, 2
 Checked by hand: app (Expo web) Account → Contact our team → new ticket; console → Overview (1 open ticket, shops by state) → Support → ticket → reply from Dev Operator.
 
 Open item: the Expo web preview lost its stored session once after an API restart (server session not revoked, no refresh recorded); not reproduced, watch for it on devices.
+
+# D pilot readiness (no deployment) — 2026-10-04
+
+Runbook: [PILOT_RUNBOOK.md](PILOT_RUNBOOK.md). Migration `013_pilot_metrics.sql`.
+
+Done:
+- API hardening: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on every response (downloads set their own), HSTS in production, `x-powered-by` off, optional `TRUST_PROXY`. Production start logs `CONFIG_MISSING <name>` for each missing setting (SMS, OCR, platform key, payment account, https origins, …), names only.
+- Offline drafts: the service form keeps entries (including uploaded photo ids and the client event id) on the device (`expo-file-system`, localStorage on web) until the server confirms; reopening the job restores them with a notice; drafts expire after 7 days. A resend after a lost answer is a replay, never a second record.
+- Pilot indicators: `GET /platform/metrics?days=` and the console Overview panel.
+- Backup: `infra/backup/backup.sh` (pg_dump custom format + media tar, SHA-256 sums, 35-day retention, optional off-host rsync) and `infra/backup/restore-check.sh` (checksum, restore into a scratch DB, compare tables/rows/migration checksums, drop).
+- Capabilities endpoint lists the business modules.
+
+Tests (`pnpm test`, 99 total): PostgreSQL 16.15: 99 passed. PGlite: 74 passed, 25 skipped.
+- New: production config check (missing names, complete config, http origin refused); scrypt and RFC 6238 TOTP vector; pilot journey over HTTP — th/en error messages with the same code, customer without coordinates, two-unit job, technician saves the place and records with photos, simulated six months → one due-soon reminder per unit despite two scans, owner logs contact and books both units for technician B (A cannot see it), history keeps A and B, cycles close, renewal confirmed by an operator, support ticket resolved, audit visible to the auditor, metrics count the activity.
+
+Checked by hand:
+- server2 (PostgreSQL 16): backup of the dev database 960 KB, restore check `RESTORE OK` in 2 s (53 tables, row counts and migration checksums equal); test files removed afterwards.
+- Expo web: service form note kept after reloading the app, restored with the notice, sent, device copy cleared.
+- Console Overview with pilot indicators.
+
+Not done (needs people or decisions, see the runbook): production SMS/OCR/push providers, receiving bank account and receipt format, HTTPS domains, off-host backup target, physical Android/iOS testing, staging deployment.

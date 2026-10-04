@@ -19,6 +19,12 @@ export class PlatformAdminController {
     return this.one('SELECT padmin.overview($1) AS v', [a.accountId]);
   }
 
+  /** Pilot indicators (aggregates only). */
+  @Get('metrics') @Permission('shops.read')
+  metrics(@Account() a: PlatformAccount, @Query('days') days?: string) {
+    return this.one('SELECT padmin.metrics($1,$2) AS v', [a.accountId, Math.min(Math.max(Number(days) || 30, 1), 365)]);
+  }
+
   @Get('shops') @Permission('shops.read')
   shops(@Account() a: PlatformAccount, @Query('q') q?: string, @Query('state') state?: string) {
     return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.organizations($1,$2,$3)', [a.accountId, (q ?? '').slice(0, 100), state ?? ''])).rows }));
