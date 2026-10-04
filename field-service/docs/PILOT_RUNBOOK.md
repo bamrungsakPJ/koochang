@@ -11,7 +11,7 @@ decision or a person. This is not a deployment script and grants no credentials.
 | Migrations `pnpm db:migrate` (001–016), no seed in production | Ready | Team |
 | API start prints `CONFIG_MISSING <name>` for every production setting not set (names only); each missing feature answers 503 | Done | — |
 | SMS provider for OTP (`SMS_PROVIDER`) | **DeeSMSx chosen and adapter implemented** — account keys/approved sender and authorized live delivery verification pending; see [DEESMSX.md](DEESMSX.md) | Business |
-| OCR provider (`OCR_PROVIDER`) | Not chosen — nameplate reading answers 503; manual entry works | Business |
+| OCR provider (`OCR_PROVIDER=claude`, `ANTHROPIC_API_KEY`) | **Chosen: Claude API** (2026-10-04), code ready; needs the API key and an accuracy check on real nameplates — see [OCR_CLAUDE.md](OCR_CLAUDE.md) | Team (key), Business (model/cost) |
 | Push provider (`PUSH_PROVIDER`) | Not chosen — in-app inbox works, pushes are skipped | Business |
 | Receiving bank account (`PAYMENT_*`) confirmed by the team | **Not set** — owners cannot create invoices until set | Business |
 | EasySlip (`EASYSLIP_API_KEY`, `PAYMENT_BANK_CODE`, `SLIP_DATABASE_URL`) | Provider chosen; integration implemented; real credentials/account registration and live checks pending — see [EASYSLIP.md](EASYSLIP.md) | Team |

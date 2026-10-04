@@ -1,12 +1,14 @@
-/** Nameplate reading. No OCR provider is chosen yet; production without one answers 503 to new
- * requests and the app continues with manual entry. Suggestions never overwrite equipment data. */
+import Anthropic from '@anthropic-ai/sdk';
+
+/** Nameplate reading. Without a configured provider, production answers 503 to new requests and
+ * the app continues with manual entry. Suggestions never overwrite equipment data. */
 export interface OcrResult {
   fields: { brand?: string; model?: string; serial_number?: string };
   raw_text?: string;
   confidence?: number;
 }
 
-/** A temporary failure (timeout, provider 5xx): retried, never counted against the quota. */
+/** A temporary failure (timeout, provider 5xx, rate limit): retried, never counted against the quota. */
 export class TemporaryOcrError extends Error {}
 
 export abstract class OcrProvider {
@@ -25,9 +27,81 @@ export class DevelopmentOcrProvider extends OcrProvider {
   }
 }
 
+const NAMEPLATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    brand: { type: 'string', description: 'Manufacturer or brand as printed, empty if not visible' },
+    model: { type: 'string', description: 'Model number exactly as printed, empty if not visible' },
+    serial_number: { type: 'string', description: 'Serial number exactly as printed, empty if not visible' },
+    raw_text: { type: 'string', description: 'All legible text on the plate, one line per printed line' },
+    confidence: { type: 'number', description: '0 to 1: how sure the three fields are correct' },
+  },
+  required: ['brand', 'model', 'serial_number', 'raw_text', 'confidence'],
+  additionalProperties: false,
+} as const;
+
+const NAMEPLATE_PROMPT = `This is a photo of an equipment nameplate (air conditioner, water heater, pump or similar) taken by a field technician in Thailand. Text may be Thai or English.
+Read the brand, model number and serial number. Copy model and serial characters exactly as printed, including dashes and letters; do not correct or complete them. Units often show both indoor and outdoor models: use the one this plate belongs to.
+If a field is not legible or not on the plate, return an empty string for it rather than guessing; the technician will type it. Lower the confidence when the photo is blurred, cut off or reflective.`;
+
+function mediaType(image: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' {
+  if (image[0] === 0x89 && image[1] === 0x50) return 'image/png';
+  if (image.subarray(0, 4).toString('latin1') === 'RIFF' && image.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  return 'image/jpeg';
+}
+const clean = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : '';
+
+/** Reads a nameplate with Claude vision and structured output. Images go to the Anthropic API; only
+ * the suggested fields are stored. Temporary API problems become TemporaryOcrError so the worker
+ * retries them; anything else (bad image, refusal, wrong key) fails the job without using quota. */
+export class ClaudeOcrProvider extends OcrProvider {
+  readonly name = 'claude';
+  constructor(private readonly client: Anthropic, private readonly model: string) { super(); }
+
+  async read(image: Buffer): Promise<OcrResult> {
+    if (!image.length) throw new Error('EMPTY_IMAGE');
+    let response: Anthropic.Beta.BetaMessage;
+    try {
+      response = await this.client.beta.messages.create({
+        model: this.model,
+        max_tokens: 4000,
+        // Extraction is a simple task; low effort keeps cost and latency down.
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: NAMEPLATE_SCHEMA } },
+        // A policy decline is re-run on Anthropic's recommended fallback model inside the same call.
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType(image), data: image.toString('base64') } },
+          { type: 'text', text: NAMEPLATE_PROMPT },
+        ] }],
+      });
+    } catch (e) {
+      if (e instanceof Anthropic.RateLimitError || e instanceof Anthropic.InternalServerError || e instanceof Anthropic.APIConnectionError) {
+        throw new TemporaryOcrError(e instanceof Anthropic.APIError && e.status ? `CLAUDE_${e.status}` : 'CLAUDE_UNREACHABLE');
+      }
+      if (e instanceof Anthropic.APIError) throw new Error(`CLAUDE_${e.status ?? 'ERROR'}`);
+      throw e;
+    }
+    if (response.stop_reason === 'refusal') throw new Error('CLAUDE_REFUSED');
+    if (response.stop_reason === 'max_tokens') throw new Error('CLAUDE_TRUNCATED');
+    const text = response.content.find(b => b.type === 'text');
+    let data: Record<string, unknown>;
+    try { data = JSON.parse(text && text.type === 'text' ? text.text : ''); } catch { throw new Error('CLAUDE_INVALID_OUTPUT'); }
+    const fields: OcrResult['fields'] = {};
+    for (const key of ['brand', 'model', 'serial_number'] as const) { const v = clean(data[key], 100); if (v) fields[key] = v; }
+    const confidence = typeof data.confidence === 'number' && Number.isFinite(data.confidence) ? Math.min(1, Math.max(0, data.confidence)) : 0;
+    return { fields, raw_text: clean(data.raw_text, 2000), confidence };
+  }
+}
+
 export function createOcrProvider(env: NodeJS.ProcessEnv = process.env): OcrProvider | null {
   const production = env.NODE_ENV === 'production';
   const provider = env.OCR_PROVIDER ?? (production ? undefined : 'development');
+  if (provider === 'claude') {
+    // Fail closed: without a server-side key the OCR endpoints answer 503 and manual entry continues.
+    if (!env.ANTHROPIC_API_KEY) return null;
+    return new ClaudeOcrProvider(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 2 }), env.OCR_CLAUDE_MODEL || 'claude-opus-5');
+  }
   return provider === 'development' && !production ? new DevelopmentOcrProvider(production) : null;
 }
 

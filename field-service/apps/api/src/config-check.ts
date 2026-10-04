@@ -31,7 +31,8 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env, saved?:
   }
   if (!media.mediaDir) problems.push('MEDIA_DIR');
   if (!media.urlSecret) problems.push('MEDIA_URL_SECRET (32+ bytes base64)');
-  if (!env.OCR_PROVIDER || env.OCR_PROVIDER === 'development') problems.push('OCR_PROVIDER (OCR answers 503 until chosen)');
+  if (env.OCR_PROVIDER !== 'claude') problems.push('OCR_PROVIDER (claude; OCR answers 503 until set)');
+  else if (!env.ANTHROPIC_API_KEY) problems.push('ANTHROPIC_API_KEY (OCR answers 503 until set)');
   if (!env.PLATFORM_DATABASE_URL) problems.push('PLATFORM_DATABASE_URL');
   if (!platform.secretKey) problems.push('PLATFORM_SECRET_KEY (32 bytes base64)');
   if (!platform.payment) problems.push('PAYMENT_BANK_NAME / PAYMENT_ACCOUNT_NAME / PAYMENT_ACCOUNT_NUMBER');

@@ -334,3 +334,10 @@ Tests:
 Checked by hand (isolated QA fixture, synthetic account, API 4101 / web 3101): Overview incident panel (sorted by severity), Reconciliation finance summary, Approvals with readable plan and role details (approve buttons hidden for the requester), Thai labels with Buddhist-era dates, no horizontal overflow at 320 px on Approvals / Reconciliation / Overview / Data requests. Fixture stopped and synthetic token removed afterwards.
 
 Not done: OCR retry concurrency was exercised sequentially in tests (PGlite single connection; the function locks the shop row before counting). Real providers, real money, production migration/deploy and UAT remain pending.
+
+# OCR with the Claude API — 2026-10-04
+
+- `ClaudeOcrProvider` (`@anthropic-ai/sdk` 0.131): image + JSON-schema structured output, effort low, server-side fallbacks. Details and costs: [OCR_CLAUDE.md](OCR_CLAUDE.md).
+- `tests/ocr-claude.test.mjs` (mocked client, 4 tests): request shape and media type, cleaned fields / clamped confidence, empty fields omitted, 429/529/connection → temporary, 400/refusal/invalid JSON/empty image → failed, no key → provider off. Config check lists ANTHROPIC_API_KEY when `OCR_PROVIDER=claude`.
+- `pnpm typecheck` passed; PGlite full suite 168 tests: 141 passed, 27 skipped, 0 failed.
+- Not done: no real API call (no key yet); accuracy on real Thai nameplates not measured.
