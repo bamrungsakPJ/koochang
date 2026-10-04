@@ -141,4 +141,6 @@ async function main() {
   await pool.end();
 }
 
-if (process.argv[1] && /worker\.js$/.test(process.argv[1])) void main().catch(error => { console.error('WORKER_START_FAILED', error instanceof Error ? error.message : ''); process.exitCode = 1; });
+// pm2 starts scripts through its own wrapper; the real path is then in pm_exec_path.
+const entry = process.env.pm_exec_path ?? process.argv[1];
+if (entry && /worker\.js$/.test(entry)) void main().catch(error => { console.error('WORKER_START_FAILED', error instanceof Error ? error.message : ''); process.exitCode = 1; });
