@@ -25,15 +25,38 @@
 - รอบก่อนเริ่มทดสอบบน Android จริงผ่าน Expo Go (LAN, PC = 192.168.1.99); รอบนี้ยังไม่ได้ควบคุมหรือยืนยันผลบนมือถือจริง
 - เพิ่มข้อความบัญชีที่กำลังใช้บนหน้าลิงก์เข้าร่วม และปุ่มออกจากระบบเพื่อใช้เบอร์อื่น โดยกลับมาลิงก์ร้านเดิม (th/en)
 
-### งานถัดไป
-0. ใช้ migration 016–020 และตั้ง PLATFORM_DATABASE_URL / PLATFORM_SECRET_KEY สำหรับหน้า console settings; กรอกบัญชีรับเงินและ credentials ใน `/console` เมื่อพร้อม ใบแจ้งชำระเดิมคง receiver snapshot เดิม
-0. DeeSMSx: ตั้ง SMS_PROVIDER=deesmsx, DEESMSX_API_KEY, DEESMSX_SECRET_KEY และ DEESMSX_SENDER ที่ได้รับอนุมัติ แล้วตรวจส่ง OTP จริงเมื่อผู้ใช้พร้อมและอนุญาต
-0. Stripe: ใช้ migration 015, ตั้ง PAYMENT_DATABASE_URL (fs_worker), PLATFORM_SECRET_KEY และ OWNER_WEB_URL; ตั้งบัญชี/ช่องทางชำระและ webhook ตาม STRIPE.md แล้วทดสอบกับ Stripe test mode เมื่อผู้ใช้พร้อม ก่อนเปิด live
-0. ก่อนเปิดรับเงินจริง: ตั้ง EasySlip API key ใน server secret, ลงทะเบียนบัญชีรับใน branch, PAYMENT_BANK_CODE และ SLIP_DATABASE_URL (fs_worker), ใช้ migration 014 และตรวจเงินโอนจริงเมื่อได้รับอนุญาต
-1. เมื่อผู้ใช้พร้อม: UAT เว็บ `/shop` ด้วยข้อมูลที่ผู้ใช้กำหนด รวมอนุมัติช่าง พิกัดจริง OCR จริง การพิมพ์ และสิทธิ์ซัพพอร์ตจากหน้าเว็บ
-2. เมื่อพร้อมทดสอบมือถือ: ตรวจลิงก์ร้าน "Ton" ด้วยเบอร์ช่างอื่น การอนุมัติ ขอบจอ Android กล้อง/แกลเลอรี GPS ร่างออฟไลน์ และ session หลังรีสตาร์ท API
-3. Push branch และเปิด PR เข้า `main` เมื่อได้ URL (ยังไม่มี git remote)
-4. ก่อน pilot: เชื่อม DeeSMSx และเลือกผู้ให้บริการ OCR / Push, บัญชีรับเงิน, รูปแบบใบเสร็จ, ราคาจริง, โดเมน HTTPS, ที่เก็บ backup นอกเครื่อง และ deployment/UAT
+### งานที่เหลือทั้งหมด (สรุป 2026-10-04)
+
+งานโค้ดตามแผน A01 → D, เว็บเจ้าของร้าน และ console ครบแล้ว ที่เหลือเป็นการตัดสินใจ การตั้งค่าบริการจริง และการทดสอบ
+
+**A. ต้องให้ผู้ใช้/ฝ่ายธุรกิจตัดสินใจหรือให้ข้อมูล**
+1. URL ของ git repo → push branch `field-service-a02` และเปิด PR เข้า `main`
+2. บัญชี DeeSMSx จริง (API key, secret, ชื่อผู้ส่งที่อนุมัติแล้ว) — ถ้าไม่มี production เข้าสู่ระบบไม่ได้
+3. บัญชีธนาคารรับเงิน + EasySlip API key และ/หรือบัญชี Stripe (test mode ก่อน live)
+4. ราคาจริงของแพ็กเกจ (ตอนนี้เป็นราคาเสนอ Starter 590 / Team 1,290 บาท/เดือน), จำนวนวันทดลองใช้
+5. รูปแบบใบเสร็จ/ใบกำกับภาษี (ยังไม่มีไฟล์ใบเสร็จ)
+6. ผู้ให้บริการ OCR และ Push (ตอนนี้ OCR ตอบ 503 ให้กรอกเอง, push ใช้กล่องแจ้งเตือนในแอปแทน)
+7. นโยบายเก็บข้อมูล: จำนวนวัน retention และ cooling ก่อนลบข้อมูลร้าน (ตั้งใน console → นโยบายระบบ)
+
+**B. งานติดตั้งระบบจริง (ทีม)**
+1. เซิร์ฟเวอร์ production + PostgreSQL 16, สร้าง roles ตาม `infra/postgres/00-roles.sql`, ใช้ migration 001–020 (ไม่ใส่ seed)
+2. โดเมน HTTPS สำหรับ API, console, เว็บร้าน และลิงก์เข้าร่วม (`JOIN_LINK_BASE_URL`, `ADMIN_ORIGIN`, `OWNER_WEB_URL`)
+3. ตั้ง `PLATFORM_DATABASE_URL`, `PLATFORM_SECRET_KEY`, `PAYMENT_DATABASE_URL`/`SLIP_DATABASE_URL` (fs_worker), worker เป็น service
+4. Backup รายวัน + ปลายทางนอกเครื่อง (`OFFSITE_TARGET`) และที่เก็บ `ERASURE_REGISTRY_FILE` แยกจาก backup ฐานข้อมูล
+5. สร้างบัญชีผู้ดูแลคนแรกด้วย `scripts/platform-account.mjs` (อย่างน้อย 2 คน เพราะการอนุมัติต้องใช้คนละคน)
+
+**C. การทดสอบที่ยังไม่ได้ทำ**
+1. มือถือจริง Android/iOS (พักไว้ตามที่ผู้ใช้ขอ): ช่างเข้าร่วมร้าน "Ton" ด้วยเบอร์อื่น + อนุมัติ, ขอบจอ Android หลังแก้ safe-area, กล้อง/แกลเลอรี, GPS, ร่างออฟไลน์, session หลังรีสตาร์ท API, push
+2. UAT เว็บเจ้าของร้าน `/shop` และ console ด้วยข้อมูลที่ผู้ใช้กำหนด
+3. ทดสอบกับบริการจริงเมื่อได้รับอนุญาต: ส่ง OTP จริง, โอนเงิน + EasySlip, Stripe test mode
+4. OCR retry หลายคำขอพร้อมกันบน PostgreSQL จริง
+5. สร้าง APK/IPA จริง (ยังใช้ Expo Go/web)
+
+**D. ปรับปรุงที่ควรทำภายหลัง (ไม่บล็อก pilot)**
+1. สรุปการเงินนับ "ร้านที่ชำระเงิน" ช้าเมื่อร้านเยอะ (~2 วินาทีตอนนี้) → นับจากตาราง subscription โดยตรง
+2. ข้อความแจ้งเมื่อผู้ใช้ที่ล็อกอินอยู่เปิดลิงก์เข้าร่วมร้าน (ทำบางส่วนแล้วใน e6d9321) ตรวจบนมือถือ
+3. outbox ยังไม่มี consumer ทั่วไปสำหรับ replay payload
+4. รัน GitHub CI (PostgreSQL 16) เมื่อมี remote
 
 ---
 
