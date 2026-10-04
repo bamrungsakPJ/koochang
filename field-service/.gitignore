@@ -9,3 +9,6 @@ coverage/
 *.log
 .DS_Store
 .media/
+
+# Local console test accounts (development only)
+.dev-platform-accounts.txt

@@ -16,7 +16,7 @@ import { openTestDatabase } from './support/database.mjs';
 // End-to-end through HTTP against a real PostgreSQL. The API connects as fs_api, exactly as in
 // production; SMS uses the development adapter and the test reads the code from the API log.
 const skip = process.env.TEST_DATABASE_URL ? false : 'needs PostgreSQL (TEST_DATABASE_URL) so the API can connect as fs_api';
-let db, child, base, mediaDir, workerUrl;
+let db, child, base, mediaDir, workerUrl, platformKey;
 const codes = new Map();
 
 before(async () => {
@@ -28,6 +28,10 @@ before(async () => {
   const workerPassword = randomBytes(18).toString('hex');
   await db.exec(`ALTER ROLE fs_worker LOGIN PASSWORD '${workerPassword}'`);
   const worker = new URL(db.url); worker.username = 'fs_worker'; worker.password = workerPassword; workerUrl = worker.toString();
+  const platformPassword = randomBytes(18).toString('hex');
+  await db.exec(`ALTER ROLE fs_platform LOGIN PASSWORD '${platformPassword}'`);
+  const platformUrl = new URL(db.url); platformUrl.username = 'fs_platform'; platformUrl.password = platformPassword;
+  platformKey = randomBytes(32);
   mediaDir = await mkdtemp(join(tmpdir(), 'fs-media-'));
 
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
@@ -40,7 +44,9 @@ before(async () => {
       JOIN_LINK_BASE_URL: 'https://join.example.test/join', SMS_PROVIDER: 'development',
       MEDIA_DIR: mediaDir, MEDIA_URL_SECRET: randomBytes(32).toString('base64'), OCR_PROVIDER: 'development',
       // Every test signs in from 127.0.0.1; the per-client OTP limit is tested separately.
-      OTP_CLIENT_HOURLY_LIMIT: '1000' },
+      OTP_CLIENT_HOURLY_LIMIT: '1000',
+      PLATFORM_DATABASE_URL: platformUrl.toString(), PLATFORM_SECRET_KEY: platformKey.toString('base64'),
+      PAYMENT_BANK_NAME: 'Test Bank', PAYMENT_ACCOUNT_NAME: 'Test Platform Co.', PAYMENT_ACCOUNT_NUMBER: '000-0-00000-0' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   let buffer = '';
@@ -740,4 +746,132 @@ test('maintenance: due list, owner reminders once per milestone, contact log, bo
     list = (await call('GET', path, { token: s.owner.access_token })).body;
     assert.deepEqual(list.items.map(i => i.id), [cycleA.id]);
   } finally { await pool.end(); }
+});
+
+// C01 -------------------------------------------------------------------------------------------
+async function platformAccount(label, roleCodes) {
+  const { hashPassword, newTotpSecret } = await import('../apps/api/dist/platform/secrets.js');
+  const { encrypt } = await import('../apps/api/dist/shared/crypto.js');
+  const password = randomBytes(12).toString('hex'), secret = newTotpSecret(), email = `${label.toLowerCase()}-${randomUUID().slice(0, 8)}@ops.example.test`;
+  const id = (await db.query(`INSERT INTO platform.accounts(display_name, email, status, password_hash, totp_secret_sealed) VALUES ($1,$2,'active',$3,$4) RETURNING id`,
+    [label, email, await hashPassword(password), encrypt(platformKey, secret)])).rows[0].id;
+  await db.query('INSERT INTO platform.account_roles(account_id, role_id) SELECT $1, id FROM platform.roles WHERE code = ANY($2)', [id, roleCodes]);
+  return { id, email, password, secret };
+}
+async function codeFor(secret, offset = 0) {
+  const { totpCode } = await import('../apps/api/dist/platform/secrets.js');
+  return totpCode(secret, Math.floor(Date.now() / 30000) + offset);
+}
+async function platformLogin(a) {
+  const login = await call('POST', '/platform/auth/login', { body: { email: a.email, password: a.password } });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  const mfa = await call('POST', '/platform/auth/mfa', { body: { mfa_token: login.body.mfa_token, code: await codeFor(a.secret, -1) } });
+  assert.equal(mfa.status, 200, JSON.stringify(mfa.body));
+  return mfa.body.access_token;
+}
+
+test('payments: owner invoice and private proof; operator confirms money once; refunds need another approver; platform audit is append-only', { skip }, async () => {
+  const { owner, tech, shopId } = await shopWithTechnician('Pay');
+  const billing = `/organizations/${shopId}/billing`;
+  assert.equal((await call('GET', `${billing}/plans`, { token: tech.access_token })).status, 403, 'technicians never see shop money');
+  const plans = (await call('GET', `${billing}/plans`, { token: owner.access_token })).body;
+  assert.deepEqual(plans.items.map(p => [p.code, Number(p.amount_minor)]), [['starter', 59000], ['team', 129000]]);
+  const [starter, team] = plans.items;
+
+  const key = randomUUID();
+  const teamInvoice = await call('POST', `${billing}/invoices`, { token: owner.access_token, body: { price_version_id: team.price_version_id, request_key: randomUUID() } });
+  assert.equal(teamInvoice.status, 201, JSON.stringify(teamInvoice.body));
+  const invoice = (await call('POST', `${billing}/invoices`, { token: owner.access_token, body: { price_version_id: starter.price_version_id, request_key: key } })).body;
+  assert.deepEqual([invoice.status, Number(invoice.amount_minor), invoice.pay_to.reference], ['open', 59000, invoice.number]);
+  assert.equal((await call('GET', `${billing}/invoices/${teamInvoice.body.id}`, { token: owner.access_token })).body.status, 'voided', 'another plan replaces the open invoice');
+  assert.equal((await call('POST', `${billing}/invoices`, { token: owner.access_token, body: { price_version_id: starter.price_version_id, request_key: key } })).body.id, invoice.id);
+
+  const s = await sharp();
+  const slip = await s({ create: { width: 600, height: 900, channels: 3, background: '#ffffff' } }).jpeg().toBuffer();
+  const proofId = randomUUID();
+  const proof = await put(`${billing}/invoices/${invoice.id}/proof?proof_id=${proofId}`, owner.access_token, slip);
+  assert.equal(proof.status, 200, JSON.stringify(proof.body));
+  assert.deepEqual(proof.body.proofs.map(p => p.status), ['pending']);
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.state, 'trialing', 'a proof changes nothing');
+
+  // Platform sign-in: password, then TOTP; wrong password and replayed codes fail.
+  const operator = await platformAccount('Operator', ['billing_operator']);
+  const approver = await platformAccount('Approver', ['billing_approver']);
+  const both = await platformAccount('Both', ['billing_operator', 'billing_approver']);
+  assert.equal((await call('POST', '/platform/auth/login', { body: { email: operator.email, password: 'wrong-password' } })).body.code, 'LOGIN_FAILED');
+  assert.equal((await call('POST', '/platform/auth/login', { body: { email: 'nobody@ops.example.test', password: 'x' } })).body.code, 'LOGIN_FAILED');
+  assert.equal((await call('GET', '/platform/billing/invoices', { token: owner.access_token })).status, 401, 'shop tokens are not platform sessions');
+  const op = await platformLogin(operator);
+  const replay = await call('POST', '/platform/auth/step-up', { token: op, body: { code: await codeFor(operator.secret, -1) } });
+  assert.equal(replay.body.code, 'MFA_INVALID', 'a used code cannot be used again');
+  const me = (await call('GET', '/platform/auth/me', { token: op })).body;
+  assert.ok(me.permissions.includes('billing.verify') && !me.permissions.includes('refund.approve'));
+
+  const queue = (await call('GET', '/platform/billing/invoices?status=pending', { token: op })).body.items;
+  const queued = queue.find(i => i.invoice_id === invoice.id);
+  assert.equal(queued.proof_id, proofId);
+  const file = await fetch(`${base}/platform/billing/proofs/${proofId}/file`, { headers: { authorization: `Bearer ${op}` } });
+  assert.deepEqual([file.status, file.headers.get('content-type'), file.headers.get('cache-control')], [200, 'image/jpeg', 'no-store']);
+
+  const confirmPath = `/platform/billing/invoices/${invoice.id}/confirm`;
+  const body = { amount_minor: 59000, bank_reference: ' tx 2026 1004 0001 ', received_at: new Date().toISOString(), proof_id: proofId };
+  await db.query("UPDATE platform.sessions SET step_up_at = now() - interval '11 minutes' WHERE account_id = $1", [operator.id]);
+  assert.equal((await call('POST', confirmPath, { token: op, body })).body.code, 'STEP_UP_REQUIRED');
+  assert.equal((await call('POST', '/platform/auth/step-up', { token: op, body: { code: await codeFor(operator.secret, 0) } })).status, 200);
+  const short = await call('POST', confirmPath, { token: op, body: { ...body, amount_minor: 50000 } });
+  assert.deepEqual([short.status, short.body.code], [422, 'PAYMENT_AMOUNT_MISMATCH']);
+  const ap = await platformLogin(approver);
+  assert.equal((await call('POST', confirmPath, { token: ap, body })).body.code, 'PERMISSION_DENIED');
+
+  const confirmed = await call('POST', confirmPath, { token: op, body });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+  assert.equal(confirmed.body.outcome, 'ok');
+  const again = await call('POST', confirmPath, { token: op, body: { ...body, bank_reference: 'TX202610040001' } });
+  assert.deepEqual([again.body.outcome, again.body.payment_id, again.body.period_end], ['existing', confirmed.body.payment_id, confirmed.body.period_end], 'retry never extends twice');
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM billing.subscription_periods WHERE organization_id = $1 AND source = $2', [shopId, 'paid'])).rows[0].n, 1);
+
+  const sub = (await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body;
+  assert.deepEqual([sub.state, sub.plan.code], ['active', 'starter']);
+  const paid = (await call('GET', `${billing}/invoices/${invoice.id}`, { token: owner.access_token })).body;
+  assert.deepEqual([paid.status, paid.proofs[0].status, paid.pay_to], ['paid', 'accepted', null]);
+  assert.ok((await call('GET', `/organizations/${shopId}/notifications`, { token: owner.access_token })).body.items.some(n => n.template_key === 'payment_confirmed'));
+
+  // Renewal invoice: the same bank reference cannot pay it; a rejected proof tells the owner why.
+  const renewal = (await call('POST', `${billing}/invoices`, { token: owner.access_token, body: { price_version_id: starter.price_version_id, request_key: randomUUID() } })).body;
+  assert.equal((await call('POST', `/platform/billing/invoices/${renewal.id}/confirm`, { token: op, body: { ...body, proof_id: undefined } })).body.code, 'BANK_REFERENCE_USED');
+  const second = randomUUID();
+  await put(`${billing}/invoices/${renewal.id}/proof?proof_id=${second}`, owner.access_token, slip);
+  assert.equal((await call('POST', `/platform/billing/proofs/${second}/reject`, { token: op, body: { reason: 'ยอดไม่ชัด' } })).status, 200);
+  assert.ok((await call('GET', `/organizations/${shopId}/notifications`, { token: owner.access_token })).body.items.some(n => n.template_key === 'payment_proof_rejected'));
+
+  // Refunds: never more than received; the requester cannot approve.
+  const refundPath = `/platform/billing/payments/${confirmed.body.payment_id}/refunds`;
+  const refund = await call('POST', refundPath, { token: op, body: { amount_minor: 30000, reason: 'ชำระซ้ำบางส่วน' } });
+  assert.equal(refund.status, 201, JSON.stringify(refund.body));
+  assert.equal((await call('POST', refundPath, { token: op, body: { amount_minor: 30000, reason: 'อีกครั้ง' } })).body.code, 'REFUND_EXCEEDS_PAYMENT');
+  assert.equal((await call('POST', `/platform/billing/refunds/${refund.body.refund_id}/approve`, { token: op, body: {} })).body.code, 'PERMISSION_DENIED');
+  const bt = await platformLogin(both);
+  const own = await call('POST', refundPath, { token: bt, body: { amount_minor: 1000, reason: 'ค่าธรรมเนียม' } });
+  assert.equal((await call('POST', `/platform/billing/refunds/${own.body.refund_id}/approve`, { token: bt, body: {} })).body.code, 'SELF_APPROVAL_FORBIDDEN');
+  assert.equal((await call('POST', `/platform/billing/refunds/${refund.body.refund_id}/approve`, { token: ap, body: {} })).status, 200);
+  const done = await call('POST', `/platform/billing/refunds/${refund.body.refund_id}/complete`, { token: op, body: { bank_reference: 'RF-0001' } });
+  assert.equal(done.status, 200, JSON.stringify(done.body));
+  assert.equal((await call('GET', `/organizations/${shopId}/subscription`, { token: owner.access_token })).body.state, 'active', 'a refund is not a suspension');
+  const csv = await fetch(`${base}/platform/billing/reconciliation.csv?from=2026-01-01&to=2030-12-31`, { headers: { authorization: `Bearer ${op}` } });
+  const text = await csv.text();
+  assert.ok(text.includes('TX202610040001') && text.includes('-30000'), text);
+
+  // Audit trail: present, and nobody can rewrite it.
+  const actions = (await db.query('SELECT action FROM platform.audit_logs WHERE organization_id = $1 ORDER BY created_at', [shopId])).rows.map(r => r.action);
+  for (const a of ['payment_proof.viewed', 'payment.amount_mismatch', 'payment.confirmed', 'payment_proof.rejected', 'refund.requested', 'refund.approved', 'refund.succeeded']) assert.ok(actions.includes(a), a);
+  await assert.rejects(db.query('UPDATE platform.audit_logs SET action = $1 WHERE organization_id = $2', ['x', shopId]), /append-only/);
+  await assert.rejects(db.query('DELETE FROM platform.audit_logs WHERE organization_id = $1', [shopId]), /append-only/);
+  // Runtime roles stay in their lanes.
+  const denied = async (role, sql, params) => {
+    await db.exec(`BEGIN; SET LOCAL ROLE ${role};`);
+    try { await assert.rejects(db.query(sql, params), /permission denied/); } finally { await db.exec('ROLLBACK'); }
+  };
+  await denied('fs_api', 'SELECT * FROM padmin.payment_queue($1, $2)', [operator.id, 'all']);
+  await denied('fs_platform', 'SELECT count(*) FROM billing.payments');
+  await denied('fs_platform', 'SELECT count(*) FROM core.customers');
 });

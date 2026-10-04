@@ -60,6 +60,13 @@ export interface EquipmentHistory {
   items: { id: string; occurred_at: string; performed_by_name: string | null; service_type: string; outcome: string; work_note: string | null; problem_note: string | null;
     not_done_reason: string | null; next_due_on: string | null; note: string | null; photos: { photo_type: string; url: string | null; thumbnail_url: string | null }[] }[];
 }
+export interface PlanOffer { code: string; name_th: string; name_en: string; technician_seats: number; storage_bytes: string; ocr_per_period: number; price_version_id: string; amount_minor: string; interval_unit: string; }
+export interface InvoiceSummary { id: string; number: string; amount_minor: string; status: 'open' | 'paid' | 'voided'; created_at: string; paid_at: string | null; plan_name_th: string; plan_name_en: string; proof_status: 'pending' | 'accepted' | 'rejected' | null; }
+export interface Invoice extends InvoiceSummary {
+  due_at: string | null; technician_seats: number; proofs: { id: string; status: 'pending' | 'accepted' | 'rejected'; reason: string | null; created_at: string }[];
+  payment: { amount_minor: string; verified_at: string; refunded_minor: string } | null; period: { start_at: string; end_at: string } | null;
+  pay_to: { bank_name: string; account_name: string; account_number: string; promptpay_id: string | null; reference: string } | null;
+}
 export type ContactResult = 'no_answer' | 'interested' | 'call_later' | 'declined' | 'booked';
 export interface MaintenanceItem {
   id: string; due_date: string; version: number; service_type: string; interval_months: number | null; equipment_id: string; equipment_name: string | null; category: string;
@@ -191,6 +198,15 @@ export class Api {
     return this.call<ServiceResult>('POST', `/organizations/${organizationId}/service-events`, body);
   }
   equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
+  billingPlans(organizationId: string) { return this.call<{ payment_available: boolean; items: PlanOffer[] }>('GET', `/organizations/${organizationId}/billing/plans`); }
+  invoices(organizationId: string) { return this.call<{ items: InvoiceSummary[] }>('GET', `/organizations/${organizationId}/billing/invoices`); }
+  invoice(organizationId: string, id: string) { return this.call<Invoice>('GET', `/organizations/${organizationId}/billing/invoices/${id}`); }
+  createInvoice(organizationId: string, priceVersionId: string, requestKey: string) {
+    return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices`, { price_version_id: priceVersionId, request_key: requestKey });
+  }
+  uploadProof(organizationId: string, invoiceId: string, proofId: string, data: Blob, mimeType: string) {
+    return this.call<Invoice>('PUT', `/organizations/${organizationId}/billing/invoices/${invoiceId}/proof?proof_id=${proofId}`, data, true, { 'content-type': mimeType });
+  }
   maintenance(organizationId: string, days = 30) { return this.call<MaintenanceList>('GET', `/organizations/${organizationId}/maintenance?days=${days}`); }
   logContact(organizationId: string, cycleId: string, body: { result: ContactResult; note?: string; next_contact_on?: string | null }) {
     return this.call('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/contacts`, body);

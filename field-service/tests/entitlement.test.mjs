@@ -20,7 +20,7 @@ const age = (organizationId, days) => db.query(
   `UPDATE billing.subscription_periods SET start_at = start_at - make_interval(days => $2), end_at = end_at - make_interval(days => $2) WHERE organization_id = $1`,
   [organizationId, days]);
 async function invoice(organizationId, priceVersionId = STARTER) {
-  return (await db.query("INSERT INTO billing.invoices(organization_id, number, amount_minor, price_version_id) VALUES ($1, $2, 59000, $3) RETURNING id",
+  return (await db.query("INSERT INTO billing.invoices(organization_id, number, amount_minor, price_version_id, status, paid_at) VALUES ($1, $2, 59000, $3, 'paid', now()) RETURNING id",
     [organizationId, `INV-${randomUUID().slice(0, 8)}`, priceVersionId])).rows[0].id;
 }
 const pay = async (organizationId, invoiceId, confirmedAt, priceVersionId = STARTER) => (await db.query(

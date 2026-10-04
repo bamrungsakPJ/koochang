@@ -121,7 +121,7 @@ function SubscriptionBanner({ sub, owner }: { sub: Subscription; owner: boolean 
   return <Banner text={sub.state === 'pending_payment' ? t('pendingPaymentBanner') : sub.state === 'suspended' ? t('ORGANIZATION_SUSPENDED') : t('expiredBanner')} />;
 }
 
-function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organizationId: string; onChanged: (next: Subscription) => void }) {
+function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscription; organizationId: string; onChanged: (next: Subscription) => void; onBilling: () => void }) {
   const t = useT();
   const language = useContext(LanguageContext);
   const errorText = useErrorText();
@@ -154,13 +154,14 @@ function PlanCard({ sub, organizationId, onChanged }: { sub: Subscription; organ
     {sub.cancel_at_period_end ? <Banner tone="info" text={t('renewalStopped')} /> : null}
     <Banner text={error} />
     <Sub>{t('renewHint')}</Sub>
+    <View style={{ marginTop: 12 }}><Button icon="card" title={t('renewOrChange')} onPress={onBilling} /></View>
     {sub.source === 'paid' ? <View style={{ marginTop: 12 }}><Button small kind="secondary" icon={sub.cancel_at_period_end ? 'refresh' : 'stop-circle-outline'}
       title={sub.cancel_at_period_end ? t('resumeRenewal') : t('cancelRenewal')} busy={busy} onPress={toggleRenewal} /></View> : null}
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRecordAdhoc, onMaintenance }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void;
-  onOpenJob: (id: string) => void; onRecordAdhoc: () => void; onMaintenance: () => void }) {
+export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRecordAdhoc, onMaintenance, onBilling }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void;
+  onOpenJob: (id: string) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onBilling: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
@@ -192,7 +193,7 @@ export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRec
       </View>
       <MaintenanceCard membership={membership} onOpen={onMaintenance} />
       <Card padded={false}><Row icon="people" tone="blue" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
-      {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} /></> : null}
+      {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} onBilling={onBilling} /></> : null}
     </> : null}
     {!owner ? <>
       <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />

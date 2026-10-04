@@ -172,3 +172,22 @@ Tests (`pnpm test`, 94 total): PostgreSQL 16.15: 94 passed. PGlite: 72 passed, 2
 - New HTTP test: owner-only list with buckets, phone and last service; scanning twice sends one `due_soon`; contact logged, bad result rejected; booking two cycles creates one scheduled maintenance job with both units, retry returns the same job, booking again → ALREADY_BOOKED; booking leaves the due date; cancelling the job reopens the cycle; postpone checks the version, is audited and the new date triggers `due`; stop removes the cycle from the list.
 
 Checked by hand on Expo web: home card 0/1/1 → list → cycle detail → book both units tomorrow 09:00, "I'll do it" → opens the scheduled job with both units. Test customer "ลูกค้าทดสอบรอบดูแล" left on the dev shop.
+
+# C01 bank-transfer payments and platform sign-in — 2026-10-04
+
+Decisions: [DECISIONS_C01.md](DECISIONS_C01.md). Migration `010_payments_platform.sql` (48 tables; new role `fs_platform`, schema `padmin`).
+
+Done:
+- Shop API (owner only): `GET …/billing/plans`, `GET/POST …/billing/invoices`, `GET …/billing/invoices/:id`, `PUT …/billing/invoices/:id/proof?proof_id=`.
+- Platform API: `POST /platform/auth/login|mfa|step-up|logout`, `GET /platform/auth/me`; `GET /platform/billing/invoices`, `GET …/invoices/:id`, `GET …/proofs/:id/file`, `POST …/invoices/:id/confirm`, `POST …/proofs/:id/reject`, `GET …/refunds`, `POST …/payments/:id/refunds`, `POST …/refunds/:id/approve|reject|complete`, `GET …/reconciliation.csv`.
+- `scripts/platform-account.mjs` (create / reset / roles / disable / list).
+- Mobile (owner): plan card button → choose plan (prices, seats, storage, OCR) → invoice with transfer details and reference → send proof (gallery/camera) → status; payment history; payment notifications open the invoice.
+- Console (`apps/admin`, `/console`): sign-in with TOTP, step-up dialog, payment queue, invoice detail with proof image, confirm/reject, refunds, reconciliation CSV.
+- Dev database on server2: role `fs_platform` created, migration 010 applied, two development console accounts created (credentials in the git-ignored `.dev-platform-accounts.txt`). `.env` has development `PAYMENT_*` values.
+
+Tests (`pnpm test`, 95 total): PostgreSQL 16.15: 95 passed. PGlite: 72 passed, 23 skipped.
+- New HTTP test: technician refused; plans in price order; other plan voids the open invoice; same key same invoice; proof stored and pending without changing the trial; wrong password / unknown email → LOGIN_FAILED; shop token refused by platform routes; replayed TOTP refused; proof image no-store; expired step-up → STEP_UP_REQUIRED; wrong amount → PAYMENT_AMOUNT_MISMATCH; approver cannot confirm; confirm → active Starter, invoice paid, proof accepted, owner notified; retry with the same (normalized) reference → same payment and one paid period; reference reused on the renewal invoice → BANK_REFERENCE_USED; rejected proof notifies the owner; refund over the payment → REFUND_EXCEEDS_PAYMENT; operator cannot approve; an account with both roles cannot approve its own request; approved refund completed; shop stays active; CSV contains payment and negative refund; all audit actions present; UPDATE/DELETE on platform audit refused; fs_api cannot call padmin; fs_platform cannot read billing or customer tables.
+
+Checked by hand: Expo web owner → renew → Team invoice with transfer details; proof sent (test image through the API, since the web picker cannot be automated); console on `localhost:3001/console` → sign-in with TOTP → queue → proof image → confirm → "Payment confirmed. Period 4 Oct 2026 – 4 Nov 2026" on the dev shop.
+
+Remaining: physical-phone check of the camera/gallery proof upload; real receiving account and receipt format from the team.
