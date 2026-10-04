@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Optional, Param, Post, UseGuards } from '@nestjs/common';
+import { RuntimeSettingsService } from '../platform/runtime-settings.service.js';
 import { randomUUID } from 'node:crypto';
 import { normalizePhone, memberActions, type MemberAction } from '@field-service/core';
 import { RequestId, Session, SessionGuard, Tenant, type SessionContext, type TenantContext } from '../auth/session.guard.js';
@@ -12,7 +13,7 @@ const joinLinkColumns = 'id, status, generation, token_ciphertext, version, upda
 
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly database: DatabaseService, private readonly links: JoinLinksService) {}
+  constructor(private readonly database: DatabaseService, private readonly links: JoinLinksService, @Optional()private readonly runtime?:RuntimeSettingsService) {}
 
   /** Creates the shop, the owner membership and the first join link in one transaction.
    * An Idempotency-Key (uuid) makes a retried request return the same shop. */
@@ -27,6 +28,7 @@ export class OrganizationsController {
     }
     if (idempotencyKey !== undefined && !uuidPattern.test(idempotencyKey)) check.fail('idempotency_key', 'field.required');
     check.done();
+    if((await this.runtime?.read())?.policy?.new_shops_enabled===false)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     const link = this.links.issue();
     const language = body.preferred_language === 'en' || body.preferred_language === 'th' ? body.preferred_language : null;
     return this.database.identity(async client => {
@@ -52,6 +54,9 @@ export class OrganizationsController {
   }
 
   // team ------------------------------------------------------------------------------------
+  @Get(':organizationId/announcements') @UseGuards(TenantGuard)
+  announcements(@Session()s:SessionContext,@Tenant()t:TenantContext){this.ownerOnly(t);return this.database.identity(async c=>({items:(await c.query('SELECT auth.announcements($1,$2) AS v',[s.userId,t.organizationId])).rows[0].v??[]}));}
+
   @Get(':organizationId/members') @UseGuards(TenantGuard)
   team(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
     this.ownerOnly(tenant);
@@ -179,4 +184,3 @@ export class JoinController {
     }
   }
 }
-

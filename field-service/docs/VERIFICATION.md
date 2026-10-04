@@ -312,3 +312,25 @@ Not done (needs people or decisions, see the runbook): production SMS/OCR/push p
 - `pnpm mobile:export`: Android and iOS Hermes bundles exported successfully.
 - These checks do not verify the new UI, safe-area layout, camera/gallery, GPS, draft restoration, or API-restart session behavior on a physical phone. Prior Android Expo Go testing is recorded in PROGRESS_LOG.md; those remaining device checks still need confirmation.
 - No Git remote is configured; push/PR and production providers/settings remain pending.
+
+# Console completion (017–020) — 2026-10-04
+
+Migrations `017_console_management.sql`, `018_console_operations.sql`, `019_console_privacy.sql`, `020_console_reports.sql` (64 tables). Details: [CONSOLE.md](CONSOLE.md).
+
+Done in this round (020 and follow-ups):
+- Restore replay: `worker.replay_erasure(uuid[])` re-erases content for tombstoned shops and shops from the off-database registry, recreates missing tombstones (`source='registry'`) and re-queues image keys even when restored job rows say `succeeded`. Worker keeps `ERASURE_REGISTRY_FILE` (merge-only) and has `replay-erasure` command.
+- Erasure now also clears `notifications.sent_snapshot`, `ocr_requests.accepted_fields` and `maintenance_cycles.close_reason` (found by listing every tenant text/jsonb column).
+- Finance summary `GET /platform/billing/report?from&to` (≤ 366 days, `billing.read`) + console Reconciliation panel.
+- Incident summary `GET /platform/incidents/summary` (`system.read`) on the console Overview.
+- Paging (50 + has_more) for shops, invoices and data requests; console pager.
+- Approvals show readable details and the target account instead of raw JSON.
+
+Tests:
+- New `tests/console-completion.test.mjs` (9): recovery with second approver + newest invitation only; no deciding on own account / one pending change per target; new trial version only for shops after it takes effect (scheduled version waits, one active trial plan); OCR retry (permission, state, deleted image, suspended shop, quota allows exactly the remaining units); Stripe refresh only for open checkouts; finance totals/validation/permission; paging past 50; incident summary order; restore replay with registry.
+- PGlite full suite: 164 tests, 137 passed, 27 skipped (PostgreSQL-only HTTP), 0 failed.
+- PostgreSQL 16.15 (server2 `16/test`, loopback tunnel): 164 passed, 0 skipped, 0 failed.
+- `pnpm typecheck` all workspaces; `pnpm --filter @field-service/admin build` (Next production build) passed.
+
+Checked by hand (isolated QA fixture, synthetic account, API 4101 / web 3101): Overview incident panel (sorted by severity), Reconciliation finance summary, Approvals with readable plan and role details (approve buttons hidden for the requester), Thai labels with Buddhist-era dates, no horizontal overflow at 320 px on Approvals / Reconciliation / Overview / Data requests. Fixture stopped and synthetic token removed afterwards.
+
+Not done: OCR retry concurrency was exercised sequentially in tests (PGlite single connection; the function locks the shop row before counting). Real providers, real money, production migration/deploy and UAT remain pending.

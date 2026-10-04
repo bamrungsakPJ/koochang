@@ -234,6 +234,7 @@ export class Api {
     return this.call('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/stop`, { reason });
   }
   notifications(organizationId: string) { return this.call<Inbox>('GET', `/organizations/${organizationId}/notifications`); }
+  announcements(organizationId:string){return this.call<{items:{id:string;title_th:string;title_en:string;body_th:string;body_en:string;publish_at:string}[]}>('GET',`/organizations/${organizationId}/announcements`);}
   markRead(organizationId: string, ids?: string[]) { return this.call<Inbox>('POST', `/organizations/${organizationId}/notifications/read`, ids ? { ids } : {}); }
   subscription(organizationId: string) { return this.call<Subscription>('GET', `/organizations/${organizationId}/subscription`); }
   changeRenewal(organizationId: string, action: 'cancel-renewal' | 'resume-renewal') { return this.call<Subscription>('POST', `/organizations/${organizationId}/subscription/${action}`); }

@@ -27,6 +27,8 @@ export class PlatformDatabaseService implements OnModuleDestroy {
       await client.query('ROLLBACK');
       // padmin.require raises insufficient_privilege when the account lacks the permission.
       if ((error as { code?: string }).code === '42501') throw apiError(403, 'PERMISSION_DENIED');
+      if (['40001','23505'].includes((error as {code?:string}).code??'')) throw apiError(409,'VERSION_CONFLICT');
+      if ((error as {code?:string}).code==='22023') throw apiError(400,'VALIDATION_ERROR');
       throw error;
     } finally { client.release(); }
   }

@@ -7,7 +7,11 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 — Console settings)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 — Console ครบตาม MVP แล้ว)
+
+- **Console `/console` ครบตามขอบเขต MVP และ commit แล้ว** (migration 017–020, 64 ตาราง) ทีมผู้ดูแล/คำเชิญ/กู้บัญชี, แพ็กเกจและราคาแบบอนุมัติสองคน, นโยบายระบบ, ประกาศ/เหตุขัดข้อง, เครื่องมือคิว, คำขอข้อมูล/ส่งออก/ปิดร้าน/ลบข้อมูล, รายงานการเงิน, แบ่งหน้ารายการ ดู [CONSOLE.md](CONSOLE.md)
+- ผลตรวจ: PostgreSQL 16 **164/164 ผ่าน**, PGlite 137 ผ่าน 27 ข้าม 0 ล้มเหลว, typecheck ทุก workspace และ Next production build ผ่าน, ตรวจหน้าจอในเบราว์เซอร์ด้วยข้อมูลสังเคราะห์ (th/en, 320px)
+- ยังไม่ใช่ production: ยังไม่ได้ใช้ migration กับเครื่องจริง ไม่มี provider keys/เงินจริง/UAT และต้องกำหนดที่เก็บ `ERASURE_REGISTRY_FILE` นอก backup ตอน deploy
 
 - Branch `field-service-a02` — พัฒนาฟังก์ชัน A01 → D ฝั่ง API/mobile/platform console แล้ว และรอบนี้เพิ่มเว็บเจ้าของร้านโดยเฉพาะที่ `/shop`; การยืนยันบนอุปกรณ์จริงและ production providers ยังไม่ครบ
 - เว็บเจ้าของร้าน MVP ครอบคลุมภาพรวมร้าน ทีม ลูกค้า/สถานที่/พิกัด อุปกรณ์/OCR งาน/ผลบริการ/ร่าง รอบดูแล สมาชิก/สลิป ซัพพอร์ต และบัญชี ไทย/อังกฤษ ดู [OWNER_WEB.md](OWNER_WEB.md)
@@ -22,7 +26,7 @@
 - เพิ่มข้อความบัญชีที่กำลังใช้บนหน้าลิงก์เข้าร่วม และปุ่มออกจากระบบเพื่อใช้เบอร์อื่น โดยกลับมาลิงก์ร้านเดิม (th/en)
 
 ### งานถัดไป
-0. ใช้ migration 016 และตั้ง PLATFORM_DATABASE_URL / PLATFORM_SECRET_KEY สำหรับหน้า console settings; กรอกบัญชีรับเงินและ credentials ใน `/console` เมื่อพร้อม ใบแจ้งชำระเดิมคง receiver snapshot เดิม
+0. ใช้ migration 016–020 และตั้ง PLATFORM_DATABASE_URL / PLATFORM_SECRET_KEY สำหรับหน้า console settings; กรอกบัญชีรับเงินและ credentials ใน `/console` เมื่อพร้อม ใบแจ้งชำระเดิมคง receiver snapshot เดิม
 0. DeeSMSx: ตั้ง SMS_PROVIDER=deesmsx, DEESMSX_API_KEY, DEESMSX_SECRET_KEY และ DEESMSX_SENDER ที่ได้รับอนุมัติ แล้วตรวจส่ง OTP จริงเมื่อผู้ใช้พร้อมและอนุญาต
 0. Stripe: ใช้ migration 015, ตั้ง PAYMENT_DATABASE_URL (fs_worker), PLATFORM_SECRET_KEY และ OWNER_WEB_URL; ตั้งบัญชี/ช่องทางชำระและ webhook ตาม STRIPE.md แล้วทดสอบกับ Stripe test mode เมื่อผู้ใช้พร้อม ก่อนเปิด live
 0. ก่อนเปิดรับเงินจริง: ตั้ง EasySlip API key ใน server secret, ลงทะเบียนบัญชีรับใน branch, PAYMENT_BANK_CODE และ SLIP_DATABASE_URL (fs_worker), ใช้ migration 014 และตรวจเงินโอนจริงเมื่อได้รับอนุญาต
@@ -48,10 +52,58 @@
 | 2026-10-04 | a430713 | C02 | ผู้ดูแลแพลตฟอร์ม: ระงับร้าน, ซัพพอร์ต, ขอสิทธิ์ดูข้อมูลโดยเจ้าของยินยอม, audit |
 | 2026-10-04 | 08e6b71 | D | เตรียม pilot: ตรวจ config, ร่างออฟไลน์, ตัวชี้วัด, backup/restore, runbook |
 | 2026-10-04 | 7a0a1ff, f53dc55, 7640470 | ทดสอบมือถือ | แก้ลิงก์เข้าร่วม, ขอบจอ Android (ดูด้านล่าง) |
+| 2026-10-04 | eea18fc … a4a55fd | เว็บร้าน + ชำระเงิน | `/shop`, EasySlip, Stripe, DeeSMSx, ตั้งค่า console |
+| 2026-10-04 | commit "Console completion" | Console | migration 017–020: ทีมผู้ดูแล, แพ็กเกจ, อนุมัติ, นโยบาย, ประกาศ/เหตุขัดข้อง, คิว, privacy, รายงานการเงิน, แบ่งหน้า |
 
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-04 (ค่ำ) — ปิดงาน Console ให้ครบ (migration 020)
+
+**ทำอะไร:** ไล่รายการใน CONSOLE_HANDOFF ครบ 10 ข้อ เพิ่มเทสต์ `tests/console-completion.test.mjs` 9 ข้อ, migration `020_console_reports.sql`, worker `replay-erasure` + ทะเบียนการลบนอกฐานข้อมูล, API รายงานการเงิน/สรุปเหตุขัดข้อง/แบ่งหน้า, หน้าจอ console (สรุปการเงิน, แผงเหตุขัดข้อง, ปุ่มแบ่งหน้า, หน้าอนุมัติอ่านง่าย)
+
+**1. Restore แล้วข้อมูลที่ลบไปแล้วกลับมา**
+- สาเหตุ: `worker.replay_erasure()` ไม่มีใครเรียกใช้; งานลบรูปที่สถานะ `succeeded` ใน backup จะไม่ถูกรันซ้ำ; ถ้า backup เก่ากว่าวันที่ลบ tombstone ก็หายไปด้วย
+- แก้: `worker.replay_erasure(uuid[])` ลบซ้ำทั้งจาก tombstone ในฐานและรายชื่อจากไฟล์ทะเบียน, สร้าง tombstone ที่หายกลับ (`source='registry'`), ตั้งงานลบรูปกลับเป็น queued; worker เขียน `ERASURE_REGISTRY_FILE` แบบเพิ่มอย่างเดียว; คำสั่ง `node dist/worker.js replay-erasure` ใส่ใน PILOT_RUNBOOK
+- สถานะ: ✅ มีเทสต์จำลอง restore ผ่าน
+
+**2. การลบข้อมูลร้านยังเหลือข้อความบางคอลัมน์**
+- ตรวจ: ดึงทุกคอลัมน์ text/jsonb ของตารางที่มี organization_id มาเทียบกับฟังก์ชันลบ
+- พบ: `notifications.sent_snapshot` (ข้อความแจ้งเตือนที่อาจมีชื่อลูกค้า), `ocr_requests.accepted_fields` (serial), `maintenance_cycles.close_reason`
+- แก้: เพิ่มใน `padmin.erase_business_content` (020) ✅
+
+**3. เทสต์ OCR retry / Stripe refresh ล้มเหลวรอบแรก**
+- สาเหตุ: เทสต์คาดว่าบทบาท `operations` จะถูกปฏิเสธ แต่บทบาทนี้มีสิทธิ์ `operations.manage` จริง (เทสต์ผิด ไม่ใช่โค้ด)
+- แก้: ใช้บัญชีฝ่ายการเงินทดสอบกรณีไม่มีสิทธิ์ ✅
+
+**4. หน้าอนุมัติแสดง JSON ดิบ**
+- แก้: แสดงรายละเอียดเป็นข้อความ (แพ็กเกจ/ราคา/บทบาท/นโยบาย) และชื่อ-อีเมลบัญชีเป้าหมาย (`padmin.approvals` ส่ง `target`) ✅
+
+**5. เครื่องมือเขียนไฟล์ผ่าน shell ทำ backslash/backtick หาย**
+- อาการ: regex `\d` ใน controller กลายเป็น `d`, template string ในเทสต์หาย
+- แก้: แก้ด้วย Edit tool และตรวจด้วย typecheck/เทสต์; ต่อไปใช้สคริปต์ node หรือ Edit แทน heredoc ที่มีอักขระพิเศษ ✅
+
+**6. สรุปการเงินดูเหมือนไม่ขึ้น**
+- สาเหตุ: แค่ช้า (คำนวณสิทธิ์ทุกร้านเพื่อนับร้านที่ชำระเงิน) ผลขึ้นหลังรอ ~2 วินาที; ปรับคำว่า "Count" เป็น "items/รายการ"
+- สถานะ: ✅ ถ้าร้านมากขึ้นควรเปลี่ยนเป็นนับจากตาราง subscription โดยตรง
+
+**ผลตรวจ:** PostgreSQL 16 164/164 ผ่าน; PGlite 137 ผ่าน 27 ข้าม; typecheck + Next build ผ่าน; browser QA ด้วยบัญชีสังเคราะห์ (ปิด fixture และลบ token แล้ว)
+
+### 2026-10-04 — บันทึกสถานะทั้งหมดระหว่างทำ Console ให้ครบ (checkpoint)
+
+- คำสั่งผู้ใช้: ทำ Console ให้เสร็จทั้งหมด และบันทึกสถานะการทำงานปัจจุบันทั้งหมด โดยยังไม่พร้อม UAT/ทดสอบมือถือจริง
+- สิ่งที่ทำแล้วในรอบนี้: เทียบสเปกโมดูล Console; เพิ่ม migrations 017 ทีม/คำเชิญ/ร่างแพ็กเกจ/approval/policy, 018 ประกาศ/incident/operations checks/คิว, 019 export/closure/deletion/holds/tombstones/media erasure; เพิ่ม controller และหน้าจอจริง พร้อมเมนูตามสิทธิ์และข้อความไทย/อังกฤษ
+- ทีม: คำเชิญเก็บ token hash, MFA secret เข้ารหัส, ใช้ครั้งเดียวภายใน 48 ชั่วโมงและจำกัดรหัสผิด 5 ครั้ง; การเปลี่ยนบทบาทต้องมีผู้อนุมัติอีกคนและ revoke sessions; ปิด/เปิดบัญชีและออกจากทุกเครื่อง; เพิ่ม recovery แบบอนุมัติสองคนและสร้างคำเชิญใหม่ล่าสุด **ยังต้องทดสอบ**
+- แพ็กเกจ: บันทึกร่างด้วย version, ขออนุมัติเผยแพร่เป็น immutable plan/price versions, หยุดขาย, รายเดือน/ปี; ใบแจ้งชำระเดิมคง snapshot; เพิ่มราคา 0 ภายในสำหรับ trial publication ล่าสุด **ยังต้องทดสอบ**
+- นโยบาย: อนุมัติสองคน เปิด/ปิดการสร้างร้านและใบแจ้งชำระใหม่; ระยะเก็บเนื้อหาและพักคำขอลบต้องกำหนดอย่างชัดเจนและผ่านอนุมัติ ไม่ตั้งตัวเลข production เอง; ยังต้องตรวจผล UI/สิทธิ์ให้ครบ
+- ประกาศ/เหตุขัดข้อง: สร้างร่าง/กำหนดเวลา/เผยแพร่/ถอนประกาศ กลุ่มทุกร้าน ทดลองใช้ ชำระเงิน หรือระบุร้าน; owner feed ใช้เวลา server; incident เก็บ severity/status/services และ timeline ต่อท้าย; เชื่อม feed กับ owner web/mobile แล้วแต่ **ยังไม่ตรวจ browser/device**
+- Operations: แสดงคิว Push/OCR/outbox/รายการ Stripe ที่ต้องติดตาม; retry failed Push โดยคงรายการเดิม; บันทึกผลตรวจ API/storage/OCR/webhook/backup/restore พร้อมหลักฐาน โดยไม่อ้างว่าการบันทึกทำ backup/restore จริง; เพิ่ม OCR retry และ Stripe refresh ล่าสุด **ยังต้องทดสอบ**; outbox ยังไม่มี generic consumer/replay ที่ทำงานจริง
+- ความเป็นส่วนตัว: ไฟล์ส่งออก JSON เข้ารหัส อายุ 24 ชั่วโมง ดาวน์โหลดเฉพาะเจ้าของผู้ขอ; staff เห็น metadata; ปิดร้านจริง; ลบเนื้อหาร้านต้อง owner request, ผู้ดำเนินการคนละคนกับผู้อนุมัติ, ไม่มี hold/รายการเงินค้าง, พ้น retention/cooling; ปิดการเข้าถึงและล้างเนื้อหาในฐาน ก่อน worker ลบรูปแล้วจึงสำเร็จ; ไม่ลบเอกสารการเงิน/ตัวตนร่วม/backup ทันที; ยังต้องตรวจข้อมูลที่ครอบคลุม ความครบของการล้าง และ restore replay
+- ผลตรวจที่ผ่าน: migrations 001–019 บน PGlite, 64 ตาราง, foundation + settings 25 กรณี; ชุด Console management 12 กรณีผ่าน (HTTP permission/TOTP/invitation/MFA/replay, dual approval/session revoke, immutable invoice/month/year, rejected draft/stale version, policy, announcement audience/schedule, incident/check evidence, delivery retry, encrypted export/expiry/owner isolation, holds/cooling/worker erasure, actual closure)
+- ปัญหาและแก้ไข: เพิ่ม role-specific SQL error mapping ให้ test adapter ตรง production; แก้ fixtures เบอร์แบบ E.164 และเงื่อนไข media processed; แก้ TypeScript noUncheckedIndexedAccess/ข้อความแปลซ้ำ; แก้ JSX จากการแทนข้อความ; เปลี่ยน export HTTP regression จากเปลี่ยนสถานะด้วยมือเป็นสร้างและดาวน์โหลด artifact จริง
+- สิ่งที่ยังไม่ผ่านการยืนยัน: งานใหม่หลัง targeted test 12 ข้อ, full regression/PostgreSQL 16/production build/browser รอบล่าสุด, รายงานการเงินใหม่และการเก็บรายละเอียดรายการจำนวนมาก; ไม่ได้ deploy, ใช้เงินจริง, ส่ง SMS จริง หรือทำ UAT
+- สถานะการส่งต่อ: บันทึก checkpoint และรายการไฟล์/ขั้นตอนต่อใน CONSOLE_HANDOFF.md; commit ที่สมบูรณ์ก่อนรอบนี้คือ `a4a55fd`; ไม่มี remote/PR/push; อย่าใช้ผล full PostgreSQL 16 เดิม 143 ผ่านเป็นหลักฐานว่างาน Console เพิ่มชุดนี้ผ่านแล้ว
 
 ### 2026-10-04 — ทำส่วนตั้งค่า /console และบัญชีผู้ดูแล
 

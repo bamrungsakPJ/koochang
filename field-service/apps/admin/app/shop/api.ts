@@ -223,7 +223,9 @@ export class Api {
   openTicket(organizationId: string, subject: string, body: string) { return this.call<{ ticket_id: string }>('POST', `/organizations/${organizationId}/support/tickets`, { subject, body }); }
   replyTicket(organizationId: string, ticketId: string, body: string) { return this.call('POST', `/organizations/${organizationId}/support/tickets/${ticketId}/messages`, { body }); }
   supportAccess(organizationId: string, grantId: string, action: 'consent' | 'refuse' | 'revoke') { return this.call('POST', `/organizations/${organizationId}/support/access/${grantId}/${action}`); }
-  requestExport(organizationId: string) { return this.call('POST', `/organizations/${organizationId}/support/data-requests`, {}); }
+  requestExport(organizationId: string,request_type:'export'|'closure'|'deletion'='export') { return this.call('POST', `/organizations/${organizationId}/support/data-requests`, {request_type}); }
+  exportData(organizationId:string,id:string){return this.call<Record<string,unknown>>('GET',`/me/exports/${organizationId}/${id}`);}
+  announcements(organizationId:string){return this.call<{items:{id:string;title_th:string;title_en:string;body_th:string;body_en:string;publish_at:string}[]}>('GET',`/organizations/${organizationId}/announcements`);}
   maintenance(organizationId: string, days = 30) { return this.call<MaintenanceList>('GET', `/organizations/${organizationId}/maintenance?days=${days}`); }
   logContact(organizationId: string, cycleId: string, body: { result: ContactResult; note?: string; next_contact_on?: string | null }) {
     return this.call('POST', `/organizations/${organizationId}/maintenance/cycles/${cycleId}/contacts`, body);

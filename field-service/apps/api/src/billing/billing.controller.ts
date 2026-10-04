@@ -28,16 +28,18 @@ export class BillingController {
     this.ownerOnly(tenant);
     const stripe = await this.stripe.methods();
     const bank = await this.bank();
+    const allowed=(await this.runtime?.read())?.policy?.new_payments_enabled!==false;
     return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
-      payment_available: Boolean(bank) || stripe.stripe_card || stripe.stripe_qr,
+      payment_available: allowed&&(Boolean(bank) || stripe.stripe_card || stripe.stripe_qr),
       methods: { transfer: Boolean(bank), ...stripe },
       items: (await client.query(
-        `SELECT DISTINCT ON (p.id) p.code, p.name_th, p.name_en, pv.technician_seats, pv.storage_bytes, pv.ocr_per_period, pv.grace_days,
+        `SELECT DISTINCT ON (p.id,pr.interval_unit) p.code, p.name_th, p.name_en, pv.technician_seats, pv.storage_bytes, pv.ocr_per_period, pv.grace_days,
            pr.id AS price_version_id, pr.amount_minor, pr.currency, pr.interval_unit
          FROM billing.plans p JOIN billing.plan_versions pv ON pv.plan_id = p.id AND pv.published_at <= now()
          JOIN billing.price_versions pr ON pr.plan_version_id = pv.id AND pr.effective_from <= now()
          WHERE p.kind = 'paid' AND p.status = 'active'
-         ORDER BY p.id, pv.version_no DESC, pr.effective_from DESC`)).rows.sort((a, b) => Number(a.amount_minor) - Number(b.amount_minor)),
+         AND pv.version_no=(SELECT max(latest.version_no) FROM billing.plan_versions latest WHERE latest.plan_id=p.id AND latest.published_at<=now())
+         ORDER BY p.id, pr.interval_unit, pr.effective_from DESC`)).rows.sort((a, b) => Number(a.amount_minor) - Number(b.amount_minor)),
     }));
   }
 
@@ -60,6 +62,7 @@ export class BillingController {
     const price = typeof body.price_version_id === 'string' && uuidPattern.test(body.price_version_id) ? body.price_version_id : (check.fail('price_version_id', 'field.required'), '');
     const key = typeof body.request_key === 'string' && uuidPattern.test(body.request_key) ? body.request_key : (check.fail('request_key', 'field.required'), '');
     check.done();
+    if((await this.runtime?.read())?.policy?.new_payments_enabled===false)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     const methods = await this.stripe.methods();
     const bank = await this.bank();
     if (!bank && !methods.stripe_card && !methods.stripe_qr) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');

@@ -21,6 +21,9 @@ import { StripeWebhookController } from './billing/stripe-webhook.controller.js'
 import { PaymentSettingsController } from './platform/payment-settings.controller.js';
 import { ConsoleSettingsController } from './platform/console-settings.controller.js';
 import { AccountSettingsController } from './platform/account-settings.controller.js';
+import { ManagementController, StaffEnrollmentController } from './platform/management.controller.js';
+import { OperationsController } from './platform/operations.controller.js';
+import { PrivacyController, ExportDownloadController } from './platform/privacy.controller.js';
 import { RuntimeSettingsService, RuntimeSmsSender } from './platform/runtime-settings.service.js';
 import { PlatformDatabaseService } from './platform/platform-database.service.js';
 import { PlatformGuard } from './platform/platform.guard.js';
@@ -35,7 +38,7 @@ import { createOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
 @Module({
   controllers: [HealthController, AuthController, MeController, OrganizationsController, JoinController, CustomersController,
     MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController, MaintenanceController,
-    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController, ConsoleSettingsController, AccountSettingsController],
+    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController, ConsoleSettingsController, AccountSettingsController, ManagementController, StaffEnrollmentController, OperationsController, PrivacyController, ExportDownloadController],
   providers: [
     DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard, SlipVerificationService, StripeService, RuntimeSettingsService,
     { provide: PLATFORM_SETTINGS, useFactory: () => loadPlatformSettings() },

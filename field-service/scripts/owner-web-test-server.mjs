@@ -29,7 +29,7 @@ if(process.env.CONSOLE_QA==='1'){
   const platformUrl=new URL(db.url);platformUrl.username='fs_platform';platformUrl.password=platformPassword;
   const workerUrl=new URL(db.url);workerUrl.username='fs_worker';workerUrl.password=platformPassword;
   const account=(await db.query("INSERT INTO platform.accounts(display_name,email,password_hash,totp_secret_sealed) VALUES('Console QA','console-qa@test.invalid',$1,$2) RETURNING id",[await hashPassword(accountPassword),encrypt(sealKey,totp)])).rows[0].id;
-  await db.query("INSERT INTO platform.account_roles(account_id,role_id) SELECT $1,id FROM platform.roles WHERE code='platform_admin'",[account]);
+  await db.query("INSERT INTO platform.account_roles(account_id,role_id) SELECT $1,id FROM platform.roles WHERE code IN ('platform_admin','super_admin','operations','billing_operator','billing_approver','support_agent')",[account]);
   consoleEnv={PLATFORM_DATABASE_URL:platformUrl.toString(),PAYMENT_DATABASE_URL:workerUrl.toString(),SLIP_DATABASE_URL:workerUrl.toString(),PLATFORM_SECRET_KEY:sealKey.toString('base64'),OWNER_WEB_URL:'http://127.0.0.1:3101/shop'};
   console.log('Synthetic console QA credentials:',JSON.stringify({email:'console-qa@test.invalid',password:accountPassword,totp}));
 }

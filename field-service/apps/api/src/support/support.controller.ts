@@ -60,7 +60,8 @@ export class SupportController {
     const check = new Validation();
     const reason = check.text('reason', body.reason, { required: false, max: 500 }) ?? null;
     check.done();
-    const row = await this.database.identity(async c => (await c.query('SELECT * FROM auth.request_data_export($1,$2,$3)', [session.userId, tenant.organizationId, reason])).rows[0]);
+    const kind=body.request_type??'export';if(!['export','closure','deletion'].includes(kind as string))throw apiError(400,'VALIDATION_ERROR');
+    const row = await this.database.identity(async c => (await c.query('SELECT auth.request_privacy($1,$2,$3,$4) AS value', [session.userId, tenant.organizationId,kind, reason])).rows[0].value);
     if (row.outcome === 'forbidden') throw apiError(403, 'TENANT_ACCESS_DENIED');
     return { request_id: row.request_id, existing: row.outcome === 'exists' };
   }

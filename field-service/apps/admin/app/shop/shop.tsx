@@ -43,7 +43,8 @@ export function AccountView({ me, onMe }: { me: Me; onMe: () => Promise<void> })
 }
 export function NotificationsView({ org, go }: { org: string; go: Go }) {
   const t = useText(), lang = useContext(LanguageContext), a = useAction(), r = useResource(() => api.notifications(org), [org]);
-  return <><PageTitle action={<Button busy={a.busy} onClick={() => a.run(async () => { await api.markRead(org); await r.reload(); })}>{t('ownerWeb.mark_all_read')}</Button>}>{t('notifications')}</PageTitle><ResourceState resource={r} /><ActionState action={a} /><Panel>{r.data?.items.length ? <ul className="notification-list">{r.data.items.map(item => <li key={item.id} className={item.read_at ? '' : 'unread'}><Button onClick={() => a.run(async () => {
+  const announcements=useResource(()=>api.announcements(org),[org]);
+  return <><PageTitle action={<Button busy={a.busy} onClick={() => a.run(async () => { await api.markRead(org); await r.reload(); })}>{t('ownerWeb.mark_all_read')}</Button>}>{t('notifications')}</PageTitle><ResourceState resource={announcements}/>{announcements.data?.items.map(item=><Panel key={item.id} title={lang==='th'?item.title_th:item.title_en}><p style={{whiteSpace:'pre-wrap'}}>{lang==='th'?item.body_th:item.body_en}</p><small>{dateTime(item.publish_at,lang)}</small></Panel>)}<ResourceState resource={r} /><ActionState action={a} /><Panel>{r.data?.items.length ? <ul className="notification-list">{r.data.items.map(item => <li key={item.id} className={item.read_at ? '' : 'unread'}><Button onClick={() => a.run(async () => {
     await api.markRead(org, [item.id]);
     if (item.target_type === 'job' && item.target_id) go({ section: 'job', id: item.target_id });
     else if (item.target_type === 'invoice' && item.target_id) go({ section: 'invoice', id: item.target_id });

@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { translate, type TranslationKey, type AdminKey } from '@field-service/i18n';
 import { call, ConsoleError, dateOnly, dateTime, download, money, useLanguage, useStepUp, useText, type Me } from './api';
+import { Pager, type Page } from './admin';
 
 interface QueueRow { invoice_id: string; number: string; organization_name: string; amount_minor: string; status: string; plan_name_th: string; plan_name_en: string;
   created_at: string; proof_id: string | null; proof_status: string | null; proof_submitted_at: string | null; paid_at: string | null; bank_reference: string | null }
@@ -33,7 +34,10 @@ export function PaymentsView({ onOpen }: { onOpen: (id: string) => void }) {
   const [filter, setFilter] = useState<'pending' | 'open' | 'paid' | 'all'>('pending');
   const [rows, setRows] = useState<QueueRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setRows(null); call<{ items: QueueRow[] }>('GET', `/platform/billing/invoices?status=${filter}`).then(r => setRows(r.items), e => setError(message(e))); }, [filter]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  useEffect(() => { setOffset(0); }, [filter]);
+  useEffect(() => { setRows(null); call<Page<QueueRow>>('GET', `/platform/billing/invoices?status=${filter}&offset=${offset}`).then(r => { setRows(r.items); setHasMore(r.has_more); }, e => setError(message(e))); }, [filter, offset]);
   return <section>
     <h1>{t('navPayments')}</h1>
     <div className="tabs">{(['pending', 'open', 'paid', 'all'] as const).map(f =>
@@ -46,6 +50,7 @@ export function PaymentsView({ onOpen }: { onOpen: (id: string) => void }) {
         <td className="num">{money(r.amount_minor, lang)}</td><td><Pill kind="proof" value={r.proof_status} /></td><td><Pill kind="invoice" value={r.status} /></td><td>{dateTime(r.created_at, lang)}</td>
       </tr>) : <tr><td colSpan={7} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
     </table>
+    <Pager offset={offset} hasMore={hasMore} busy={!rows} onChange={setOffset} />
   </section>;
 }
 
@@ -204,12 +209,49 @@ export function RefundsView({ me, onOpen }: { me: Me; onOpen: (invoiceId: string
   </section>;
 }
 
+interface Report { received_minor: number; refunded_minor: number; net_minor: number; payments: number; refunds: number; open_invoices: number; open_minor: number;
+  pending_refunds: number; paid_shops: number; by_source: { source: string; count: number; amount_minor: number }[];
+  by_plan: { plan_code: string; name_th: string; name_en: string; interval_unit: string; count: number; amount_minor: number }[];
+  by_day: { day: string; received_minor: number; refunded_minor: number }[] }
+
+function FinanceSummary({ report }: { report: Report }) {
+  const t = useText();
+  const lang = useLanguage();
+  const tiles: [AdminKey, string, string][] = [
+    ['received', money(report.received_minor, lang), `${report.payments} ${t('countLabel')}`],
+    ['refunded', money(report.refunded_minor, lang), `${report.refunds} ${t('countLabel')}`],
+    ['netReceived', money(report.net_minor, lang), ''],
+    ['openInvoicesLabel', String(report.open_invoices), money(report.open_minor, lang)],
+    ['pendingRefundsLabel', String(report.pending_refunds), ''],
+    ['paidShops', String(report.paid_shops), ''],
+  ];
+  return <div className="panel">
+    <h2>{t('financeSummary')}</h2>
+    <div className="tiles small">{tiles.map(([key, value, sub]) => <div key={key} className="tile plain"><strong>{value}</strong><span>{t(key)}{sub ? <small className="muted"> · {sub}</small> : null}</span></div>)}</div>
+    <div className="grid2">
+      <div><h3>{t('bySource')}</h3><table><tbody>{report.by_source.map(s => <tr key={s.source}><td>{t(`source.${s.source}` as AdminKey)}</td><td className="num">{s.count}</td><td className="num">{money(s.amount_minor, lang)}</td></tr>)}</tbody></table>
+        {!report.by_source.length ? <p className="muted">{t('empty')}</p> : null}</div>
+      <div><h3>{t('byPlan')}</h3><table><tbody>{report.by_plan.map(p => <tr key={`${p.plan_code}-${p.interval_unit}`}><td>{lang === 'th' ? p.name_th : p.name_en} <span className="muted">/ {t(p.interval_unit === 'year' ? 'priceYear' : 'priceMonth')}</span></td><td className="num">{p.count}</td><td className="num">{money(p.amount_minor, lang)}</td></tr>)}</tbody></table>
+        {!report.by_plan.length ? <p className="muted">{t('empty')}</p> : null}</div>
+    </div>
+    {report.by_day.length ? <><h3>{t('byDay')}</h3><div className="table-scroll"><table>
+      <thead><tr><th>{t('dayLabel')}</th><th className="num">{t('received')}</th><th className="num">{t('refunded')}</th></tr></thead>
+      <tbody>{report.by_day.map(d => <tr key={d.day}><td>{dateOnly(d.day, lang)}</td><td className="num">{money(d.received_minor, lang)}</td><td className="num">{money(d.refunded_minor, lang)}</td></tr>)}</tbody>
+    </table></div></> : null}
+  </div>;
+}
+
 export function ReconcileView() {
   const t = useText();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
   const [from, setFrom] = useState(today.slice(0, 8) + '01');
   const [to, setTo] = useState(today);
   const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
+  async function summary() {
+    setError(null); setReport(null);
+    try { setReport(await call<Report>('GET', `/platform/billing/report?from=${from}&to=${to}`)); } catch (e) { setError(message(e)); }
+  }
   async function get(event: FormEvent) {
     event.preventDefault(); setError(null);
     try {
@@ -224,8 +266,11 @@ export function ReconcileView() {
     <form className="inline" onSubmit={get}>
       <label>{t('from')}<input type="date" required value={from} onChange={e => setFrom(e.target.value)} /></label>
       <label>{t('to')}<input type="date" required value={to} onChange={e => setTo(e.target.value)} /></label>
+      <button type="button" onClick={() => void summary()}>{t('showSummary')}</button>
       <button className="primary">{t('download')}</button>
     </form>
+    <p className="muted">{t('financeHint')}</p>
     {error ? <p className="error">{error}</p> : null}
+    {report ? <FinanceSummary report={report} /> : null}
   </section>;
 }

@@ -4,6 +4,7 @@ import { RequestId } from '../auth/session.guard.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { PlatformDatabaseService } from './platform-database.service.js';
 import { Account, Permission, PlatformGuard, StepUp, type PlatformAccount } from './platform.guard.js';
+import { page, pageOffset } from './platform-admin.controller.js';
 
 const confirmErrors: Record<string, [number, Parameters<typeof apiError>[1]]> = {
   not_found: [404, 'RESOURCE_NOT_FOUND'], voided: [422, 'INVOICE_CLOSED'], already_paid: [422, 'INVOICE_CLOSED'],
@@ -18,9 +19,19 @@ export class PlatformBillingController {
   constructor(private readonly database: PlatformDatabaseService, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null) {}
 
   @Get('invoices') @Permission('billing.read')
-  invoices(@Account() account: PlatformAccount, @Query('status') status?: string) {
+  invoices(@Account() account: PlatformAccount, @Query('status') status?: string, @Query('offset') offset?: string) {
     const filter = ['pending', 'open', 'paid', 'all'].includes(status ?? '') ? status : 'pending';
-    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.payment_queue($1,$2)', [account.accountId, filter])).rows }));
+    const n = pageOffset(offset);
+    return this.database.run(async c => page((await c.query('SELECT * FROM padmin.payment_queue($1,$2,$3)', [account.accountId, filter, n])).rows, n));
+  }
+
+  /** Received, refunded and outstanding money for a Bangkok-date range (at most 366 days). */
+  @Get('report') @Permission('billing.read')
+  report(@Account() account: PlatformAccount, @Query('from') from?: string, @Query('to') to?: string) {
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    if (!from || !to || !day.test(from) || !day.test(to) || Number.isNaN(Date.parse(from)) || Number.isNaN(Date.parse(to)) || to < from
+      || Date.parse(to) - Date.parse(from) > 366 * 86_400_000) throw apiError(400, 'VALIDATION_ERROR');
+    return this.database.run(async c => (await c.query('SELECT padmin.finance_report($1,$2,$3) AS v', [account.accountId, from, to])).rows[0].v);
   }
 
   @Get('invoices/:id') @Permission('billing.read')

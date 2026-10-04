@@ -27,6 +27,12 @@ button:focus-visible,select:focus-visible { outline:3px solid #caab36; outline-o
 .console button:disabled { opacity:.55; cursor:default; }
 .console input, .console select { font:inherit; border:1px solid var(--c-line); border-radius:10px; padding:9px 12px; background:#fff; color:var(--c-ink); }
 .console label { display:flex; flex-direction:column; gap:6px; font-size:14px; color:var(--c-muted); margin:10px 0; }
+.console textarea { font:inherit; border:1px solid var(--c-line); border-radius:10px; padding:10px; width:100%; min-height:90px; color:var(--c-ink); resize:vertical; }
+.console fieldset { border:1px solid var(--c-line); border-radius:10px; }
+.console .safe-json { white-space:pre-wrap; overflow-wrap:anywhere; background:#f8fafc; padding:12px; border-radius:10px; }
+.console .permissions-list { display:block; overflow-wrap:anywhere; }
+.console .text-lines { white-space:pre-wrap; }
+.console .table-scroll { overflow-x:auto; max-width:100%; }
 .console label.payment-setting-toggle { flex-direction:row; align-items:center; gap:10px; }
 .console .muted { color:var(--c-muted); font-size:14px; }
 .console .error { color:var(--c-bad); background:var(--c-bad-soft); padding:8px 12px; border-radius:10px; }
@@ -90,3 +96,11 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 14px; margin:0
 .console .settings-table { overflow-x:auto; margin-bottom:16px; }
 .console .settings-table td:first-child { overflow-wrap:anywhere; max-width:350px; }
 .console .settings-form code { overflow-wrap:anywhere; }
+.console .caution { color:var(--c-warn); background:var(--c-warn-soft); padding:10px 14px; border-radius:10px; }
+.console dl.facts { display:grid; grid-template-columns:max-content 1fr; gap:4px 16px; margin:8px 0; }
+.console dl.facts dt { color:var(--c-muted); }
+.console dl.facts dd { margin:0; overflow-wrap:anywhere; }
+.console .pager { justify-content:center; align-items:center; margin-top:12px; }
+.console .incident-list { margin:0; padding-left:18px; }
+.console .incident-list li { margin:6px 0; }
+@media (max-width:480px) { .console dl.facts { grid-template-columns:1fr; } .console dl.facts dd { margin-bottom:6px; } }

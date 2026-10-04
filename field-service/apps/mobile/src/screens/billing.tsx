@@ -50,7 +50,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
           <IconTile icon={i ? 'people' : 'person'} tone={tone} size={44} />
           <View style={{ flex: 1 }}>
             <Strong>{language === 'th' ? p.name_th : p.name_en}</Strong>
-            <Text style={[styles.price, { color: tones[tone][1] }]}>{t('perMonth', { amount: money(p.amount_minor, language) })}</Text>
+            <Text style={[styles.price, { color: tones[tone][1] }]}>{money(p.amount_minor,language)} {t(p.interval_unit==='year'?'ownerWeb.year':'ownerWeb.month')}</Text>
           </View>
         </View>
         <Feature text={t('seatsN', { n: p.technician_seats })} />

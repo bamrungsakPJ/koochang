@@ -16,14 +16,34 @@ function Pill({ group, value }: { group: string; value: string | null | undefine
   return <span className={`pill ${tone}`}>{t(`${group}.${value}` as AdminKey)}</span>;
 }
 
+/** Previous/next for lists the API returns 50 rows at a time. */
+export function Pager({ offset, hasMore, busy, onChange }: { offset: number; hasMore: boolean; busy?: boolean; onChange: (offset: number) => void }) {
+  const t = useText();
+  if (!offset && !hasMore) return null;
+  return <div className="actions pager">
+    <button disabled={!offset || busy} onClick={() => onChange(Math.max(0, offset - 50))}>{t('backPage')}</button>
+    <span className="muted">{offset + 1}–{offset + 50}</span>
+    <button disabled={!hasMore || busy} onClick={() => onChange(offset + 50)}>{t('nextPage')}</button>
+  </div>;
+}
+export type Page<T> = { items: T[]; has_more: boolean; offset: number };
+
+interface IncidentSummary { open: { id: string; title: string; severity: string; status: string; services: string[]; created_at: string }[];
+  last_resolved: { title: string; minutes: number; updated_at: string } | null; resolved_30d: number }
+const severityKey: Record<string, AdminKey> = { low: 'severityLow', medium: 'severityMedium', high: 'severityHigh', critical: 'severityCritical' };
+
 export function OverviewView({ onNavigate }: { onNavigate: (view: string) => void }) {
   const t = useText();
+  const lang = useLanguage();
   const [data, setData] = useState<{ shops: Record<string, number> | null; proofs_pending: number; refunds_open: number; tickets_open: number; access_pending: number; data_requests_open: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [m, setM] = useState<Record<string, number | null> | null>(null);
+  const [incidents, setIncidents] = useState<IncidentSummary | null>(null);
   useEffect(() => {
     call<typeof data>('GET', '/platform/overview').then(setData, e => setError(message(e)));
     call<Record<string, number | null>>('GET', '/platform/metrics?days=30').then(setM, () => setM(null));
+    // Only accounts with system.read see incidents; others simply get no panel.
+    call<IncidentSummary>('GET', '/platform/incidents/summary').then(setIncidents, () => setIncidents(null));
   }, []);
   const pct = (a?: number | null, b?: number | null) => (b ? `${Math.round(((a ?? 0) / b) * 100)}%` : '–');
   const tiles: [AdminKey, number | undefined, string, string][] = [
@@ -34,6 +54,16 @@ export function OverviewView({ onNavigate }: { onNavigate: (view: string) => voi
     <h1>{t('navOverview')}</h1>
     {error ? <p className="error">{error}</p> : null}
     <div className="tiles">{tiles.map(([key, n, view, tone]) => <button key={key} className={`tile ${tone}`} onClick={() => onNavigate(view)}><strong>{n ?? '–'}</strong><span>{t(key)}</span></button>)}</div>
+    {incidents ? <div className="panel">
+      <h2>{t('openIncidents')}</h2>
+      {incidents.open.length ? <ul className="incident-list">{incidents.open.map(i => <li key={i.id}>
+        <button className="link" onClick={() => onNavigate('communications')}>{i.title}</button>{' '}
+        <span className={`pill ${['critical', 'high'].includes(i.severity) ? 'bad' : 'warn'}`}>{t(severityKey[i.severity] ?? 'status')}</span>
+        <span className="muted"> · {i.services.join(', ').toUpperCase()} · {dateTime(i.created_at, lang)}</span></li>)}</ul>
+        : <p className="ok-box">{t('noOpenIncidents')}</p>}
+      <p className="muted">{incidents.last_resolved ? t('lastResolved', { title: incidents.last_resolved.title, minutes: incidents.last_resolved.minutes }) : null}
+        {incidents.last_resolved ? ' · ' : null}{t('resolved30d', { n: incidents.resolved_30d })}</p>
+    </div> : null}
     <div className="panel">
       <h2>{t('shopsByState')}</h2>
       <div className="tiles small">{states.map(s => <div key={s} className="tile plain"><strong>{data?.shops?.[s] ?? 0}</strong><span>{t(`state.${s}` as AdminKey)}</span></div>)}</div>
@@ -64,8 +94,10 @@ export function ShopsView({ onOpen }: { onOpen: (id: string) => void }) {
   const [state, setState] = useState('');
   const [rows, setRows] = useState<ShopRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = (event?: FormEvent) => { event?.preventDefault(); setRows(null);
-    call<{ items: ShopRow[] }>('GET', `/platform/shops?q=${encodeURIComponent(q)}&state=${state}`).then(r => setRows(r.items), e => setError(message(e))); };
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const load = (event?: FormEvent, at = 0) => { event?.preventDefault(); setRows(null); setOffset(at);
+    call<Page<ShopRow>>('GET', `/platform/shops?q=${encodeURIComponent(q)}&state=${state}&offset=${at}`).then(r => { setRows(r.items); setHasMore(r.has_more); }, e => setError(message(e))); };
   useEffect(() => { load(); }, [state]);
   return <section>
     <h1>{t('navShops')}</h1>
@@ -83,6 +115,7 @@ export function ShopsView({ onOpen }: { onOpen: (id: string) => void }) {
         <td>{r.plan_code ?? '—'}</td><td className="num">{r.active_technicians}</td><td>{dateOnly(r.period_end, lang)}</td><td>{dateOnly(r.created_at, lang)}</td>
       </tr>) : <tr><td colSpan={7} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
     </table>
+    <Pager offset={offset} hasMore={hasMore} busy={!rows} onChange={at => load(undefined, at)} />
   </section>;
 }
 

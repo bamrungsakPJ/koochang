@@ -5,6 +5,7 @@ import { decrypt } from '../shared/crypto.js';
 import { createSmsSender, SmsSender } from '../sms/sms.sender.js';
 export interface RuntimeSettings {
  version:number;
+ policy?:{new_shops_enabled:boolean;new_payments_enabled:boolean;business_retention_days?:number|null;deletion_cooling_days?:number|null}|null;
  bank?: {enabled:boolean;bankName:string;accountName:string;accountNumber:string;bankCode?:string;promptPayId?:string};
  sms?: {enabled:boolean;sender:string;apiKeySealed?:string;secretKeySealed?:string};
  easyslip?: {enabled:boolean;keySealed?:string};

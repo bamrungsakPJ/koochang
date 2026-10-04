@@ -972,18 +972,21 @@ test('platform admin: shop metadata only, suspend/restore and grants with audit;
   await db.query("UPDATE platform.support_access_grants SET valid_from = now() - interval '2 hours', valid_until = now() - interval '90 minutes' WHERE id = $1", [own.grant_id]);
   assert.equal((await call('GET', `/platform/access/${own.grant_id}/read/jobs`, { token: both })).body.code, 'PERMISSION_DENIED', 'expired');
 
-  // Data export request: one open at a time; staff record each step.
+  // Data export request: actual encrypted artifact, downloadable only by the requesting owner.
   const exp = (await call('POST', `/organizations/${shopId}/support/data-requests`, { token: owner.access_token, body: { reason: 'สำรองข้อมูล' } })).body;
   assert.equal((await call('POST', `/organizations/${shopId}/support/data-requests`, { token: owner.access_token, body: {} })).body.request_id, exp.request_id);
   assert.equal((await call('POST', `/platform/data-requests/${exp.request_id}`, { token: admin, body: { status: 'succeeded' } })).status, 422, 'no skipping steps');
-  for (const status of ['approved', 'running', 'succeeded']) assert.equal((await call('POST', `/platform/data-requests/${exp.request_id}`, { token: admin, body: { status, note: status } })).status, 200);
+  assert.equal((await call('POST', `/platform/data-requests/${exp.request_id}`, { token: admin, body: { status:'approved', note:'Verified owner' } })).status,200);
+  assert.equal((await call('POST', `/platform/privacy/requests/${exp.request_id}/export`, { token:admin,body:{} })).status,200);
+  const file=await call('GET',`/me/exports/${shopId}/${exp.request_id}`,{token:owner.access_token});assert.equal(file.status,200);assert.ok(file.body.customers.some(c=>c.name==='ลูกค้าลับ'));
+  assert.equal((await call('GET',`/me/exports/${shopId}/${exp.request_id}`,{token:tech.access_token})).status,404);
   assert.equal((await call('GET', `/organizations/${shopId}/support`, { token: owner.access_token })).body.data_requests[0].status, 'succeeded');
 
   // Audit: readable by the auditor only, with the support reads linked to their grant.
   assert.equal((await call('GET', `/platform/audit?organization_id=${shopId}`, { token: agent })).body.code, 'PERMISSION_DENIED');
   const audit = (await call('GET', `/platform/audit?organization_id=${shopId}`, { token: auditor })).body.items;
   for (const a of ['shop.viewed', 'shop.suspended', 'shop.restored', 'grant.created', 'grant.ended', 'support_access.requested', 'support_access.owner_consent',
-    'support_access.approved', 'support.read', 'support_access.owner_revoke', 'data_request.succeeded']) assert.ok(audit.some(r => r.action === a), a);
+    'support_access.approved', 'support.read', 'support_access.owner_revoke', 'export.generated']) assert.ok(audit.some(r => r.action === a), a);
   assert.ok(audit.filter(r => r.action === 'support.read').every(r => r.support_grant_id));
   assert.equal((await call('GET', '/platform/system', { token: admin })).status, 200);
   assert.equal((await call('GET', '/platform/system', { token: auditor })).body.code, 'PERMISSION_DENIED');

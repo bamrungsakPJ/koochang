@@ -67,7 +67,13 @@ On the database host, daily from cron (as root):
 ```
 
 Weekly, and before taking real money: `BACKUP_DIR=/var/backups/field-service /opt/field-service/infra/backup/restore-check.sh`
-must print `RESTORE OK`. Proven on server2 (PostgreSQL 16) on 2026-10-04: dump 960 KB, restore 2 s,
+must print `RESTORE OK`.
+
+**After a real restore** (not the check): before opening the API run
+`node --env-file=.env apps/api/dist/worker.js replay-erasure` with `ERASURE_REGISTRY_FILE` pointing at
+the erasure registry kept outside the database backup, then start the worker so restored images of
+deleted shops are removed again. Without the registry only tombstones inside the restored dump are
+replayed. Record the run in Operations tools → evidence (kind `restore`). Proven on server2 (PostgreSQL 16) on 2026-10-04: dump 960 KB, restore 2 s,
 53 tables, row counts and migration checksums matched. Retention 35 days.
 
 ## 6. Incidents

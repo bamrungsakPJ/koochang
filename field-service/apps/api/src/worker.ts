@@ -1,3 +1,4 @@
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import { Pool } from 'pg';
 import { translate, type TranslationKey } from '@field-service/i18n';
 import { normalizeLanguage } from '@field-service/core';
@@ -61,11 +62,51 @@ export async function runPush(deps: WorkerDeps, limit = 20): Promise<number> {
 }
 
 export async function runScheduled(deps: WorkerDeps): Promise<{ reminders: number; housekeeping: unknown }> {
+  await deps.pool.query('SELECT worker.expire_exports()');
   await deps.pool.query('SELECT worker.requeue_stale_ocr(600)');
   const reminders = (await deps.pool.query('SELECT worker.scan_subscriptions(now()) AS n')).rows[0].n as number
     + ((await deps.pool.query('SELECT worker.scan_maintenance(now()) AS n')).rows[0].n as number);
   const housekeeping = (await deps.pool.query('SELECT worker.housekeeping() AS r')).rows[0].r;
   return { reminders, housekeeping };
+}
+
+/** Delete only private image keys queued by approved privacy execution. Failed deletes remain retryable. */
+export async function runErasure(deps:WorkerDeps,limit=20):Promise<number>{
+ if(!deps.storage)return 0;
+ const jobs=(await deps.pool.query('SELECT * FROM worker.claim_erasure($1)',[limit])).rows;
+ for(const job of jobs){let ok=false;try{await deps.storage.delete(job.object_key);ok=true;}catch{/* Keep keys and provider errors out of logs. */}
+  await deps.pool.query('SELECT worker.finish_erasure($1,$2)',[job.id,ok]);}
+ return jobs.length;
+}
+
+type RegistryEntry = { organization_id: string; erased_at: string };
+
+async function readRegistry(file: string): Promise<RegistryEntry[]> {
+  try { const data = JSON.parse(await readFile(file, 'utf8')); return Array.isArray(data) ? data.filter(e => typeof e?.organization_id === 'string') : []; }
+  catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return []; throw e; }
+}
+
+/** Erased shops are also kept in a file outside the database (ERASURE_REGISTRY_FILE, on storage that is
+ * not restored together with the database). The file only grows: a restore that loses a tombstone does
+ * not remove it from here. Returns the number of entries after the merge. */
+export async function syncErasureRegistry(deps: WorkerDeps, file: string): Promise<number> {
+  const current = (await deps.pool.query('SELECT worker.erasure_registry() AS v')).rows[0].v as RegistryEntry[];
+  const merged = new Map((await readRegistry(file)).map(e => [e.organization_id, e]));
+  let changed = false;
+  for (const e of current) if (!merged.has(e.organization_id)) { merged.set(e.organization_id, e); changed = true; }
+  if (changed) {
+    const tmp = `${file}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify([...merged.values()], null, 1));
+    await rename(tmp, file);
+  }
+  return merged.size;
+}
+
+/** After restoring a backup, run before the API is opened: re-applies every erasure known to the
+ * database or the registry file and queues the image keys for deletion again. */
+export async function replayErasure(deps: WorkerDeps, file: string | undefined): Promise<number> {
+  const ids = file ? (await readRegistry(file)).map(e => e.organization_id) : [];
+  return (await deps.pool.query('SELECT worker.replay_erasure($1::uuid[]) AS n', [ids])).rows[0].n as number;
 }
 
 async function main() {
@@ -74,14 +115,22 @@ async function main() {
   const pool = new Pool({ connectionString: url, max: 4 });
   await verifyWorkerRole(pool);
   const deps: WorkerDeps = { pool, storage: createStorage(loadMediaSettings().mediaDir), ocr: createOcrProvider(), push: createPushSender(), log: console.log };
-  console.log(`worker started: ocr=${deps.ocr?.name ?? 'none'} push=${deps.push?.name ?? 'none'} storage=${deps.storage?.kind ?? 'none'}`);
+  const registry = process.env.ERASURE_REGISTRY_FILE || undefined;
+  if (process.argv.includes('replay-erasure')) {
+    const n = await replayErasure(deps, registry);
+    console.log(`erasure replayed for ${n} shop(s); registry=${registry ? 'file' : 'database only'}. Keep the worker running to delete restored images.`);
+    await pool.end();
+    return;
+  }
+  console.log(`worker started: ocr=${deps.ocr?.name ?? 'none'} push=${deps.push?.name ?? 'none'} storage=${deps.storage?.kind ?? 'none'} erasure-registry=${registry ? 'file' : 'none'}`);
   let stopping = false;
   const stop = () => { stopping = true; };
   process.on('SIGINT', stop); process.on('SIGTERM', stop);
   let lastScheduled = 0;
   while (!stopping) {
     try {
-      const busy = (await runOcr(deps)) + (await runPush(deps));
+      const busy = (await runOcr(deps)) + (await runPush(deps)) + (await runErasure(deps));
+      if (registry) await syncErasureRegistry(deps, registry);
       if (Date.now() - lastScheduled > 15 * 60_000) { await runScheduled(deps); lastScheduled = Date.now(); }
       if (!busy) await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (error) {

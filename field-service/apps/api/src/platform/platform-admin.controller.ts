@@ -6,6 +6,14 @@ import { Account, Permission, PlatformGuard, StepUp, type PlatformAccount } from
 
 const scopes = ['customers', 'equipment', 'jobs', 'service_history'];
 
+/** Lists return 50 rows per page; the database returns one extra row to signal another page. */
+export function pageOffset(value: string | undefined): number {
+  const n = Number(value ?? 0);
+  if (!Number.isSafeInteger(n) || n < 0 || n > 1_000_000) throw apiError(400, 'VALIDATION_ERROR');
+  return n;
+}
+export function page<T>(rows: T[], offset: number) { return { items: rows.slice(0, 50), has_more: rows.length > 50, offset }; }
+
 /** Platform administration: shops (metadata only), suspend/restore, temporary grants, support
  * tickets and owner-consented access, audit, system health and data requests. Every call is
  * checked here and again inside the padmin function. */
@@ -26,8 +34,15 @@ export class PlatformAdminController {
   }
 
   @Get('shops') @Permission('shops.read')
-  shops(@Account() a: PlatformAccount, @Query('q') q?: string, @Query('state') state?: string) {
-    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.organizations($1,$2,$3)', [a.accountId, (q ?? '').slice(0, 100), state ?? ''])).rows }));
+  shops(@Account() a: PlatformAccount, @Query('q') q?: string, @Query('state') state?: string, @Query('offset') offset?: string) {
+    const n = pageOffset(offset);
+    return this.database.run(async c => page((await c.query('SELECT * FROM padmin.organizations($1,$2,$3,$4)', [a.accountId, (q ?? '').slice(0, 100), state ?? '', n])).rows, n));
+  }
+
+  /** Unresolved incidents and the latest resolution, for the console home. */
+  @Get('incidents/summary') @Permission('system.read')
+  incidentSummary(@Account() a: PlatformAccount) {
+    return this.one('SELECT padmin.incident_summary($1) AS v', [a.accountId]);
   }
 
   @Get('shops/:id') @Permission('shops.read')
@@ -143,7 +158,7 @@ export class PlatformAdminController {
   }
 
   /** Content under an active grant (requesting agent only, consented scope, until expiry). */
-  @Get('access/:id/read/:what') @Permission('support.read')
+  @Get('access/:id/read/:what') @Permission('support.read') @StepUp()
   async read(@Account() a: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Param('what') what: string) {
     this.id(id);
     if (!scopes.includes(what)) throw apiError(404, 'RESOURCE_NOT_FOUND');
@@ -165,11 +180,12 @@ export class PlatformAdminController {
   }
 
   @Get('data-requests') @Permission('data.manage')
-  dataRequests(@Account() a: PlatformAccount) {
-    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.data_requests($1)', [a.accountId])).rows }));
+  dataRequests(@Account() a: PlatformAccount, @Query('offset') offset?: string) {
+    const n = pageOffset(offset);
+    return this.database.run(async c => page((await c.query('SELECT * FROM padmin.data_requests($1,$2)', [a.accountId, n])).rows, n));
   }
 
-  @Post('data-requests/:id') @HttpCode(200) @Permission('data.manage')
+  @Post('data-requests/:id') @HttpCode(200) @Permission('data.manage') @StepUp()
   async updateDataRequest(@Account() a: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Body() body: Record<string, unknown> = {}) {
     this.id(id);
     const check = new Validation();

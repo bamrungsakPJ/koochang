@@ -37,6 +37,8 @@ export function NotificationsScreen({ membership, onBack, onOpen }: { membership
   const errorText = useErrorText();
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [announcements,setAnnouncements]=useState<{id:string;title_th:string;title_en:string;body_th:string;body_en:string;publish_at:string}[]>([]);
+  useEffect(()=>{setAnnouncements([]);if(membership.role==='owner')api.announcements(membership.organization_id).then(r=>setAnnouncements(r.items),e=>setError(errorText(e)));},[membership.organization_id,membership.role]);
   const load = useCallback(() => { api.notifications(membership.organization_id).then(setInbox, e => setError(errorText(e))); }, [membership.organization_id]);
   useEffect(load, [load]);
 
@@ -47,6 +49,7 @@ export function NotificationsScreen({ membership, onBack, onOpen }: { membership
   if (!inbox) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
   return <Screen onBack={onBack}>
     <Title>{t('notifications')}</Title>
+    {announcements.map(item=><Card key={item.id}><Title>{language==='th'?item.title_th:item.title_en}</Title><Text style={styles.text}>{language==='th'?item.body_th:item.body_en}</Text><Sub>{formatDate(new Date(item.publish_at),language)}</Sub></Card>)}
     {inbox.unread ? <Button small kind="secondary" icon="checkmark-done" title={t('markAllRead')}
       onPress={async () => { try { setInbox(await api.markRead(membership.organization_id)); } catch (e) { setError(errorText(e)); } }} /> : null}
     <Banner text={error} />

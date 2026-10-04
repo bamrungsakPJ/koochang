@@ -7,13 +7,19 @@ import { InvoiceView, PaymentsView, ReconcileView, RefundsView } from './payment
 import { AccessView, AuditView, DataRequestsView, OverviewView, ShopsView, ShopView, SystemView, TicketsView, TicketView } from './admin';
 import { PaymentSettingsView } from './payment-settings';
 import { AccountSettingsView, PlatformSettingsView } from './settings';
+import { ApprovalsView, CatalogView, Enrollment, PolicyView, StaffView } from './management';
+import { CommunicationsView, OperationsView } from './operations';
+import { PrivacyView } from './privacy';
 
 type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
-  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'} | {name:'settings'} | {name:'account'};
-type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings' | 'settings' | 'account';
+  | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'} | {name:'settings'} | {name:'account'} | {name:'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations'};
+type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings' | 'settings' | 'account' | 'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations';
 const nav: { name: NavName; key: AdminKey; permission?: string }[] = [
   { name: 'overview', key: 'navOverview', permission: 'shops.read' },
   { name: 'shops', key: 'navShops', permission: 'shops.read' },
+  { name: 'catalog', key: 'navCatalog', permission: 'plans.manage' },
+  { name: 'staff', key: 'navStaff', permission: 'accounts.manage' },
+  { name: 'approvals', key: 'navApprovals', permission: 'approvals.read' },
   { name: 'payments', key: 'navPayments', permission: 'billing.read' },
   { name: 'refunds', key: 'navRefunds', permission: 'billing.read' },
   { name: 'reconcile', key: 'navReconcile', permission: 'billing.read' },
@@ -22,8 +28,11 @@ const nav: { name: NavName; key: AdminKey; permission?: string }[] = [
   { name: 'data', key: 'navData', permission: 'data.manage' },
   { name: 'audit', key: 'navAudit', permission: 'audit.read' },
   { name: 'system', key: 'navSystem', permission: 'system.read' },
+  { name: 'operations', key: 'navOperations', permission: 'system.read' },
+  { name: 'communications', key: 'navCommunications', permission: 'communications.manage' },
   { name: 'paymentSettings', key: 'paymentSettings', permission: 'payments.manage' },
   { name: 'settings', key: 'platformSettings', permission: 'settings.manage' },
+  { name: 'policy', key: 'navPolicy', permission: 'settings.manage' },
   { name: 'account', key: 'accountSettings' },
 ];
 const parent: Partial<Record<View['name'], NavName>> = { invoice: 'payments', shop: 'shops', ticket: 'support' };
@@ -32,11 +41,14 @@ export function Console() {
   const [language, setLanguage] = useState<Language>('th');
   const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
+  const [invite,setInvite]=useState<string|null>(null);
   const [view, setView] = useState<View | null>(null);
   const stepUpResolve = useRef<((ok: boolean) => void) | null>(null);
   const [stepUpOpen, setStepUpOpen] = useState(false);
 
   useEffect(() => {
+    const token=new URLSearchParams(location.hash.slice(1)).get('invite');
+    if(token){setInvite(token);history.replaceState(null,'',location.pathname+location.search);}
     const saved = (() => { try { return localStorage.getItem('console.language'); } catch { return null; } })();
     const lang = normalizeLanguage(saved ?? navigator.language);
     setLanguage(lang); setApiLanguage(lang);
@@ -52,6 +64,7 @@ export function Console() {
 
   let content: ReactNode = null;
   if (!ready) content = null;
+  else if(invite)content=<Enrollment token={invite} onDone={()=>setInvite(null)}/>;
   else if (!me) content = <SignIn onSignedIn={setMe} />;
   else {
     const allowed = nav.filter(n => !n.permission || me.permissions.includes(n.permission));
@@ -71,10 +84,16 @@ export function Console() {
       : current.name === 'access' ? <AccessView me={me} />
       : current.name === 'audit' ? <AuditView />
       : current.name === 'system' ? <SystemView />
+      : current.name === 'staff' ? <StaffView me={me}/>
+      : current.name === 'catalog' ? <CatalogView me={me}/>
+      : current.name === 'approvals' ? <ApprovalsView me={me}/>
+      : current.name === 'policy' ? <PolicyView/>
+      : current.name === 'communications' ? <CommunicationsView/>
+      : current.name === 'operations' ? <OperationsView me={me}/>
       : current.name === 'paymentSettings' ? <PaymentSettingsView />
       : current.name === 'settings' ? <PlatformSettingsView />
       : current.name === 'account' ? <AccountSettingsView onUpdated={value=>{setMe(value);changeLanguage(normalizeLanguage(value.preferred_language));}} />
-      : <DataRequestsView />;
+      : <PrivacyView me={me}/>;
     content = <Shell me={me} view={section} items={allowed} onNavigate={go}
       onSignOut={async () => { try { await call('POST', '/platform/auth/logout'); } catch { /* ignore */ } session.set(null); setMe(null); }}>{body}</Shell>;
   }
