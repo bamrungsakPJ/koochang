@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { Linking, StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
 import { Language, normalizeLanguage } from '@field-service/core';
@@ -240,7 +241,7 @@ export default function App() {
   }
   if (!fontsLoaded) content = <Loading />;
   return <LanguageContext.Provider value={language}>
-    <SafeAreaView style={styles.root}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView>
+    <SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView></SafeAreaProvider>
   </LanguageContext.Provider>;
 }
 
