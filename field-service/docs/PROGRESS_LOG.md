@@ -7,15 +7,16 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-05 — หลัง migration 022)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-05 — หลัง migration 024 Push FCM)
 
 **เริ่มต่อจากตรงนี้**
-- โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit migration 022) **ยังไม่ได้ push — ไม่มี git remote**
+- โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit Push FCM, migration 024) **ยังไม่ได้ push — ไม่มี git remote**
 - **Staging บน server2 (ใช้ภายใน LAN)** อัปเดตถึง 8d76e10 แล้ว: console http://192.168.1.127:3200/console, เว็บร้าน http://192.168.1.127:3200/shop, API http://192.168.1.127:4100 — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api`), ฐานข้อมูล 16/staging พอร์ต 5434 (migration ถึง 021 — ยังไม่ได้ลง 022 รอผู้ใช้สั่งอัปเดต), มีบัญชี console 1 คน, **ยังไม่มีแพ็กเกจ** วิธีอัปเดตใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
-- **เครื่อง dev**: API :4000, console/เว็บร้าน :3001, ฐานข้อมูล dev (server2 16/main) migration ถึง 022; มีร้านทดลอง "ร้านทดสอบดีไซน์" เบอร์ทดลอง 0800009876; บัญชี console ทดลองอยู่ใน `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
+- **เครื่อง dev**: API :4000, console/เว็บร้าน :3001, ฐานข้อมูล dev (server2 16/main) migration ถึง 024; มีร้านทดลอง "ร้านทดสอบดีไซน์" เบอร์ทดลอง 0800009876; บัญชี console ทดลองอยู่ใน `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
 - **การตัดสินใจล่าสุด**: super admin ทำทุกอย่างได้เองไม่ต้องมีผู้อนุมัติ (migration 021; บทบาทอื่นยังใช้สองคน); console และเว็บร้านใช้ดีไซน์ SaaS สว่างชุดเดียวกัน
 - **ขั้นต่อไปของผู้ใช้**: สร้างแพ็กเกจ trial + รายเดือนใน console staging (super admin กดเผยแพร่ได้ทันที), ลองใช้ดีไซน์ใหม่แล้วให้ความเห็น
-- **ยังไม่มี**: ชื่อระบบ, โดเมน, DeeSMSx key, EasySlip/Stripe key, ANTHROPIC_API_KEY, ผู้ให้บริการ Push
+- **Push**: เลือก FCM โดยตรง เริ่มที่ Android (2026-10-05) โค้ดพร้อม ดู [PUSH_FCM.md](PUSH_FCM.md)
+- **ยังไม่มี**: ชื่อระบบ, โดเมน, **package name ของแอป Android** (ต้องมีก่อนสร้าง Firebase), โปรเจกต์ Firebase, DeeSMSx key, EasySlip/Stripe key, ANTHROPIC_API_KEY
 
 **สรุปสิ่งที่ทำเสร็จ**
 - Console `/console` ครบตาม MVP (migration 017–020) + ดีไซน์ใหม่; เว็บเจ้าของร้าน `/shop`; แอปมือถือ (Expo); ชำระเงิน EasySlip/Stripe; OTP DeeSMSx; OCR ป้ายเครื่องด้วย Claude API ([OCR_CLAUDE.md](OCR_CLAUDE.md))
@@ -52,7 +53,7 @@
 6. `ANTHROPIC_API_KEY` สำหรับ OCR และยืนยันโมเดล/งบหลังวัดผลกับรูปจริง ([OCR_CLAUDE.md](OCR_CLAUDE.md))
 7. ราคาจริงของแพ็กเกจและจำนวนวันทดลองใช้ (ราคาเสนอเดิม Starter 590 / Team 1,290 บาท/เดือน)
 8. รูปแบบใบเสร็จ/ใบกำกับภาษี
-9. ผู้ให้บริการ Push (ตอนนี้ใช้กล่องแจ้งเตือนในแอป)
+9. ~~ผู้ให้บริการ Push~~ ✅ เลือก FCM เริ่ม Android (2026-10-05) — ที่เหลือ: **package name จริงของแอป** + โปรเจกต์ Firebase (`google-services.json` และ service account key) ดู [PUSH_FCM.md](PUSH_FCM.md)
 10. ข้อความนโยบายความเป็นส่วนตัวสำหรับร้าน (รวมเรื่องรูปป้ายเครื่องถูกส่งให้ AI อ่าน)
 11. ปลายทาง backup นอกเครื่อง (ตอนนี้สำรองไว้ดิสก์ /data3 ในเครื่องเดียวกัน)
 
@@ -67,12 +68,12 @@
 3. ทดสอบกับบริการจริงเมื่อได้รับอนุญาต: OTP จริง, โอนเงิน + EasySlip, Stripe test mode
 4. วัดความแม่นและค่าใช้จ่าย OCR ด้วยรูปป้ายจริง 20–30 รูป (ต้องมี key และอนุญาตก่อนเรียก API จริง)
 5. OCR retry หลายคำขอพร้อมกันบน PostgreSQL จริง
-6. สร้าง APK/IPA จริง (ยังใช้ Expo Go/web)
+6. สร้าง APK/IPA จริง (ยังใช้ Expo Go/web) — จำเป็นสำหรับทดสอบ push เพราะ Expo Go รับ push ไม่ได้
 
 **E. ปรับปรุงที่ควรทำภายหลัง (ไม่บล็อก pilot)**
 1. ~~สรุปการเงินนับ "ร้านที่ชำระเงิน" ช้า~~ ✅ แก้แล้ว (migration 022)
 2. ข้อความเมื่อผู้ใช้ที่ล็อกอินอยู่เปิดลิงก์เข้าร่วมร้าน — ตรวจบนมือถือ
-3. outbox ยังไม่มี consumer — ยังไม่มีโค้ดใดเขียน event ลง outbox ทำพร้อม event แรก (เช่น Push)
+3. outbox ยังไม่มี consumer — Push ไม่ได้ใช้ outbox (ใช้คิว `ops.notification_deliveries` ที่มีอยู่แล้ว) จึงยังไม่จำเป็น
 4. รัน GitHub CI (PostgreSQL 16) เมื่อมี remote
 5. โปรเจกต์ ServiceFlow เดิมอยู่ในโฟลเดอร์แม่ทำให้ dependency ที่ไม่ได้ประกาศผ่านบนเครื่อง dev — ควรตรวจ build ใน CI/เครื่องสะอาดทุกครั้ง
 
@@ -99,6 +100,19 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-05 — Push ด้วย Firebase Cloud Messaging เริ่มที่ Android (migration 024)
+
+- การตัดสินใจ: ผู้ใช้เลือกส่ง push ผ่าน FCM โดยตรง (ไม่ผ่าน Expo Push) เริ่มที่ Android ก่อน; iOS เพิ่มภายหลังด้วยโปรเจกต์ Firebase เดิม + APNs key
+- ทำอะไร:
+  - API/worker: `FcmPushSender` ส่งแบบ FCM HTTP v1 เซ็น JWT ด้วย service account เอง (ไม่เพิ่ม dependency) แคช access token; ตั้งค่า `PUSH_PROVIDER=fcm` + `FCM_SERVICE_ACCOUNT_FILE`; token ที่ตายแล้ว (`UNREGISTERED`) ถูกเพิกถอน, 429/5xx/เครือข่ายล่ม retry, `INVALID_ARGUMENT` ไม่เพิกถอน token; iOS ถูกข้าม; production แจ้ง `CONFIG_MISSING` ถ้ายังไม่ตั้ง
+  - migration 024: `worker.claim_deliveries` ข้าม push ที่ค้างคิวของ token ที่ถูกเพิกถอนหรือเปลี่ยนเจ้าของ (มือถือเครื่องเดียวใช้หลายบัญชี)
+  - มือถือ: เพิ่ม `expo-notifications`; หลังเข้าสู่ระบบขอสิทธิ์แจ้งเตือนแล้วลงทะเบียน token (`src/push.ts`), ลงทะเบียนใหม่เมื่อ token เปลี่ยน, แสดง push ขณะเปิดแอป, กด push แล้วเปิดกล่องแจ้งเตือนของร้านนั้น, ออกจากระบบแล้วถอด token ก่อน; ใน Expo Go ปิดส่วนนี้อัตโนมัติ; `app.config.js` ใส่ `google-services.json` เมื่อมีไฟล์ (ไฟล์ไม่อยู่ใน git)
+- ปัญหา: (1) logout เดิมไม่ถอด device token และ worker ส่ง push ที่ค้างคิวโดยไม่ดูว่า token ถูกเพิกถอนหรือย้ายไปบัญชีอื่น → คนถัดไปที่ใช้มือถือเครื่องเดียวกันอาจเห็น push ของบัญชีเดิม (2) ช่างที่รออนุมัติจะไม่ได้ push "อนุมัติแล้ว" ถ้าลงทะเบียนเฉพาะสมาชิก active (3) คำสั่งลบโฟลเดอร์ทดสอบนอก scratchpad ถูกระบบความปลอดภัยบล็อก
+- แก้อย่างไร: (1) แอปถอด token ก่อน logout + migration 024 กันฝั่ง server (2) ลงทะเบียนทุกบัญชีที่เข้าสู่ระบบ และเมื่อกด push ให้โหลดสมาชิกภาพใหม่ก่อน (3) ย้ายไป export ใน scratchpad (คำสั่งที่ถูกบล็อกไม่ได้รัน ไม่มีไฟล์ค้าง)
+- ตรวจแล้ว: PGlite 150 ผ่าน / 27 ข้าม / 0 ล้มเหลว; PostgreSQL 16 177 ผ่าน / 0 ล้มเหลว (รวม `tests/push-fcm.test.mjs` ที่จำลอง Google endpoint และ test ใหม่ใน worker); typecheck มือถือผ่าน; `expo export --platform android` ผ่าน; ลง migration 023–024 บนฐาน dev แล้ว
+- ยังไม่ได้ทำ: ไม่มีโปรเจกต์ Firebase จริง ไม่ได้ส่ง push จริง ไม่ได้ทดสอบบนมือถือ (ต้องใช้ development build); staging ยังไม่ได้ deploy
+- สถานะ: ⏳ รอ **package name จริงของแอป Android** (ตอนนี้ `com.example.fieldservicefoundation`) → สร้าง Firebase → ส่ง `google-services.json` + service account key → build APK ทดสอบ
 
 ### 2026-10-05 — แพ็กเกจราคา 3 แพ็กเกจ + จำกัดแค่ช่างกับพื้นที่ (migration 023)
 

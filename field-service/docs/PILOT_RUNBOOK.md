@@ -8,11 +8,11 @@ decision or a person. This is not a deployment script and grants no credentials.
 | Gate | State | Owner of the decision |
 |---|---|---|
 | Server with PostgreSQL 16, roles from `infra/postgres/00-roles.sql` (fs_migrator, fs_api, fs_worker, fs_platform; none superuser/BYPASSRLS) | Ready to apply; verified on server2 dev | Team |
-| Migrations `pnpm db:migrate` (001–016), no seed in production | Ready | Team |
+| Migrations `pnpm db:migrate` (001–024), no seed in production | Ready | Team |
 | API start prints `CONFIG_MISSING <name>` for every production setting not set (names only); each missing feature answers 503 | Done | — |
 | SMS provider for OTP (`SMS_PROVIDER`) | **DeeSMSx chosen and adapter implemented** — account keys/approved sender and authorized live delivery verification pending; see [DEESMSX.md](DEESMSX.md) | Business |
 | OCR provider (`OCR_PROVIDER=claude`, `ANTHROPIC_API_KEY`) | **Chosen: Claude API** (2026-10-04), code ready; needs the API key and an accuracy check on real nameplates — see [OCR_CLAUDE.md](OCR_CLAUDE.md) | Team (key), Business (model/cost) |
-| Push provider (`PUSH_PROVIDER`) | Not chosen — in-app inbox works, pushes are skipped | Business |
+| Push provider (`PUSH_PROVIDER=fcm`, `FCM_SERVICE_ACCOUNT_FILE`) | **Chosen: FCM, Android first** (2026-10-05), code ready; needs final package name, Firebase project and a development build — see [PUSH_FCM.md](PUSH_FCM.md). Without it pushes are skipped, inbox works | Business (package name), Team (Firebase) |
 | Receiving bank account (`PAYMENT_*`) confirmed by the team | **Not set** — owners cannot create invoices until set | Business |
 | EasySlip (`EASYSLIP_API_KEY`, `PAYMENT_BANK_CODE`, `SLIP_DATABASE_URL`) | Provider chosen; integration implemented; real credentials/account registration and live checks pending — see [EASYSLIP.md](EASYSLIP.md) | Team |
 | Platform Stripe account (console Payment settings), webhook, PAYMENT_DATABASE_URL / OWNER_WEB_URL | QR PromptPay/card integration implemented; real account/onboarding and test/live verification pending — see [STRIPE.md](STRIPE.md) | Team |

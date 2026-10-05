@@ -114,6 +114,29 @@ test('push deliveries are queued per device and finished by the worker', async (
   assert.equal((await db.query('SELECT count(*)::int AS n FROM auth.device_tokens WHERE user_id = $1 AND revoked_at IS NULL', [shop.owner.userId])).rows[0].n, 0, 'invalid tokens are revoked');
 });
 
+test('queued pushes never reach a device after sign-out or after another account takes the phone', async () => {
+  const shop = await a.createShop('Push handover');
+  const token = `fcm-${randomUUID()}`;
+  await a.one('SELECT auth.register_device($1,$2,$3) AS id', [shop.owner.userId, token, 'android']);
+  await a.addTechnician(shop);
+  await a.one('SELECT auth.revoke_device($1,$2) AS ok', [shop.owner.userId, token]);
+  const queued = (await db.query('SELECT d.id FROM ops.notification_deliveries d JOIN auth.device_tokens t ON t.id = d.device_token_id WHERE t.token = $1', [token])).rows;
+  assert.equal(queued.length, 1);
+  assert.equal((await asWorker('SELECT * FROM worker.claim_deliveries(50)')).filter(d => d.token === token).length, 0, 'revoked device not claimed');
+  assert.deepEqual((await db.query('SELECT status, last_error FROM ops.notification_deliveries WHERE id = $1', [queued[0].id])).rows[0], { status: 'skipped', last_error: 'DEVICE_NOT_CURRENT' });
+
+  // Same phone, same token: the owner signs in again, a new request arrives, then a technician signs in on it.
+  await a.one('SELECT auth.register_device($1,$2,$3) AS id', [shop.owner.userId, token, 'android']);
+  await a.addTechnician(shop);
+  const other = await a.createShop('Push handover 2');
+  await a.one('SELECT auth.register_device($1,$2,$3) AS id', [other.owner.userId, token, 'android']);
+  assert.equal((await asWorker('SELECT * FROM worker.claim_deliveries(50)')).filter(d => d.token === token).length, 0, 'push for the previous holder skipped');
+  await a.addTechnician(other);
+  const mine = (await asWorker('SELECT * FROM worker.claim_deliveries(50)')).filter(d => d.token === token);
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].organization_id, other.organizationId, 'current holder still receives theirs');
+});
+
 test('subscription reminders: trial ending once per period, expired once', async () => {
   const shop = await a.createShop('Remind');
   await db.query("UPDATE billing.subscription_periods SET start_at = start_at - interval '12 days', end_at = end_at - interval '12 days' WHERE organization_id = $1", [shop.organizationId]);

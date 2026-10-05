@@ -30,6 +30,12 @@
           "photosPermission": "เลือกรูปเครื่องจากคลังภาพ / Pick equipment photos from your library.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
       ]
     ],
     "experiments": {

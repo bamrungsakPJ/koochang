@@ -13,3 +13,6 @@ coverage/
 
 # Local console test accounts (development only)
 .dev-platform-accounts.txt
+
+# Firebase Android config (FCM push), provided per environment
+google-services.json

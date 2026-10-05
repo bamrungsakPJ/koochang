@@ -128,6 +128,8 @@ export class Api {
     await this.setTokens(null);
   }
   me() { return this.call<Me>('GET', '/me'); }
+  registerDevice(token: string, platform: 'android' | 'ios') { return this.call<void>('POST', '/me/devices', { token, platform }); }
+  removeDevice(token: string) { return this.call<void>('POST', '/me/devices/remove', { token }); }
   updateMe(body: { preferred_language?: Language; display_name?: string }) { return this.call<Me>('PATCH', '/me', body); }
 
   // shops -------------------------------------------------------------------------------------

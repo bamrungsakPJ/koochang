@@ -18,6 +18,7 @@ import { NotificationsScreen } from './src/screens/notifications';
 import { MaintenanceDetail, MaintenanceScreen } from './src/screens/maintenance';
 import { BillingScreen, InvoiceScreen } from './src/screens/billing';
 import { SupportScreen } from './src/screens/support';
+import { listenForPush, registerPush, unregisterPush, type PushTarget } from './src/push';
 
 type Next =
   | { kind: 'register'; shopName: string; idempotencyKey: string }
@@ -48,6 +49,7 @@ export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const pendingToken = useRef<string | null>(null);
+  const [pushTarget, setPushTarget] = useState<PushTarget | null>(null);
 
   const selectOrganization = useCallback(async (id: string | null) => {
     setOrganizationId(id); await storage.set(keys.organization, id);
@@ -89,8 +91,24 @@ export default function App() {
       const token = pendingToken.current; pendingToken.current = null;
       setRoute(token ? { screen: 'joinPreview', token } : next);
     })();
-    return () => subscription.remove();
+    const stopPush = listenForPush(setPushTarget);
+    return () => { subscription.remove(); stopPush(); };
   }, []);
+
+  // Register this phone for push once signed in (a pending technician's first push is the approval).
+  const pushUser = me?.user.id ?? null;
+  useEffect(() => { if (pushUser) void registerPush(language); }, [pushUser]);
+
+  // A tapped push reloads memberships (it may be the approval) and opens that shop's inbox; the
+  // inbox re-checks access before opening anything.
+  useEffect(() => {
+    if (!pushTarget || !me) return;
+    setPushTarget(null);
+    void loadMe(pushTarget.organizationId).then(next => {
+      const target = next.memberships.find(m => m.organization_id === pushTarget.organizationId);
+      setRoute({ screen: target?.status === 'active' ? 'notifications' : 'shop' });
+    }).catch(() => {});
+  }, [pushTarget, me, loadMe]);
 
   async function changeLanguage(value: Language) {
     setLanguage(value); api.language = value;
@@ -115,7 +133,7 @@ export default function App() {
     }
   }
 
-  async function signOut() { await api.signOut(); await storage.set(keys.organization, null); signedOut(); }
+  async function signOut() { await unregisterPush(); await api.signOut(); await storage.set(keys.organization, null); signedOut(); }
 
   const membership = me?.memberships.find(m => m.organization_id === organizationId);
   const several = (me?.memberships.length ?? 0) > 1;

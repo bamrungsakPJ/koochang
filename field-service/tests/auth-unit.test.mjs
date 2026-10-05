@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import core from '../packages/core/dist/index.js';
@@ -100,9 +101,12 @@ test('production start lists missing settings by name; development lists none', 
     assert.ok(missing.some(p => p.startsWith(name)), name);
   }
   const key = randomBytes(32).toString('base64');
+  const fcmFile = join(tmpdir(), `fs-fcm-${randomBytes(4).toString('hex')}.json`);
+  writeFileSync(fcmFile, JSON.stringify({ project_id: 'test-project', client_email: 'push@test-project.iam.gserviceaccount.com', private_key: 'synthetic' }));
   const complete = productionProblems({ NODE_ENV: 'production', DATABASE_URL: 'postgres://x', OTP_SECRET: key, JOIN_LINK_KEY: key, JOIN_LINK_BASE_URL: 'https://join.example.co/join',
     SMS_PROVIDER: 'deesmsx', DEESMSX_API_KEY: 'test-api', DEESMSX_SECRET_KEY: 'test-secret', DEESMSX_SENDER: 'Test', MEDIA_DIR: '/srv/media', MEDIA_URL_SECRET: key, OCR_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'test-only', PLATFORM_DATABASE_URL: 'postgres://y', PLATFORM_SECRET_KEY: key,
-    PAYMENT_BANK_NAME: 'Bank', PAYMENT_ACCOUNT_NAME: 'Co', PAYMENT_ACCOUNT_NUMBER: '1', PAYMENT_BANK_CODE: '004', EASYSLIP_API_KEY: 'test-only', SLIP_DATABASE_URL: 'postgres://fs_worker:test@localhost/test', ADMIN_ORIGIN: 'https://console.example.co' });
+    PAYMENT_BANK_NAME: 'Bank', PAYMENT_ACCOUNT_NAME: 'Co', PAYMENT_ACCOUNT_NUMBER: '1', PAYMENT_BANK_CODE: '004', EASYSLIP_API_KEY: 'test-only', SLIP_DATABASE_URL: 'postgres://fs_worker:test@localhost/test', ADMIN_ORIGIN: 'https://console.example.co',
+    PUSH_PROVIDER: 'fcm', FCM_SERVICE_ACCOUNT_FILE: fcmFile });
   assert.deepEqual(complete, []);
   assert.ok(productionProblems({ NODE_ENV: 'production', ADMIN_ORIGIN: 'http://console.example.co' }).some(p => p.startsWith('ADMIN_ORIGIN')), 'plain http origin refused');
   assert.ok(productionProblems({ NODE_ENV: 'production', OCR_PROVIDER: 'claude' }).some(p => p.startsWith('ANTHROPIC_API_KEY')), 'claude OCR needs a key');
