@@ -113,7 +113,7 @@ Decisions: [DECISIONS_A02.md](DECISIONS_A02.md). Migration `002_identity.sql` (n
 
 Done:
 - API: phone OTP request/verify (development SMS adapter only), session refresh with rotation and reuse detection, logout, `GET/PATCH /me`, create shop (shop + owner + join link in one transaction, Idempotency-Key), public join link preview, join request (pending), owner team list with seat usage, approve / reject / suspend / reactivate / remove with `expected_version`, join link view (URL + QR PNG), open / close / reset. Every tenant route re-checks the membership; errors keep the same code in th/en with `request_id`.
-- Mobile (Expo): welcome, create shop → OTP → shop ready (share link / QR), sign in, join from deep link `fieldservice://join/<token>` or pasted link → shop preview → name + phone → OTP → pending screen with "check status", rejected/suspended screens without business menus, owner team screen, shop switcher, account (language th/en saved to the account, sign out). Tokens in SecureStore.
+- Mobile (Expo): welcome, create shop → OTP → shop ready (share link / QR), sign in, join from deep link `koochang://join/<token>` or pasted link → shop preview → name + phone → OTP → pending screen with "check status", rejected/suspended screens without business menus, owner team screen, shop switcher, account (language th/en saved to the account, sign out). Tokens in SecureStore.
 - Admin web: `/join/<token>` landing page (th/en) that shows the shop name only for an active link and opens the app.
 
 Tests (`pnpm test`, 51 total; files run one at a time):

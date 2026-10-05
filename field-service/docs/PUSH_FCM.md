@@ -27,9 +27,9 @@ without revoking the token (a payload bug must not revoke every device).
 
 ## What the team needs to provide
 
-1. **Final Android package name** — Firebase registers the app by package name, and it cannot be
-   changed later without a new Firebase app and a new Play Store listing. Today `app.json` still has
-   the placeholder `com.example.fieldservicefoundation`.
+1. Android package name: **`com.koochang.app`** (decided 2026-10-05 with the product name
+   KooChang / คู่ช่าง). Firebase registers the app by this name; it cannot change after the Play
+   Store release.
 2. A Firebase project (free) with an Android app for that package name:
    - `google-services.json` → for the app build. Locally put it at `apps/mobile/google-services.json`;
      on EAS Build upload it as the file variable `GOOGLE_SERVICES_JSON`. It is git-ignored.

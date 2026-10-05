@@ -309,7 +309,7 @@ export class Api {
 
 function safeJson(text: string) { try { return JSON.parse(text); } catch { return null; } }
 
-/** Accepts a full join URL (https://…/join/<token>, fieldservice://join/<token>) or the bare token. */
+/** Accepts a full join URL (https://…/join/<token>, koochang://join/<token>) or the bare token. */
 export function tokenFromLink(text: string): string | null {
   const trimmed = text.trim();
   const match = /(?:^|\/join\/)([A-Za-z0-9_-]{43})(?:[/?#].*)?$/.exec(trimmed);

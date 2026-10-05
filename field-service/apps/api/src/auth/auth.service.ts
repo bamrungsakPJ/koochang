@@ -10,8 +10,8 @@ import { SMS_SENDER, type SmsSender } from '../sms/sms.sender.js';
 export interface Tokens { access_token: string; refresh_token: string; access_expires_in: number; refresh_expires_in: number; }
 
 const smsText: Record<Language, (code: string, minutes: number) => string> = {
-  th: (code, minutes) => `รหัสยืนยัน ${code} ใช้ได้ ${minutes} นาที ห้ามบอกรหัสนี้กับผู้อื่น`,
-  en: (code, minutes) => `Your verification code is ${code}. It expires in ${minutes} minutes. Do not share it.`,
+  th: (code, minutes) => `คู่ช่าง: รหัสยืนยัน ${code} ใช้ได้ ${minutes} นาที ห้ามบอกรหัสนี้กับผู้อื่น`,
+  en: (code, minutes) => `KooChang: Your verification code is ${code}. It expires in ${minutes} minutes. Do not share it.`,
 };
 
 @Injectable()

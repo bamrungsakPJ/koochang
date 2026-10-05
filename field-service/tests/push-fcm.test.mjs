@@ -12,7 +12,7 @@ const file = join(tmpdir(), `fs-fcm-${randomBytes(4).toString('hex')}.json`);
 writeFileSync(file, JSON.stringify({ type: 'service_account', project_id: 'synthetic-project', client_email: 'push@synthetic-project.iam.gserviceaccount.com',
   private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) }));
 const env = { NODE_ENV: 'production', PUSH_PROVIDER: 'fcm', FCM_SERVICE_ACCOUNT_FILE: file };
-const message = { token: 'synthetic-device-token-123', platform: 'android', title: 'Field Service', body: 'งานใหม่', data: { organization_id: 'o', target_type: 'job', target_id: 'j' } };
+const message = { token: 'synthetic-device-token-123', platform: 'android', title: 'คู่ช่าง', body: 'งานใหม่', data: { organization_id: 'o', target_type: 'job', target_id: 'j' } };
 
 /** Fake Google endpoints: token exchange, then FCM send answers taken from `replies` in order. */
 function fakeGoogle(t, replies = []) {
@@ -57,7 +57,7 @@ test('FCM signs a service-account JWT, caches the access token and sends an Andr
   assert.equal(send.url, 'https://fcm.googleapis.com/v1/projects/synthetic-project/messages:send');
   assert.equal(send.options.headers.Authorization, 'Bearer access-1');
   assert.equal(send.options.redirect, 'error');
-  assert.deepEqual(send.body, { message: { token: message.token, notification: { title: 'Field Service', body: 'งานใหม่' }, data: message.data,
+  assert.deepEqual(send.body, { message: { token: message.token, notification: { title: 'คู่ช่าง', body: 'งานใหม่' }, data: message.data,
     android: { priority: 'HIGH', notification: { channel_id: 'default' } } } });
 });
 

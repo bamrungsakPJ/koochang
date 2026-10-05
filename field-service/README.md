@@ -1,4 +1,6 @@
-# ระบบงานบริการภาคสนาม
+# คู่ช่าง (KooChang)
+
+ระบบงานบริการภาคสนามสำหรับร้านและทีมช่าง
 
 Mobile-first SaaS: Expo/React Native, Next.js, NestJS และ PostgreSQL 16 รองรับ th/en พัฒนาฟังก์ชัน MVP แล้ว แต่ยังต้องยืนยันบนอุปกรณ์จริงและตั้ง production providers ก่อนเปิดขาย
 

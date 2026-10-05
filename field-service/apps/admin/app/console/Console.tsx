@@ -143,7 +143,7 @@ function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; v
     <aside className="side" aria-label={t('consoleTitle')}>
       <div className="brand-row">
         <span className="brand-mark" aria-hidden><ShieldCheck size={18} strokeWidth={2.2} /></span>
-        <span className="brand-text"><strong>{t('consoleTitle')}</strong><small>Field Service</small></span>
+        <span className="brand-text"><strong>{t('consoleTitle')}</strong><small>KooChang</small></span>
         <button className="icon-btn close-nav" aria-label={t('cancel')} onClick={() => setOpen(false)}><X size={18} /></button>
       </div>
       <nav>{groups.map(g => <div className="nav-group" key={g.group}>
@@ -198,7 +198,7 @@ function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   }
   return <div className="signin-page"><form className="signin" onSubmit={submit}>
     <div className="signin-brand"><span className="brand-mark lg" aria-hidden><ShieldCheck size={22} strokeWidth={2.2} /></span>
-      <span><h1>{t('consoleTitle')}</h1><small>Field Service</small></span></div>
+      <span><h1>{t('consoleTitle')}</h1><small>KooChang</small></span></div>
     {step === 'password' ? <>
       <h2>{t('signIn')}</h2>
       <label>{t('email')}<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>

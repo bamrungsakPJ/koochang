@@ -73,7 +73,7 @@ export function OwnerApp() {
           {!me.memberships.some(m => m.role === 'owner') ? <p>{tr('ownerWeb.technicianAccount')}</p> : null}<Button onClick={signOut}>{tr('signOut')}</Button></>)
       : <div className={menu ? 'shell open' : 'shell'}><aside className="side" aria-label={tr('ownerWeb.navigation')}>
           <div className="brand-row"><span className="brand-mark" aria-hidden><Wrench size={17} strokeWidth={2.2} /></span>
-            <span className="brand-text"><strong>Field Service</strong><small>{tr('ownerWeb.workspace')}</small></span>
+            <span className="brand-text"><strong>{tr('appName')}</strong><small>{tr('ownerWeb.workspace')}</small></span>
             <button className="icon-btn close-nav" aria-label={tr('ownerWeb.closeMenu')} onClick={() => setMenu(false)}><X size={18} /></button></div>
           <div className="shop-switch"><span className="shop-avatar" aria-hidden><Store size={16} /></span>
             <select aria-label={tr('myShops')} value={org} onChange={e => void a.run(async () => { setMenu(false); await loadMe(e.target.value); go({ section: 'home' }); })}>
@@ -142,7 +142,7 @@ function Auth({ onDone, language }: { onDone: (org?: string) => Promise<void>; l
     setPhone(normalized); const next = await api.requestOtp(normalized); setChallenge(next); setWait(next.resend_after); setCode('');
   });
   return <div className="signin-page owner-auth"><div className="owner-language">{language}</div><main className="signin owner-card">
-    <div className="signin-brand"><span className="brand-mark lg" aria-hidden><Wrench size={22} strokeWidth={2.2} /></span><span><strong className="brand-name">Field Service</strong><small>{t('ownerWeb.workspace')}</small></span></div>
+    <div className="signin-brand"><span className="brand-mark lg" aria-hidden><Wrench size={22} strokeWidth={2.2} /></span><span><strong className="brand-name">{t('appName')}</strong><small>{t('ownerWeb.workspace')}</small></span></div>
     <h1>{t('ownerWeb.your_shop_organized')}</h1><p className="muted">{t('ownerWeb.jobs_people_and_customers_in_one_workspace')}</p>
     <form onSubmit={e => { e.preventDefault(); if (!challenge) void requestOtp(); else void a.run(async () => {
       if (!api.signedIn) await api.verifyOtp(challenge.challenge_id, code);

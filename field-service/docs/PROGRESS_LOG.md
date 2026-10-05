@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-05 — หลัง migration 024 Push FCM)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-05 — ตั้งชื่อ คู่ช่าง / KooChang)
 
 **เริ่มต่อจากตรงนี้**
 - โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit Push FCM, migration 024) **ยังไม่ได้ push — ไม่มี git remote**
@@ -16,7 +16,8 @@
 - **การตัดสินใจล่าสุด**: super admin ทำทุกอย่างได้เองไม่ต้องมีผู้อนุมัติ (migration 021; บทบาทอื่นยังใช้สองคน); console และเว็บร้านใช้ดีไซน์ SaaS สว่างชุดเดียวกัน
 - **ขั้นต่อไปของผู้ใช้**: สร้างแพ็กเกจ trial + รายเดือนใน console staging (super admin กดเผยแพร่ได้ทันที), ลองใช้ดีไซน์ใหม่แล้วให้ความเห็น
 - **Push**: เลือก FCM โดยตรง เริ่มที่ Android (2026-10-05) โค้ดพร้อม ดู [PUSH_FCM.md](PUSH_FCM.md)
-- **ยังไม่มี**: ชื่อระบบ, โดเมน, **package name ของแอป Android** (ต้องมีก่อนสร้าง Firebase), โปรเจกต์ Firebase, DeeSMSx key, EasySlip/Stripe key, ANTHROPIC_API_KEY
+- **ชื่อผลิตภัณฑ์**: **คู่ช่าง** (ไทย) / **KooChang** (อังกฤษ); package/bundle id `com.koochang.app`; deep link `koochang://`
+- **ยังไม่มี**: โดเมน (แนะนำ koochang.com หรือ .co.th), โปรเจกต์ Firebase, DeeSMSx key, EasySlip/Stripe key, ANTHROPIC_API_KEY
 
 **สรุปสิ่งที่ทำเสร็จ**
 - Console `/console` ครบตาม MVP (migration 017–020) + ดีไซน์ใหม่; เว็บเจ้าของร้าน `/shop`; แอปมือถือ (Expo); ชำระเงิน EasySlip/Stripe; OTP DeeSMSx; OCR ป้ายเครื่องด้วย Claude API ([OCR_CLAUDE.md](OCR_CLAUDE.md))
@@ -45,7 +46,7 @@
 4. ชี้แอปมือถือไปที่ staging (`EXPO_PUBLIC_API_URL=http://192.168.1.127:4100`) แล้วทดสอบบนมือถือจริง
 
 **B. ต้องให้ผู้ใช้/ฝ่ายธุรกิจตัดสินใจหรือให้ข้อมูล**
-1. **ชื่อระบบ/ผลิตภัณฑ์** (ยังไม่มี; ตอนนี้ใช้ชื่อกลาง field-service)
+1. ~~ชื่อระบบ/ผลิตภัณฑ์~~ ✅ คู่ช่าง / KooChang (2026-10-05)
 2. **โดเมน** (จดใน Cloudflare) → เปิด staging ผ่าน Cloudflare Tunnel เป็น HTTPS
 3. URL ของ git repo → push branch `field-service-a02`, เปิด PR, ใช้ git แทน bundle ในการอัปเดต server
 4. บัญชี DeeSMSx จริง — จำเป็นก่อนสลับเป็นโหมด production และก่อนให้ร้านจริงเข้าสู่ระบบ
@@ -53,7 +54,7 @@
 6. `ANTHROPIC_API_KEY` สำหรับ OCR และยืนยันโมเดล/งบหลังวัดผลกับรูปจริง ([OCR_CLAUDE.md](OCR_CLAUDE.md))
 7. ราคาจริงของแพ็กเกจและจำนวนวันทดลองใช้ (ราคาเสนอเดิม Starter 590 / Team 1,290 บาท/เดือน)
 8. รูปแบบใบเสร็จ/ใบกำกับภาษี
-9. ~~ผู้ให้บริการ Push~~ ✅ เลือก FCM เริ่ม Android (2026-10-05) — ที่เหลือ: **package name จริงของแอป** + โปรเจกต์ Firebase (`google-services.json` และ service account key) ดู [PUSH_FCM.md](PUSH_FCM.md)
+9. ~~ผู้ให้บริการ Push~~ ✅ เลือก FCM เริ่ม Android (2026-10-05), package `com.koochang.app` — ที่เหลือ: โปรเจกต์ Firebase (`google-services.json` และ service account key) ดู [PUSH_FCM.md](PUSH_FCM.md)
 10. ข้อความนโยบายความเป็นส่วนตัวสำหรับร้าน (รวมเรื่องรูปป้ายเครื่องถูกส่งให้ AI อ่าน)
 11. ปลายทาง backup นอกเครื่อง (ตอนนี้สำรองไว้ดิสก์ /data3 ในเครื่องเดียวกัน)
 
@@ -100,6 +101,15 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-05 — ตั้งชื่อผลิตภัณฑ์ คู่ช่าง / KooChang
+
+- การตัดสินใจ: ชื่อไทย **คู่ช่าง** เป็นชื่อหลักบนหน้าจอ ชื่ออังกฤษ **KooChang** (เลือกแทน KhuChang เพราะอ่านง่ายกว่า โดยรู้ว่ามีโอกาสเล็กน้อยที่จะอ่านเป็น "กู") package และ bundle id `com.koochang.app`
+- ทำอะไร: เปลี่ยนชื่อแอปมือถือ (`app.json` name/slug/scheme/package และเพิ่ม iOS bundleIdentifier), `appName` ใน i18n (หัวข้อ push, หน้าต้อนรับ, หน้าเข้าร่วมร้าน), console, เว็บร้าน `/shop`, ชื่อแท็บเบราว์เซอร์, SMS OTP ขึ้นต้นด้วย "คู่ช่าง:" / "KooChang:", ชื่อ issuer ของ TOTP เป็น "KooChang Console", deep link `fieldservice://` เป็น `koochang://`, README, CLAUDE.md, PUSH_FCM.md
+- ไม่เปลี่ยน: ชื่อภายใน (โฟลเดอร์, แพ็กเกจ `@field-service/*`, pm2 `fs-*`, ฐานข้อมูล, ตัวแปร env) และเอกสารอ้างอิงใน `docs/reference`
+- ผลกระทบ: ลิงก์เข้าร่วมแบบ `fieldservice://` ที่ส่งไปแล้วเปิดแอปไม่ได้ (ลิงก์ https ยังใช้ได้); ผู้ดูแล console ที่ตั้ง TOTP ไว้แล้วยังใช้รหัสเดิมได้ แค่ชื่อในแอป authenticator เป็นชื่อเก่า; Expo Go ใช้ต่อได้ตามเดิม
+- ปัญหา: (1) หน้าเข้าสู่ระบบของเว็บร้านใช้ `tr` ที่ไม่มีใน component นั้น → typecheck ไม่ผ่าน แก้เป็น `t` (2) SSH tunnel ไป server2 หลุดระหว่างรันเทสต์ PostgreSQL 16 (Connection reset / Broken pipe) ทำให้เทสต์ล้มเพราะต่อฐานไม่ได้ ไม่ใช่เพราะโค้ด
+- ตรวจแล้ว: typecheck ทุก workspace ผ่าน; PGlite 150 ผ่าน / 27 ข้าม / 0 ล้มเหลว; PostgreSQL 16 177 ผ่าน / 0 ล้มเหลว (รอบที่ tunnel ไม่หลุด); `expo config` แสดงชื่อ คู่ช่าง, package `com.koochang.app`
 
 ### 2026-10-05 — Push ด้วย Firebase Cloud Messaging เริ่มที่ Android (migration 024)
 

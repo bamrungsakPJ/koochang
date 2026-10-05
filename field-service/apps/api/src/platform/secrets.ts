@@ -69,6 +69,6 @@ export function verifyTotp(secret: string, code: string, now = Date.now()): numb
   return null;
 }
 
-export function otpauthUri(secret: string, email: string, issuer = 'Field Service Console'): string {
+export function otpauthUri(secret: string, email: string, issuer = 'KooChang Console'): string {
   return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(email)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }

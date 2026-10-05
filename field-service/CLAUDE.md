@@ -1,6 +1,6 @@
 # คำแนะนำสำหรับ Claude Code
 
-โครงการ Mobile-first SaaS งานบริการภาคสนาม ใช้ชื่อกลาง ยังไม่มีชื่อผลิตภัณฑ์ final
+โครงการ Mobile-first SaaS งานบริการภาคสนาม ชื่อผลิตภัณฑ์ **คู่ช่าง** (ไทย) / **KooChang** (อังกฤษ) ตั้งเมื่อ 2026-10-05; Android package และ iOS bundle id `com.koochang.app`, deep link `koochang://`; ชื่อภายใน (โฟลเดอร์ field-service, pnpm `@field-service/*`, pm2 `fs-*`, ฐานข้อมูล) คงเดิม
 อ่าน START_HERE.md, docs/IMPLEMENTATION_PLAN.md, docs/VERIFICATION.md และ docs/reference/*.md ก่อนแก้โค้ด เปิดต้นแบบใน docs/prototypes เพื่อดูแนวทาง UI
 
 ## สถานะจริง
