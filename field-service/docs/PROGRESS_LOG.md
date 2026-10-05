@@ -11,7 +11,7 @@
 
 **เริ่มต่อจากตรงนี้**
 - โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit Push FCM, migration 024) **ยังไม่ได้ push — ไม่มี git remote**
-- **Staging บน server2** อัปเดตถึง c24a60e (2026-10-05): console https://app-staging.koochang.com/console, เว็บร้าน https://app-staging.koochang.com/shop, API https://api-staging.koochang.com (ผ่าน Cloudflare Tunnel; **รอใบรับรอง SSL ของ Cloudflare** ยังเปิดจากภายนอกไม่ได้; LAN 192.168.1.127 ปิดแล้ว) — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api`), ฐานข้อมูล 16/staging พอร์ต 5434 migration ถึง 024, มีบัญชี console 1 คน, แพ็กเกจเปิดตัว 4 แบบ active วิธีอัปเดตใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
+- **Staging บน server2** อัปเดตถึง c24a60e (2026-10-05): console https://app-staging.koochang.com/console, เว็บร้าน https://app-staging.koochang.com/shop, API https://api-staging.koochang.com (ผ่าน Cloudflare Tunnel, HTTPS ใช้ได้แล้ว; LAN 192.168.1.127 ปิดแล้ว) — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api`), ฐานข้อมูล 16/staging พอร์ต 5434 migration ถึง 024, มีบัญชี console 1 คน, แพ็กเกจเปิดตัว 4 แบบ active วิธีอัปเดตใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
 - **เครื่อง dev**: API :4000, console/เว็บร้าน :3001, ฐานข้อมูล dev (server2 16/main) migration ถึง 024; มีร้านทดลอง "ร้านทดสอบดีไซน์" เบอร์ทดลอง 0800009876; บัญชี console ทดลองอยู่ใน `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
 - **การตัดสินใจล่าสุด**: super admin ทำทุกอย่างได้เองไม่ต้องมีผู้อนุมัติ (migration 021; บทบาทอื่นยังใช้สองคน); console และเว็บร้านใช้ดีไซน์ SaaS สว่างชุดเดียวกัน
 - **ขั้นต่อไปของผู้ใช้**: สร้างแพ็กเกจ trial + รายเดือนใน console staging (super admin กดเผยแพร่ได้ทันที), ลองใช้ดีไซน์ใหม่แล้วให้ความเห็น
@@ -43,7 +43,7 @@
 1. (ทำแล้ว 1 คน) บัญชี console เพิ่มเติมสร้างได้ด้วย `scripts/platform-account.mjs create` บน server2 — super admin คนเดียวพอ ไม่ต้องมีผู้อนุมัติแล้ว
 2. สร้างแพ็กเกจทดลองใช้ + แพ็กเกจรายเดือน/รายปีใน console (super admin เผยแพร่ได้ทันที) (ตอนนี้ไม่มีแพ็กเกจ ร้านใหม่จะติด "รอชำระเงิน")
 3. ตั้งค่านโยบายระบบ: จำนวนวัน retention และ cooling ก่อนลบข้อมูลร้าน
-4. ชี้แอปมือถือไปที่ staging (`EXPO_PUBLIC_API_URL=http://192.168.1.127:4100`) แล้วทดสอบบนมือถือจริง
+4. ชี้แอปมือถือไปที่ staging (`EXPO_PUBLIC_API_URL=https://api-staging.koochang.com`) แล้วทดสอบบนมือถือจริง
 
 **B. ต้องให้ผู้ใช้/ฝ่ายธุรกิจตัดสินใจหรือให้ข้อมูล**
 1. ~~ชื่อระบบ/ผลิตภัณฑ์~~ ✅ คู่ช่าง / KooChang (2026-10-05)
@@ -109,7 +109,8 @@
 - ปัญหา: (1) HTTPS ของทั้งสอง hostname ล้มที่ Cloudflare edge (TLS alert 40 handshake failure) ทั้งจาก PC และจาก server2 → ใบรับรอง Universal SSL ของ koochang.com ยังไม่ออก/โดเมนยังไม่ active (2) บริการ staging ฟังเฉพาะ 192.168.1.127 (`HOST` และ `next start -H 192.168.1.127`) ทำให้ tunnel ที่ชี้ localhost จะได้ 502 (3) ระบบสิทธิ์ของ Claude บล็อกการแก้ `/etc/field-service/staging.env` ด้วย sudo
 - แก้อย่างไร (3): ผู้ใช้สั่งให้รันเองในแชต จึงสำรอง `staging.env.bak-20261005` แล้วตั้ง HOST=127.0.0.1 และ ADMIN_ORIGIN/OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น https://app-staging.koochang.com; สร้าง fs-staging-web ใหม่ด้วย `-H 127.0.0.1`; restart api/worker; `pm2 save`
 - ตรวจแล้ว: บนเครื่อง API `/v1/ready` 200, `/console` 200, `/shop` 200 ทั้งหมดฟังที่ 127.0.0.1; CORS ตอบ `Access-Control-Allow-Origin: https://app-staging.koochang.com`; worker เริ่มด้วย push=development
-- สถานะ: ✅ ฝั่ง server2 พร้อม; ⏳ รอ Cloudflare ออกใบรับรอง SSL ของ koochang.com (HTTPS จากภายนอกยังล้มด้วย handshake failure); LAN 192.168.1.127 ใช้ไม่ได้แล้ว
+- อัปเดต: ผู้ใช้แจ้งว่า SSL ใช้ได้แล้ว → ตรวจจากภายนอก: API `/v1/ready` 200, `/console` 200, `/shop` 200, `/join/…` 200; CORS preflight 204 พร้อม allow-origin ถูกต้อง; เปิดในเบราว์เซอร์จริง: หน้า /shop และ /console แสดงชื่อ KooChang ไม่มี error ใน console, bundle ชี้ `https://api-staging.koochang.com` และ fetch จากหน้าเว็บไป API ได้ 200
+- สถานะ: ✅ staging ใช้งานผ่าน https://app-staging.koochang.com แล้ว; LAN 192.168.1.127 ปิดแล้ว
 
 ### 2026-10-05 — ตั้งชื่อผลิตภัณฑ์ คู่ช่าง / KooChang
 

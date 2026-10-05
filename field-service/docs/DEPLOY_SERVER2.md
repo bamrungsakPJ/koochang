@@ -89,7 +89,7 @@ server2 `/tmp`, then in /opt/field-service/staging `git fetch /tmp/fs.bundle fie
    `sudo -u postgres psql -p 5434 -d field_service -v ON_ERROR_STOP=1 -f /opt/field-service/staging/field-service/database/catalog/launch-plans.sql`
    (idempotent; writes a `plan.published` audit row per plan). Later price changes go through the console.
    Until a trial plan is published, new shops start in "pending payment".
-3. Mobile testing against staging: `EXPO_PUBLIC_API_URL=http://192.168.1.127:4100` in apps/mobile/.env.local.
+3. Mobile testing against staging: `EXPO_PUBLIC_API_URL=https://api-staging.koochang.com` in apps/mobile/.env.local.
 4. When a domain exists: tunnel hostnames, `HOST=127.0.0.1`, https origins in the env file, rebuild the web with the https API URL;
    with DeeSMSx keys switch to `NODE_ENV=production`.
 
