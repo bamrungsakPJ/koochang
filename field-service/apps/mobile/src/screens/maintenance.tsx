@@ -111,7 +111,12 @@ export function MaintenanceDetail({ membership, item: initial, onBack, onOpenJob
   }
   useEffect(() => {
     reload().catch(() => {});
-    api.team(org).then(r => setTeam(r.members.filter(m => m.status === 'active')), () => {});
+    api.team(org).then(r => {
+      const active = r.members.filter(m => m.status === 'active');
+      setTeam(active);
+      // Owner working alone: the job is theirs unless they pick otherwise.
+      if (!active.some(m => m.role === 'technician')) setAssignee(membership.member_id);
+    }, () => {});
   }, []);
 
   function open(next: Panel) { setPanel(panel === next ? null : next); setFailure(null); setFieldError(undefined); setDone(null); }

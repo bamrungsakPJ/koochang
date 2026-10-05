@@ -148,7 +148,12 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
   useEffect(() => {
     api.customer(org, customerId).then(setCustomer, () => {});
     api.equipmentList(org, locationId).then(r => setEquipment(r.items), () => {});
-    api.team(org).then(r => setTeam(r.members.filter(m => m.status === 'active')), () => {});
+    api.team(org).then(r => {
+      const active = r.members.filter(m => m.status === 'active');
+      setTeam(active);
+      // Owner working alone: the job is theirs unless they pick otherwise.
+      if (!active.some(m => m.role === 'technician')) setAssignee(me.memberId);
+    }, () => {});
   }, []);
   const location = customer?.locations.find(l => l.id === locationId);
 

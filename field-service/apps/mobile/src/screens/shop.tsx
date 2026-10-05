@@ -172,6 +172,7 @@ export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRec
     if (owner) api.team(membership.organization_id).then(setTeam, () => setTeam(null));
   }, [owner, membership.organization_id]);
   const pending = team?.members.filter(m => m.status === 'pending').length ?? 0;
+  const solo = team !== null && team.seats.active_technicians === 0 && pending === 0;
   return <Screen>
     <View style={styles.hero}>
       <View style={{ flex: 1 }}>
@@ -186,18 +187,16 @@ export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRec
       <View style={styles.heroAvatar}><Avatar name={me.user.display_name} /></View>
     </View>
     {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
+    <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
+    <Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} />
     {owner ? <>
-      <View style={styles.stats}>
+      {solo ? null : <View style={styles.stats}>
         <Stat icon="people" tone="teal" label={t('activeTechnicians')} value={team ? `${team.seats.active_technicians}/${team.seats.seat_limit}` : '–'} />
         <Stat icon="time" label={t('pendingCount')} value={team ? String(pending) : '–'} tone={pending ? 'rose' : 'amber'} />
-      </View>
+      </View>}
       <MaintenanceCard membership={membership} onOpen={onMaintenance} />
-      <Card padded={false}><Row icon="people" tone="blue" title={t('manageTeam')} subtitle={t('joinLinkHint')} onPress={onTeam} last /></Card>
+      <Card padded={false}><Row icon="people" tone="blue" title={solo ? t('inviteTechnician') : t('manageTeam')} subtitle={solo ? t('soloTeamHint') : t('joinLinkHint')} onPress={onTeam} last /></Card>
       {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} onBilling={onBilling} /></> : null}
-    </> : null}
-    {!owner ? <>
-      <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
-      <Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} />
     </> : null}
   </Screen>;
 }
