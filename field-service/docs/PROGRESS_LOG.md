@@ -111,6 +111,7 @@
 - มือถือ: `colors.primary` #12243A, pressed #0B1828, primarySoft #EDF1F6, เพิ่ม accent #F5A623; แถบเมนูล่างมีขีด amber เหนือแท็บที่เลือก; การ์ดร้านหน้าแรกพื้น navy ชื่อร้านสี amber
 - หลักการ: amber ใช้เป็นสีเน้นเท่านั้น ไม่ใช้เป็นตัวหนังสือบนพื้นขาวเพราะคอนทราสต์ต่ำ
 - ตรวจแล้ว: typecheck ทุก workspace; owner-web test; เปิด /console และ /shop บน dev server (พอร์ต 3002) ค่าสีที่คำนวณได้ตรง (ปุ่ม/brand mark rgb(18,36,58), accent #f5a623)
+- deploy เว็บขึ้น staging (b2f1d15) ตรวจ CSS จริงมี `--c-primary:#12243a` / `--c-accent:#f5a623`; APK build 68d5b2b9 สำเร็จ (2026-10-06 01:36) รวมไอคอน, splash, หน้าเริ่มแอป และสีใหม่
 
 ### 2026-10-05 — ใช้อัตลักษณ์ที่เลือก: โลโก้ K + ประแจ (navy #12243A / amber #F5A623)
 
