@@ -21,7 +21,7 @@
 .owner-app .join-qr { width:156px; height:156px; display:block; margin:18px 0; border:1px solid var(--c-line); border-radius:12px; }
 .owner-app .equipment-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; margin:18px 0; }
 .owner-app .equipment-card { display:flex; flex-direction:column; align-items:stretch; text-align:left; gap:10px; padding:12px; border-radius:14px; }
-.owner-app .equipment-card:hover:not(:disabled) { border-color:#c7d2fe; box-shadow:var(--shadow-md); }
+.owner-app .equipment-card:hover:not(:disabled) { border-color:#d5dce6; box-shadow:var(--shadow-md); }
 .owner-app .equipment-card img,.owner-app .equipment-placeholder { width:100%; height:112px; object-fit:cover; border-radius:10px; background:var(--c-primary-soft); }
 .owner-app .equipment-placeholder { display:grid; place-items:center; color:var(--c-primary); font-size:36px; }
 .owner-app .upload { background:#f9fafb; border:1px dashed #cbd5e1; padding:16px; border-radius:12px; margin:14px 0; }
@@ -36,7 +36,7 @@
 .owner-app .notification-list li { border-radius:12px; }
 .owner-app .notification-list button { width:100%; justify-content:flex-start; flex-direction:column; align-items:flex-start; text-align:left; padding:14px 16px; border-radius:12px; }
 .owner-app .notification-list span { display:block; margin-top:4px; }
-.owner-app .notification-list .unread { background:var(--c-primary-soft); border-color:#c7d2fe; }
+.owner-app .notification-list .unread { background:var(--c-primary-soft); border-color:#d5dce6; }
 .owner-app .ticket-details { border-bottom:1px solid var(--c-line-2); padding:16px 0; }
 .owner-app .ticket-details summary { font-weight:600; cursor:pointer; margin-bottom:12px; }
 .owner-app .service-fieldset { border:0; padding:0; margin:0; min-width:0; }

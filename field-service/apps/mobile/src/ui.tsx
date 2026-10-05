@@ -7,12 +7,14 @@ import { ApiFailure } from './api';
 
 export const colors = {
   bg: '#F5F7FB', surface: '#FFFFFF', ink: '#0F172A', muted: '#64748B', faint: '#94A3B8', line: '#E2E8F0',
-  primary: '#1D4ED8', primaryPressed: '#1E40AF', primarySoft: '#EFF4FF', onPrimary: '#FFFFFF',
+  // KooChang brand (branding/koochang): navy actions, amber accent.
+  primary: '#12243A', primaryPressed: '#0B1828', primarySoft: '#EDF1F6', onPrimary: '#FFFFFF',
+  accent: '#F5A623', accentSoft: '#FEF3DC',
   success: '#16A34A', successSoft: '#DCFCE7', warn: '#B45309', warnSoft: '#FEF3C7',
   danger: '#DC2626', dangerSoft: '#FEE2E2',
 };
 
-/** Secondary tones: [soft background, strong foreground]. Blue stays the action colour. */
+/** Secondary tones: [soft background, strong foreground]. Navy stays the action colour. */
 export const tones = {
   blue: ['#EFF4FF', '#1D4ED8'], teal: ['#CCFBF1', '#0F766E'], amber: ['#FEF3C7', '#B45309'], violet: ['#EDE9FE', '#6D28D9'],
   rose: ['#FFE4E6', '#BE123C'], sky: ['#E0F2FE', '#0369A1'], green: ['#DCFCE7', '#15803D'],
@@ -150,6 +152,7 @@ export function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { k
     {tabs.map(tab => {
       const on = tab.key === active;
       return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(tab.key)} style={styles.tab}>
+        <View style={[styles.tabMarker, on && styles.tabMarkerOn]} />
         <View>
           <Icon name={(on ? tab.icon : `${tab.icon}-outline`) as IconName} size={24} color={on ? colors.primary : colors.faint} />
           {tab.badge ? <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{tab.badge}</Text></View> : null}
@@ -219,6 +222,9 @@ const styles = StyleSheet.create({
   rowSub: text('regular', 13, colors.muted, 19),
   tabBar: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 10 },
   tab: { flex: 1, alignItems: 'center', gap: 2 },
+  // Amber bar over the active tab (amber is an accent only: too light for text on white).
+  tabMarker: { width: 28, height: 3, borderRadius: 2, marginTop: -8, marginBottom: 5, backgroundColor: 'transparent' },
+  tabMarkerOn: { backgroundColor: colors.accent },
   tabLabel: text('medium', 12, colors.faint, 16),
   tabBadge: { position: 'absolute', top: -4, right: -10, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, color: colors.onPrimary },
