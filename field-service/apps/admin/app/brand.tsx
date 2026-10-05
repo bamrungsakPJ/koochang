@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
 /** Brand logo and favicon set by a super admin in the console (GET /v1/branding is public).
- * Until it loads, or when nothing is set, the built-in icon and app/icon.svg are shown. */
+ * Until it loads, or when nothing is set, the built-in icon and public/icon.svg are shown. */
 export interface Branding { version: number; logo: boolean; favicon: boolean; favicon_custom: boolean; updated_at: string | null }
 
 const api = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/v1`;
@@ -45,11 +45,10 @@ export function BrandFavicon() {
   const brand = useBranding();
   useEffect(() => {
     const href = brand?.favicon ? brandImageUrl('favicon', brand.version) : '/icon.svg';
+    // Exactly one tab icon: browsers use the last one, so any other icon link would win.
+    document.querySelectorAll('link[rel~="icon"]:not([data-brand-icon])').forEach(l => l.remove());
     let link = document.querySelector<HTMLLinkElement>('link[data-brand-icon]');
-    if (!link) {
-      document.querySelectorAll('link[rel="icon"]').forEach(l => l.remove());
-      link = document.createElement('link'); link.rel = 'icon'; link.dataset.brandIcon = ''; document.head.appendChild(link);
-    }
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; link.dataset.brandIcon = ''; document.head.appendChild(link); }
     link.type = brand?.favicon ? 'image/png' : 'image/svg+xml';
     link.href = href;
   }, [brand]);
