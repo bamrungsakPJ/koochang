@@ -107,7 +107,12 @@
 - ผู้ใช้ขอไฟล์ APK เพื่อติดตั้งทดสอบ
 - ตรวจเครื่อง dev: build เองไม่สะดวก — Java ที่มากับ Android Studio (`jbr`) ไม่มี `java.exe`, ไม่มี NDK/CMake, ไดรฟ์ D: เหลือ 5 GB (98%)
 - ทำอะไร: เพิ่ม `apps/mobile/eas.json` โปรไฟล์ `staging-apk` (APK สำหรับแจกภายใน เรียก `https://api-staging.koochang.com`) และ `production` (AAB สำหรับ Play Store)
-- สถานะ: ⏳ ผู้ใช้สมัคร/ล็อกอิน Expo เอง แล้วสั่ง build ครั้งแรกแบบ interactive (สร้างโปรเจกต์ EAS และ keystore); push ใช้ได้เมื่อมี `google-services.json` (ไฟล์อยู่นอก git ต้องอัปโหลดเป็น EAS file variable `GOOGLE_SERVICES_JSON`)
+- ผู้ใช้ล็อกอิน Expo (บัญชี bamrungsak_pj) และ build ครั้งแรกเอง: สร้างโปรเจกต์ EAS `koochang` (projectId ใน app.json) และ keystore เก็บบน Expo
+- ปัญหา: build แรกล้มที่ "Bundle JavaScript" (`expo export:embed` exit 1) — `packages/*/dist` อยู่ใน .gitignore จึงไม่ถูกอัปโหลด แอปหา `@field-service/core`/`i18n` ไม่เจอ (เครื่อง dev ผ่านเพราะมี dist อยู่แล้ว)
+- แก้: script `eas-build-post-install` ใน apps/mobile สั่ง `pnpm build:packages`; ทดสอบโดยลบ dist แล้วรัน script สร้างกลับครบ
+- ผล: build ที่ 2 (2dd54adf) สำเร็จ ได้ APK staging (รอคิวประมาณ 50 นาทีบนบัญชีฟรี)
+- ข้อสังเกต: archive ใหญ่ 254 MB เพราะ EAS อัปโหลดทั้ง git repo (รวม ServiceFlow เดิม) ควรเพิ่ม .easignore
+- สถานะ: ✅ มี APK; ⏳ ทดสอบบนมือถือจริง; push ใช้ได้เมื่อมี `google-services.json` (ไฟล์อยู่นอก git ต้องอัปโหลดเป็น EAS file variable `GOOGLE_SERVICES_JSON`)
 
 ### 2026-10-05 — แจ้งผล "บันทึกสำเร็จ / ไม่สำเร็จ" ด้วย toast (console + เว็บร้าน)
 
