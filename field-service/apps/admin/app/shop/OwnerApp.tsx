@@ -3,7 +3,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { BrandMark } from '../brand';
 import { normalizeLanguage, normalizePhone, isThaiMobile, type Language } from '@field-service/core';
-import { translate } from '@field-service/i18n';
+import { errorMessage, translate } from '@field-service/i18n';
+import { notifySave } from '../toast';
 import { api, ApiFailure, type Me, type Membership, type Challenge } from './api';
 import { keys, storage } from './storage';
 import { ActionState, Button, Field, LanguageContext, Notice, Panel, useAction, useText, uuid } from './ui';
@@ -42,6 +43,8 @@ export function OwnerApp() {
   useEffect(() => {
     let live = true;
     api.onSignedOut = () => { setMe(null); setOrg(''); setOffline(false); };
+    api.onSave = (ok, error) => notifySave(ok, error instanceof ApiFailure
+      ? error.status === 0 ? translate(api.language, 'networkError') : error.message || errorMessage(api.language, error.code) : '');
     const hash = () => setRoute(readRoute()); hash(); window.addEventListener('popstate', hash);
     void (async () => {
       const lang = normalizeLanguage(await storage.get(keys.language) ?? navigator.language); if (!live) return;
@@ -49,7 +52,7 @@ export function OwnerApp() {
       if (await api.restore()) { try { await loadMe(); } catch { if (live) setOffline(api.signedIn); } }
       if (live) setBoot(false);
     })();
-    return () => { live = false; window.removeEventListener('popstate', hash); api.onSignedOut = () => {}; };
+    return () => { live = false; window.removeEventListener('popstate', hash); api.onSignedOut = () => {}; api.onSave = () => {}; };
   }, []);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
   async function languageChange(value: Language) {

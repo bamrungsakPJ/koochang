@@ -74,3 +74,22 @@ test('owner photo upload sends raw bytes and explicit mime type rather than JSON
   await client.uploadMedia('shop', 'asset', bytes, 'image/png');
   assert.equal(sent.body, bytes); assert.equal(sent.headers['content-type'], 'image/png'); assert.equal(sent.headers.authorization, 'Bearer owner');
 });
+
+test('saves report success or failure once; reads, sign-in, photo steps and duplicate questions do not', async t => {
+  const client = environment(t); await client.setTokens({ access_token: 'owner', refresh_token: 'refresh' });
+  const events = []; client.onSave = (ok, error) => events.push([ok, error?.code ?? null]);
+  const replies = [];
+  globalThis.fetch.mock.mockImplementation(async () => replies.shift() ?? response(200, {}));
+  await client.customers('shop', '', 0, 50);
+  await client.updateCustomer('shop', 'c1', { expected_version: 1, name: 'A' });
+  replies.push(response(409, { code: 'VERSION_CONFLICT', message: 'ข้อมูลถูกแก้ไขแล้ว' }));
+  await assert.rejects(client.updateCustomer('shop', 'c1', { expected_version: 1, name: 'B' }));
+  replies.push(response(409, { code: 'DUPLICATE_WARNING', message: '', candidates: [{ id: 'x', name: 'A', phone_normalized: null }] }));
+  await assert.rejects(client.createCustomer('shop', { request_key: 'k', name: 'A' }));
+  await client.markRead('shop');
+  await client.createMedia('shop', { request_key: 'k', mime_type: 'image/jpeg', byte_size: 10, purpose: 'equipment' });
+  await client.requestOtp('+66812345678');
+  replies.push(response(503, {})); 
+  await assert.rejects(client.changeJoinLink('shop', 'rotate'));
+  assert.deepEqual(events, [[true, null], [false, 'VERSION_CONFLICT'], [false, 'INTERNAL_ERROR']]);
+});

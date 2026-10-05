@@ -101,6 +101,8 @@ export class Api {
   private refreshToken: string | null = null;
   private refreshing: Promise<'ok' | 'rejected' | 'unavailable'> | null = null;
   onSignedOut: () => void = () => {};
+  /** Save feedback hook (the shop web shows a toast); error is the ApiFailure when not saved. */
+  onSave: (ok: boolean, error?: unknown) => void = () => {};
 
   async restore(): Promise<boolean> {
     this.access = await storage.get(keys.access);
@@ -247,7 +249,19 @@ export class Api {
   changeJoinLink(organizationId: string, action: 'open' | 'close' | 'rotate') { return this.call<JoinLink>('POST', `/organizations/${organizationId}/join-link/${action}`); }
 
   // transport ---------------------------------------------------------------------------------
-  private async call<T = unknown>(method: string, path: string, body?: unknown, auth = true, headers: Record<string, string> = {}, retried = false): Promise<T> {
+  /** Every create/update/delete shows a saved / not saved toast, except sign-in steps, marking
+   * notifications read and the photo upload steps that are part of a larger save. A duplicate
+   * warning is a question to the user, not a failure. */
+  private async call<T = unknown>(method: string, path: string, body?: unknown, auth = true, headers: Record<string, string> = {}): Promise<T> {
+    const save = method !== 'GET' && !/^\/auth\/|\/notifications\/read$|\/media(\/|$)|\/ocr-requests$|\/checkouts\/[^/]+\/refresh$/.test(path);
+    try { const result = await this.request<T>(method, path, body, auth, headers); if (save) this.onSave(true); return result; }
+    catch (error) {
+      if (save && !(error instanceof ApiFailure && ['DUPLICATE_WARNING', 'ALREADY_BOOKED'].includes(error.code))) this.onSave(false, error);
+      throw error;
+    }
+  }
+
+  private async request<T = unknown>(method: string, path: string, body?: unknown, auth = true, headers: Record<string, string> = {}, retried = false): Promise<T> {
     let response: Response;
     const usedAccess = this.access;
     try {
@@ -264,10 +278,10 @@ export class Api {
     if (auth && response.status === 401) {
       // Another client instance (second tab, hot reload) may have rotated the tokens meanwhile:
       // use the stored ones before concluding the session is gone.
-      if (!retried && await this.adoptStoredTokens(usedAccess)) return this.call<T>(method, path, body, auth, headers, true);
+      if (!retried && await this.adoptStoredTokens(usedAccess)) return this.request<T>(method, path, body, auth, headers, true);
       if (failure.code === 'SESSION_EXPIRED' && !retried) {
         const refreshed = await this.refresh();
-        if (refreshed === 'ok') return this.call<T>(method, path, body, auth, headers, true);
+        if (refreshed === 'ok') return this.request<T>(method, path, body, auth, headers, true);
         // Network or server trouble while refreshing is not a reason to sign out: keep the
         // tokens and let the user retry once the service is reachable.
         if (refreshed === 'unavailable') throw new ApiFailure(0, 'NETWORK_ERROR', '');
@@ -292,7 +306,7 @@ export class Api {
       const usedRefresh = this.refreshToken;
       try {
         if (!this.refreshToken) return 'rejected' as const;
-        const tokens = await this.call<Tokens>('POST', '/auth/refresh', { refresh_token: this.refreshToken }, false);
+        const tokens = await this.request<Tokens>('POST', '/auth/refresh', { refresh_token: this.refreshToken }, false);
         await this.setTokens(tokens);
         return 'ok' as const;
       } catch (error) {
@@ -317,3 +331,4 @@ export function tokenFromLink(text: string): string | null {
 }
 
 export const api = new Api();
+

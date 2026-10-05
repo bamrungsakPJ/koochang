@@ -2,6 +2,7 @@
 import { normalizeLanguage, type Language } from '@field-service/core';
 import { adminText, type AdminKey } from '@field-service/i18n';
 import { createContext, useContext } from 'react';
+import { notifySave } from '../toast';
 
 const base = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/v1`;
 const tokenKey = 'console.session';
@@ -21,7 +22,18 @@ export function setApiLanguage(value: Language) { language = value; }
 export let onSignedOut: () => void = () => {};
 export function setOnSignedOut(fn: () => void) { onSignedOut = fn; }
 
+/** Create/update/delete calls show a saved / not saved toast; sign-in steps and enrollment setup do not.
+ * A step-up request is not a failure: the action is retried after the code is entered. */
 export async function call<T = unknown>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
+  const save = method !== 'GET' && !/^\/platform\/(auth\/|enrollment\/setup$)/.test(path);
+  try { const result = await send<T>(method, path, body, auth); if (save) notifySave(true); return result; }
+  catch (error) {
+    if (save && !(error instanceof ConsoleError && error.code === 'STEP_UP_REQUIRED')) notifySave(false, error instanceof Error ? error.message : '');
+    throw error;
+  }
+}
+
+async function send<T>(method: string, path: string, body: unknown, auth: boolean): Promise<T> {
   let response: Response;
   try {
     const token = session.get();
@@ -46,9 +58,11 @@ export async function upload<T = unknown>(path: string, file: Blob): Promise<T> 
       headers: { 'content-type': file.type || 'application/octet-stream', 'accept-language': language, authorization: `Bearer ${session.get() ?? ''}` } });
   } catch { throw new ConsoleError(0, 'NETWORK_ERROR', adminText(language, 'networkError')); }
   const data = await response.json().catch(() => null) as { code?: string; message?: string; field_errors?: Record<string, string> } | null;
-  if (response.ok) return data as T;
+  if (response.ok) { notifySave(true); return data as T; }
   if (response.status === 401) { session.set(null); onSignedOut(); }
-  throw new ConsoleError(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {});
+  const error = new ConsoleError(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {});
+  if (error.code !== 'STEP_UP_REQUIRED') notifySave(false, error.message);
+  throw error;
 }
 
 /** Authenticated binary download (proof images, CSV) as an object URL. */
