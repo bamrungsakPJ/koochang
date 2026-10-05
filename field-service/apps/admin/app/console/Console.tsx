@@ -13,7 +13,7 @@ import { PrivacyView } from './privacy';
 import { BrandMark } from '../brand';
 import { BrandingView } from './branding';
 import { Activity, CircleUserRound, ClipboardCheck, CreditCard, DatabaseZap, FileSpreadsheet, KeyRound, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Menu,
-  Palette, RotateCcw, Scale, ScrollText, Settings, ShieldCheck, Store, Tags, Users, Wallet, Wrench, X, type LucideIcon } from 'lucide-react';
+  Palette, RotateCcw, Scale, ScrollText, Settings, Store, Tags, Users, Wallet, Wrench, X, type LucideIcon } from 'lucide-react';
 
 type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
   | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'} | {name:'settings'} | {name:'branding'} | {name:'account'} | {name:'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations'};
@@ -146,7 +146,7 @@ function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; v
   return <div className={open ? 'shell open' : 'shell'}>
     <aside className="side" aria-label={t('consoleTitle')}>
       <div className="brand-row">
-        <BrandMark icon={<ShieldCheck size={18} strokeWidth={2.2} />} />
+        <BrandMark />
         <span className="brand-text"><strong>{t('consoleTitle')}</strong><small>KooChang</small></span>
         <button className="icon-btn close-nav" aria-label={t('cancel')} onClick={() => setOpen(false)}><X size={18} /></button>
       </div>
@@ -201,7 +201,7 @@ function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
     } finally { setBusy(false); }
   }
   return <div className="signin-page"><form className="signin" onSubmit={submit}>
-    <div className="signin-brand"><BrandMark large icon={<ShieldCheck size={22} strokeWidth={2.2} />} />
+    <div className="signin-brand"><BrandMark large />
       <span><h1>{t('consoleTitle')}</h1><small>KooChang</small></span></div>
     {step === 'password' ? <>
       <h2>{t('signIn')}</h2>

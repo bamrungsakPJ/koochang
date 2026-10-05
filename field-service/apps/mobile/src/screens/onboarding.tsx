@@ -47,7 +47,7 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
   </>}>
     <View style={styles.topRow}>
       <View style={styles.brandRow}>{logo ? <Image source={{ uri: logo }} style={styles.logoImage} accessibilityIgnoresInvertColors />
-        : <View style={styles.logo}><Icon name="construct" size={20} color={colors.onPrimary} /></View>}
+        : <Image source={require('../../assets/icon.png')} style={styles.logoImage} accessibilityIgnoresInvertColors />}
         <Text style={styles.brand}>{t('appName')}</Text></View>
       <LanguageSwitch language={language} onChange={onLanguage} />
     </View>

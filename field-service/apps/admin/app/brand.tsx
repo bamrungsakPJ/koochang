@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 
 /** Brand logo and favicon set by a super admin in the console (GET /v1/branding is public).
- * Until it loads, or when nothing is set, the built-in icon and public/icon.svg are shown. */
+ * Until it loads, or when nothing is set, the KooChang symbol (public/icon-*.png) is shown. */
 export interface Branding { version: number; logo: boolean; favicon: boolean; favicon_custom: boolean; updated_at: string | null }
 
 const api = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/v1`;
@@ -32,24 +32,24 @@ export function useBranding(): Branding | null {
   return brand;
 }
 
-/** The square mark next to the product name: the uploaded logo, or the given icon. */
-export function BrandMark({ icon, large }: { icon: ReactNode; large?: boolean }) {
+/** The square mark next to the product name: the uploaded logo, or the KooChang symbol. */
+export function BrandMark({ large }: { large?: boolean }) {
   const brand = useBranding();
   const logo = brand?.logo ? brandImageUrl('logo', brand.version) : null;
-  return <span className={`brand-mark${large ? ' lg' : ''}${logo ? ' has-logo' : ''}`} aria-hidden>
-    {logo ? <img src={logo} alt="" /> : icon}</span>;
+  return <span className={`brand-mark${large ? ' lg' : ''} ${logo ? 'has-logo' : 'default-logo'}`} aria-hidden>
+    <img src={logo ?? '/icon-192.png'} alt="" /></span>;
 }
 
 /** Points the browser tab icon at the uploaded favicon (rendered once in the root layout). */
 export function BrandFavicon() {
   const brand = useBranding();
   useEffect(() => {
-    const href = brand?.favicon ? brandImageUrl('favicon', brand.version) : '/icon.svg';
+    const href = brand?.favicon ? brandImageUrl('favicon', brand.version) : '/icon-32.png';
     // Exactly one tab icon: browsers use the last one, so any other icon link would win.
     document.querySelectorAll('link[rel~="icon"]:not([data-brand-icon])').forEach(l => l.remove());
     let link = document.querySelector<HTMLLinkElement>('link[data-brand-icon]');
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; link.dataset.brandIcon = ''; document.head.appendChild(link); }
-    link.type = brand?.favicon ? 'image/png' : 'image/svg+xml';
+    link.type = 'image/png';
     link.href = href;
   }, [brand]);
   return null;

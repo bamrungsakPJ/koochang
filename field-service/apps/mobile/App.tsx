@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, StatusBar, StyleSheet, View } from 'react-native';
+import { Image, Linking, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
@@ -39,8 +39,7 @@ type Route =
   | { screen: 'serviceDone'; result: ServiceResult; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
   | { screen: 'jobs' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
-// Keep the KooChang splash until fonts and the saved session are ready, so the first frame is a
-// real screen instead of a blank loader.
+// The native splash is hidden only once the start screen below has drawn, so there is no blank frame.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -51,6 +50,9 @@ export default function App() {
   const [fontsLoaded] = useFonts({ NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold });
   const [language, setLanguage] = useState<Language>('th');
   const [route, setRoute] = useState<Route>({ screen: 'boot' });
+  // The start screen stays at least this long so the brand is seen, not flashed.
+  const [shownLongEnough, setShownLongEnough] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setShownLongEnough(true), 1200); return () => clearTimeout(timer); }, []);
   const [me, setMe] = useState<Me | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const pendingToken = useRef<string | null>(null);
@@ -264,13 +266,25 @@ export default function App() {
       break;
     }
   }
-  const ready = fontsLoaded && route.screen !== 'boot';
-  useEffect(() => { if (ready) void SplashScreen.hideAsync().catch(() => {}); }, [ready]);
-  if (!fontsLoaded) content = <Loading />;
+  // Native splash (emblem) → this start screen (emblem + KooChang / คู่ช่าง) → the app.
+  if (!fontsLoaded || route.screen === 'boot' || !shownLongEnough) return <BrandStart />;
   return <LanguageContext.Provider value={language}>
     <SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView></SafeAreaProvider>
   </LanguageContext.Provider>;
 }
+
+/** Start screen on the brand navy, drawn responsively from the selected lockup (branding/koochang). */
+function BrandStart() {
+  return <View style={startStyles.root} onLayout={() => { void SplashScreen.hideAsync().catch(() => {}); }}>
+    <StatusBar barStyle="light-content" backgroundColor={brandNavy} />
+    <Image source={require('./assets/splash-lockup.png')} style={startStyles.lockup} resizeMode="contain" accessibilityLabel="KooChang คู่ช่าง" />
+  </View>;
+}
+const brandNavy = '#12243A';
+const startStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: brandNavy, alignItems: 'center', justifyContent: 'center' },
+  lockup: { width: '58%', maxWidth: 260, aspectRatio: 576 / 605 },
+});
 
 /** A signed-in user creating another shop needs no new code. */
 function CreateShopSignedIn({ onBack, onCreated }: { onBack: () => void; onCreated: (shopName: string, link: JoinLink | null, id: string) => Promise<void> }) {

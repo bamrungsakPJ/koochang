@@ -76,6 +76,7 @@ button:focus-visible,select:focus-visible { outline:3px solid #caab36; outline-o
   background:linear-gradient(135deg,#2563eb,#1d4ed8 55%,#1e3a8a); box-shadow:0 4px 10px rgba(29,78,216,.3); }
 .brand-mark.lg { width:44px; height:44px; border-radius:12px; }
 .brand-mark.has-logo { background:transparent; box-shadow:none; }
+.brand-mark.default-logo { background:#12243A; box-shadow:0 4px 10px rgba(18,36,58,.25); overflow:hidden; }
 .brand-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
 .brand-preview { display:flex; align-items:center; justify-content:center; height:140px; border:1px dashed var(--c-line); border-radius:12px; background:repeating-conic-gradient(#f1f5f9 0 25%,#fff 0 50%) 0 0/16px 16px; margin:8px 0 12px; }
 .brand-preview img { max-width:80%; max-height:110px; object-fit:contain; }

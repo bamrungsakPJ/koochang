@@ -12,7 +12,7 @@ import { Dashboard, TeamView, AccountView, NotificationsView } from './shop';
 import { CustomersView, CustomerView, EquipmentView } from './customers';
 import { JobsView, JobView, JobForm, ServiceForm } from './jobs';
 import { MaintenanceView, BillingView, InvoiceView, SupportView } from './operations';
-import { Bell, CalendarClock, CircleUserRound, ClipboardList, CreditCard, LayoutDashboard, LifeBuoy, LogOut, Menu, Plus, Store, UserCog, Users, Wrench, X, type LucideIcon } from 'lucide-react';
+import { Bell, CalendarClock, CircleUserRound, ClipboardList, CreditCard, LayoutDashboard, LifeBuoy, LogOut, Menu, Plus, Store, UserCog, Users, X, type LucideIcon } from 'lucide-react';
 
 export type Section = 'home' | 'customers' | 'customer' | 'equipment' | 'jobs' | 'job' | 'jobNew' | 'service' | 'maintenance' | 'team' | 'billing' | 'invoice' | 'support' | 'notifications' | 'account';
 export interface Route { section: Section; id?: string; customerId?: string; locationId?: string }
@@ -76,7 +76,7 @@ export function OwnerApp() {
           {me.memberships.some(m => m.role === 'owner') ? <Button onClick={() => setCreating(false)}>{tr('cancel')}</Button> : null}
           {!me.memberships.some(m => m.role === 'owner') ? <p>{tr('ownerWeb.technicianAccount')}</p> : null}<Button onClick={signOut}>{tr('signOut')}</Button></>)
       : <div className={menu ? 'shell open' : 'shell'}><aside className="side" aria-label={tr('ownerWeb.navigation')}>
-          <div className="brand-row"><BrandMark icon={<Wrench size={17} strokeWidth={2.2} />} />
+          <div className="brand-row"><BrandMark />
             <span className="brand-text"><strong>{tr('appName')}</strong><small>{tr('ownerWeb.workspace')}</small></span>
             <button className="icon-btn close-nav" aria-label={tr('ownerWeb.closeMenu')} onClick={() => setMenu(false)}><X size={18} /></button></div>
           <div className="shop-switch"><span className="shop-avatar" aria-hidden><Store size={16} /></span>
@@ -146,7 +146,7 @@ function Auth({ onDone, language }: { onDone: (org?: string) => Promise<void>; l
     setPhone(normalized); const next = await api.requestOtp(normalized); setChallenge(next); setWait(next.resend_after); setCode('');
   });
   return <div className="signin-page owner-auth"><div className="owner-language">{language}</div><main className="signin owner-card">
-    <div className="signin-brand"><BrandMark large icon={<Wrench size={22} strokeWidth={2.2} />} /><span><strong className="brand-name">{t('appName')}</strong><small>{t('ownerWeb.workspace')}</small></span></div>
+    <div className="signin-brand"><BrandMark large /><span><strong className="brand-name">{t('appName')}</strong><small>{t('ownerWeb.workspace')}</small></span></div>
     <h1>{t('ownerWeb.your_shop_organized')}</h1><p className="muted">{t('ownerWeb.jobs_people_and_customers_in_one_workspace')}</p>
     <form onSubmit={e => { e.preventDefault(); if (!challenge) void requestOtp(); else void a.run(async () => {
       if (!api.signedIn) await api.verifyOtp(challenge.challenge_id, code);

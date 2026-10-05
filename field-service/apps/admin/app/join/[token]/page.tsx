@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Language, normalizeLanguage } from '@field-service/core';
 import { translate } from '@field-service/i18n';
-import { Wrench } from 'lucide-react';
 import { BrandMark } from '../../brand';
 
 type Preview = { state: 'active' | 'closed' | 'invalid'; organization_name: string | null };
@@ -26,7 +25,7 @@ export default function JoinLanding() {
 
   const t = (key: Parameters<typeof translate>[1], params?: Record<string, string>) => translate(language, key, params);
   return <main className="join">
-    <header><span className="brand join-brand"><BrandMark icon={<Wrench size={17} strokeWidth={2.2} />} />{t('appName')}</span>
+    <header><span className="brand join-brand"><BrandMark />{t('appName')}</span>
       <label>{t('language')} <select value={language} onChange={e => changeLanguage(normalizeLanguage(e.target.value))}>
         <option value="th">ไทย</option><option value="en">English</option></select></label></header>
     <section className="join-card" aria-live="polite">

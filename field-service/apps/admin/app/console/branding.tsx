@@ -37,7 +37,7 @@ export function BrandingView() {
       <h2>{t(kind === 'logo' ? 'brandLogo' : 'brandFavicon')}</h2>
       <div className={`brand-preview ${kind}`}>
         {set && brand ? <img src={brandImageUrl(kind, brand.version)} alt={t(kind === 'logo' ? 'brandLogo' : 'brandFavicon')} />
-          : <img src="/icon.svg" alt={t('brandDefault')} />}
+          : <img src="/icon-192.png" alt={t('brandDefault')} />}
       </div>
       {status ? <p className="muted">{status}</p> : null}
       <p className="muted">{t(kind === 'logo' ? 'brandLogoHint' : 'brandFaviconHint')}</p>
