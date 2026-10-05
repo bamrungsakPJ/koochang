@@ -11,7 +11,7 @@
 
 **เริ่มต่อจากตรงนี้**
 - โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit Push FCM, migration 024) **ยังไม่ได้ push — ไม่มี git remote**
-- **Staging บน server2 (ใช้ภายใน LAN)** อัปเดตถึง 8d76e10 แล้ว: console http://192.168.1.127:3200/console, เว็บร้าน http://192.168.1.127:3200/shop, API http://192.168.1.127:4100 — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api`), ฐานข้อมูล 16/staging พอร์ต 5434 (migration ถึง 021 — ยังไม่ได้ลง 022 รอผู้ใช้สั่งอัปเดต), มีบัญชี console 1 คน, **ยังไม่มีแพ็กเกจ** วิธีอัปเดตใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
+- **Staging บน server2** อัปเดตถึง c24a60e (2026-10-05): console https://app-staging.koochang.com/console, เว็บร้าน https://app-staging.koochang.com/shop, API https://api-staging.koochang.com (ผ่าน Cloudflare Tunnel; **รอใบรับรอง SSL ของ Cloudflare** ยังเปิดจากภายนอกไม่ได้; LAN 192.168.1.127 ปิดแล้ว) — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api`), ฐานข้อมูล 16/staging พอร์ต 5434 migration ถึง 024, มีบัญชี console 1 คน, แพ็กเกจเปิดตัว 4 แบบ active วิธีอัปเดตใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
 - **เครื่อง dev**: API :4000, console/เว็บร้าน :3001, ฐานข้อมูล dev (server2 16/main) migration ถึง 024; มีร้านทดลอง "ร้านทดสอบดีไซน์" เบอร์ทดลอง 0800009876; บัญชี console ทดลองอยู่ใน `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
 - **การตัดสินใจล่าสุด**: super admin ทำทุกอย่างได้เองไม่ต้องมีผู้อนุมัติ (migration 021; บทบาทอื่นยังใช้สองคน); console และเว็บร้านใช้ดีไซน์ SaaS สว่างชุดเดียวกัน
 - **ขั้นต่อไปของผู้ใช้**: สร้างแพ็กเกจ trial + รายเดือนใน console staging (super admin กดเผยแพร่ได้ทันที), ลองใช้ดีไซน์ใหม่แล้วให้ความเห็น
@@ -107,7 +107,9 @@
 - ผู้ใช้ตั้ง hostname ใน tunnel แล้ว: `app-staging.koochang.com` → `http://localhost:3200`, `api-staging.koochang.com` → `http://localhost:4100`
 - ทำแล้วบน server2: ส่ง bundle (คัดลอกผ่านได้รอบนี้) → โค้ด c24a60e, `pnpm install --frozen-lockfile`, build เว็บด้วย `NEXT_PUBLIC_API_URL=https://api-staging.koochang.com`, migration 022–024, `launch-plans.sql` (trial, solo, small_team, business active)
 - ปัญหา: (1) HTTPS ของทั้งสอง hostname ล้มที่ Cloudflare edge (TLS alert 40 handshake failure) ทั้งจาก PC และจาก server2 → ใบรับรอง Universal SSL ของ koochang.com ยังไม่ออก/โดเมนยังไม่ active (2) บริการ staging ฟังเฉพาะ 192.168.1.127 (`HOST` และ `next start -H 192.168.1.127`) ทำให้ tunnel ที่ชี้ localhost จะได้ 502 (3) ระบบสิทธิ์ของ Claude บล็อกการแก้ `/etc/field-service/staging.env` ด้วย sudo
-- สถานะ: ⏳ ผู้ใช้รันเอง: แก้ staging.env (HOST=127.0.0.1, ADMIN_ORIGIN/OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น https://app-staging.koochang.com) → สร้าง fs-staging-web ใหม่ด้วย `-H 127.0.0.1` → restart api/worker → `pm2 save`; ระหว่างนี้ process ยังรันโค้ดเก่าในหน่วยความจำ แต่ไฟล์บนดิสก์เป็นรุ่นใหม่แล้ว ⏳ รอ SSL ของ Cloudflare
+- แก้อย่างไร (3): ผู้ใช้สั่งให้รันเองในแชต จึงสำรอง `staging.env.bak-20261005` แล้วตั้ง HOST=127.0.0.1 และ ADMIN_ORIGIN/OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น https://app-staging.koochang.com; สร้าง fs-staging-web ใหม่ด้วย `-H 127.0.0.1`; restart api/worker; `pm2 save`
+- ตรวจแล้ว: บนเครื่อง API `/v1/ready` 200, `/console` 200, `/shop` 200 ทั้งหมดฟังที่ 127.0.0.1; CORS ตอบ `Access-Control-Allow-Origin: https://app-staging.koochang.com`; worker เริ่มด้วย push=development
+- สถานะ: ✅ ฝั่ง server2 พร้อม; ⏳ รอ Cloudflare ออกใบรับรอง SSL ของ koochang.com (HTTPS จากภายนอกยังล้มด้วย handshake failure); LAN 192.168.1.127 ใช้ไม่ได้แล้ว
 
 ### 2026-10-05 — ตั้งชื่อผลิตภัณฑ์ คู่ช่าง / KooChang
 

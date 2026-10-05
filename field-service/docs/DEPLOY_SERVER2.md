@@ -97,8 +97,8 @@ server2 `/tmp`, then in /opt/field-service/staging `git fetch /tmp/fs.bundle fie
 
 Tunnel hostnames: `app-staging.koochang.com` → `http://localhost:3200`, `api-staging.koochang.com` → `http://localhost:4100`.
 Code c24a60e built with `NEXT_PUBLIC_API_URL=https://api-staging.koochang.com`; migrations to 024; launch plans loaded.
-Remaining (run by the server owner): `HOST=127.0.0.1` and https `ADMIN_ORIGIN` / `OWNER_WEB_URL` / `JOIN_LINK_BASE_URL`
-in staging.env, re-create fs-staging-web with `-H 127.0.0.1`, restart, `pm2 save`. After that the LAN address 192.168.1.127 no
+Done (user-approved): `HOST=127.0.0.1` and https `ADMIN_ORIGIN` / `OWNER_WEB_URL` / `JOIN_LINK_BASE_URL`
+in staging.env (backup staging.env.bak-20261005), fs-staging-web re-created with `-H 127.0.0.1`, restarted, `pm2 save`. Now the LAN address 192.168.1.127 no
 longer serves the app; use the https hostnames (needs Cloudflare Universal SSL active for koochang.com).
 
 ## Open points
