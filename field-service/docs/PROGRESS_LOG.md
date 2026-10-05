@@ -102,6 +102,13 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-05 — อัปเดต staging บน server2 + เตรียมเปิดผ่าน Cloudflare Tunnel (คู่ช่าง)
+
+- ผู้ใช้ตั้ง hostname ใน tunnel แล้ว: `app-staging.koochang.com` → `http://localhost:3200`, `api-staging.koochang.com` → `http://localhost:4100`
+- ทำแล้วบน server2: ส่ง bundle (คัดลอกผ่านได้รอบนี้) → โค้ด c24a60e, `pnpm install --frozen-lockfile`, build เว็บด้วย `NEXT_PUBLIC_API_URL=https://api-staging.koochang.com`, migration 022–024, `launch-plans.sql` (trial, solo, small_team, business active)
+- ปัญหา: (1) HTTPS ของทั้งสอง hostname ล้มที่ Cloudflare edge (TLS alert 40 handshake failure) ทั้งจาก PC และจาก server2 → ใบรับรอง Universal SSL ของ koochang.com ยังไม่ออก/โดเมนยังไม่ active (2) บริการ staging ฟังเฉพาะ 192.168.1.127 (`HOST` และ `next start -H 192.168.1.127`) ทำให้ tunnel ที่ชี้ localhost จะได้ 502 (3) ระบบสิทธิ์ของ Claude บล็อกการแก้ `/etc/field-service/staging.env` ด้วย sudo
+- สถานะ: ⏳ ผู้ใช้รันเอง: แก้ staging.env (HOST=127.0.0.1, ADMIN_ORIGIN/OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น https://app-staging.koochang.com) → สร้าง fs-staging-web ใหม่ด้วย `-H 127.0.0.1` → restart api/worker → `pm2 save`; ระหว่างนี้ process ยังรันโค้ดเก่าในหน่วยความจำ แต่ไฟล์บนดิสก์เป็นรุ่นใหม่แล้ว ⏳ รอ SSL ของ Cloudflare
+
 ### 2026-10-05 — ตั้งชื่อผลิตภัณฑ์ คู่ช่าง / KooChang
 
 - การตัดสินใจ: ชื่อไทย **คู่ช่าง** เป็นชื่อหลักบนหน้าจอ ชื่ออังกฤษ **KooChang** (เลือกแทน KhuChang เพราะอ่านง่ายกว่า โดยรู้ว่ามีโอกาสเล็กน้อยที่จะอ่านเป็น "กู") package และ bundle id `com.koochang.app`
