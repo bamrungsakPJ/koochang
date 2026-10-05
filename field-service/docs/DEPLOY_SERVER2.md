@@ -84,7 +84,10 @@ server2 `/tmp`, then in /opt/field-service/staging `git fetch /tmp/fs.bundle fie
 1. **Console accounts** — the people who will use them run, on server2:
    `cd /opt/field-service/staging/field-service && /opt/node-24/bin/node --env-file=/etc/field-service/staging.env scripts/platform-account.mjs create --email … --name "…" --roles super_admin`
    (password and authenticator secret are shown once, to that person; one super_admin is enough since migration 021 — other roles still need a second approver).
-2. **Plans** — no plans exist (no seed). In the console: Plans and prices → trial plan + paid plans → a super admin publishes directly.
+2. **Plans** — no plans exist (no seed). The launch catalog (trial, solo, small_team, business) is in
+   `database/catalog/launch-plans.sql` and needs migration 023. After the update procedure above (which runs the migrations):
+   `sudo -u postgres psql -p 5434 -d field_service -v ON_ERROR_STOP=1 -f /opt/field-service/staging/field-service/database/catalog/launch-plans.sql`
+   (idempotent; writes a `plan.published` audit row per plan). Later price changes go through the console.
    Until a trial plan is published, new shops start in "pending payment".
 3. Mobile testing against staging: `EXPO_PUBLIC_API_URL=http://192.168.1.127:4100` in apps/mobile/.env.local.
 4. When a domain exists: tunnel hostnames, `HOST=127.0.0.1`, https origins in the env file, rebuild the web with the https API URL;
