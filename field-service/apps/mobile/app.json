@@ -10,7 +10,13 @@
       "bundleIdentifier": "com.koochang.app"
     },
     "android": {
-      "package": "com.koochang.app"
+      "package": "com.koochang.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-foreground.png",
+        "backgroundImage": "./assets/adaptive-background.png",
+        "monochromeImage": "./assets/adaptive-monochrome.png",
+        "backgroundColor": "#1d4ed8"
+      }
     },
     "plugins": [
       "expo-localization",
@@ -37,6 +43,19 @@
         {
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 140,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0f172a"
+          }
+        }
       ]
     ],
     "experiments": {
@@ -47,6 +66,10 @@
       "eas": {
         "projectId": "b931694a-149d-4d2a-b1f6-cb89c7a03d8a"
       }
+    },
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }

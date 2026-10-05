@@ -3,6 +3,7 @@ import { Linking, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
+import * as SplashScreen from 'expo-splash-screen';
 import { Language, normalizeLanguage } from '@field-service/core';
 import { api, tokenFromLink, type Challenge, type CustomerLocation, type Job, type JoinLink, type MaintenanceItem, type Me, type ServiceResult } from './src/api';
 import { ServiceDone, ServiceForm } from './src/screens/service';
@@ -37,6 +38,10 @@ type Route =
   | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
   | { screen: 'serviceDone'; result: ServiceResult; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
   | { screen: 'jobs' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
+
+// Keep the KooChang splash until fonts and the saved session are ready, so the first frame is a
+// real screen instead of a blank loader.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
@@ -259,6 +264,8 @@ export default function App() {
       break;
     }
   }
+  const ready = fontsLoaded && route.screen !== 'boot';
+  useEffect(() => { if (ready) void SplashScreen.hideAsync().catch(() => {}); }, [ready]);
   if (!fontsLoaded) content = <Loading />;
   return <LanguageContext.Provider value={language}>
     <SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView></SafeAreaProvider>
