@@ -186,11 +186,13 @@ test('usage reservations: limit, same key, consume once, release returns quota',
   const summary = await a.one('SELECT * FROM auth.subscription_summary($1,$2)', [shop.owner.userId, shop.organizationId]);
   assert.equal(Number(summary.storage_used), 600_000_000);
 
+  // OCR is not a plan limit (migration 023): reads past ocr_per_period are still accepted and counted.
   const ocrKey = randomUUID();
   assert.equal((await reserve('ocr', 20, ocrKey)).outcome, 'reserved');
-  assert.equal((await reserve('ocr', 1)).outcome, 'limit_reached');
+  const extra = await reserve('ocr', 1);
+  assert.equal(extra.outcome, 'reserved');
+  assert.equal(extra.quota, null);
   assert.equal((await settle('ocr', ocrKey, false)).outcome, 'released');
-  assert.equal((await reserve('ocr', 1)).outcome, 'reserved', 'released units come back');
 
   await age(shop.organizationId, 15);
   assert.equal((await reserve('ocr', 1)).outcome, 'inactive');
@@ -198,13 +200,12 @@ test('usage reservations: limit, same key, consume once, release returns quota',
   assert.equal((await a.one('SELECT * FROM auth.reserve_usage($1,$2,$3,$4,1,600)', [outsider.userId, shop.organizationId, 'ocr', randomUUID()])).outcome, 'forbidden');
 });
 
-test('concurrent OCR reservations never pass the quota', { skip: process.env.TEST_DATABASE_URL ? false : 'needs PostgreSQL (TEST_DATABASE_URL)' }, async () => {
+test('concurrent OCR reservations are all accepted without a quota', { skip: process.env.TEST_DATABASE_URL ? false : 'needs PostgreSQL (TEST_DATABASE_URL)' }, async () => {
   const shop = await a.createShop('UsageRace');
   const clients = await Promise.all(Array.from({ length: 30 }, () => db.connect()));
   try {
     const results = await Promise.all(clients.map(c => a.one('SELECT * FROM auth.reserve_usage($1,$2,$3,$4,1,600)', [shop.owner.userId, shop.organizationId, 'ocr', randomUUID()], c)));
-    assert.equal(results.filter(r => r.outcome === 'reserved').length, 20);
-    assert.equal(results.filter(r => r.outcome === 'limit_reached').length, 10);
+    assert.equal(results.filter(r => r.outcome === 'reserved').length, 30);
   } finally { clients.forEach(c => c.release()); }
 });
 

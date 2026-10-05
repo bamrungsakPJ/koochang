@@ -53,9 +53,9 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
             <Text style={[styles.price, { color: tones[tone][1] }]}>{money(p.amount_minor,language)} {t(p.interval_unit==='year'?'ownerWeb.year':'ownerWeb.month')}</Text>
           </View>
         </View>
-        <Feature text={t('seatsN', { n: p.technician_seats })} />
+        <Feature text={p.technician_seats ? t('seatsN', { n: p.technician_seats }) : t('ownerOnly')} />
         <Feature text={t('storageN', { n: Math.round(Number(p.storage_bytes) / 1e9) })} />
-        <Feature text={t('ocrN', { n: p.ocr_per_period })} />
+        <Feature text={t('ocrUnlimited')} />
         <View style={{ marginTop: 12 }}>
           <Button title={t('choosePlan')} icon="card-outline" busy={busy === p.price_version_id} disabled={!plans.payment_available || Boolean(busy)} onPress={() => choose(p)} />
         </View>

@@ -139,7 +139,7 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reason, setReason] = useState('');
-  const [grant, setGrant] = useState({ kind: 'pilot', reason: '', until: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10), seats: '', storage: '', ocr: '' });
+  const [grant, setGrant] = useState({ kind: 'pilot', reason: '', until: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10), seats: '', storage: '' });
   const [busy, setBusy] = useState(false);
   const load = () => call<ShopDetail>('GET', `/platform/shops/${id}`).then(setD, e => setError(message(e)));
   useEffect(() => { void load(); }, [id]);
@@ -164,7 +164,7 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
           <dt>{t('created')}</dt><dd>{dateTime(d.organization.created_at, lang)}</dd><dt>{t('plan')}</dt><dd>{e.plan_code ?? '—'} · {t('periodEnd')} {dateOnly(e.period_end, lang)}</dd></dl>
         <h3>{t('usage')}</h3>
         <dl><dt>{t('technicians')}</dt><dd>{d.usage.active_technicians} / {e.technician_seats}</dd><dt>{t('storage')}</dt><dd>{gb(d.usage.storage_bytes)} / {gb(e.storage_bytes)}</dd>
-          <dt>{t('ocr')}</dt><dd>{d.usage.ocr} / {e.ocr_per_period}</dd></dl>
+          <dt>{t('ocr')}</dt><dd>{d.usage.ocr}</dd></dl>
       </div>
       <div className="panel">
         <h2>{t('team')}</h2>
@@ -186,11 +186,10 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
       </tr>)}</tbody></table> : <p className="muted">{t('empty')}</p>}
       {can('grants.manage') ? <form className="inline" onSubmit={ev => { ev.preventDefault(); void run(() => call('POST', `/platform/shops/${id}/grants`, { kind: grant.kind, reason: grant.reason,
         valid_until: new Date(`${grant.until}T23:59:59+07:00`).toISOString(), entitlements: { technician_seats: grant.seats ? Number(grant.seats) : undefined,
-          storage_bytes: grant.storage ? Math.round(Number(grant.storage) * 1e9) : undefined, ocr_per_period: grant.ocr ? Number(grant.ocr) : undefined } })); }}>
+          storage_bytes: grant.storage ? Math.round(Number(grant.storage) * 1e9) : undefined } })); }}>
         <label>{t('kind')}<select value={grant.kind} onChange={ev => setGrant({ ...grant, kind: ev.target.value })}>{['pilot', 'compensation', 'temporary_upgrade'].map(k => <option key={k} value={k}>{t(`kind.${k}` as AdminKey)}</option>)}</select></label>
         <label>{t('seats')}<input inputMode="numeric" value={grant.seats} onChange={ev => setGrant({ ...grant, seats: ev.target.value.replace(/\D/g, '') })} /></label>
         <label>{t('storageGb')}<input inputMode="decimal" value={grant.storage} onChange={ev => setGrant({ ...grant, storage: ev.target.value })} /></label>
-        <label>{t('ocrCount')}<input inputMode="numeric" value={grant.ocr} onChange={ev => setGrant({ ...grant, ocr: ev.target.value.replace(/\D/g, '') })} /></label>
         <label>{t('validUntil')}<input type="date" required value={grant.until} onChange={ev => setGrant({ ...grant, until: ev.target.value })} /></label>
         <label className="grow">{t('reason')}<input required maxLength={500} value={grant.reason} onChange={ev => setGrant({ ...grant, reason: ev.target.value })} /></label>
         <button className="primary" disabled={busy}>{t('newGrant')}</button>

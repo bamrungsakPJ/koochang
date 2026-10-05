@@ -147,9 +147,9 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
       <Badge text={t(`sub.${sub.state}`)} tone={subTone(sub.state)} />
     </View>
     {sub.limits && sub.usage ? <>
-      <Meter tone="blue" label={t('seatsQuota')} used={sub.usage.technician_seats} limit={sub.limits.technician_seats} text={`${sub.usage.technician_seats}/${sub.limits.technician_seats}`} />
+      {sub.limits.technician_seats ? <Meter tone="blue" label={t('seatsQuota')} used={sub.usage.technician_seats} limit={sub.limits.technician_seats} text={`${sub.usage.technician_seats}/${sub.limits.technician_seats}`} /> : <Sub>{t('ownerOnly')}</Sub>}
       <Meter tone="teal" label={t('storageQuota')} used={sub.usage.storage_bytes} limit={sub.limits.storage_bytes} text={`${gb(sub.usage.storage_bytes)} / ${gb(sub.limits.storage_bytes)}`} />
-      <Meter tone="violet" label={t('ocrQuota')} used={sub.usage.ocr} limit={sub.limits.ocr_per_period} text={`${sub.usage.ocr}/${sub.limits.ocr_per_period}`} />
+      
     </> : null}
     {sub.cancel_at_period_end ? <Banner tone="info" text={t('renewalStopped')} /> : null}
     <Banner text={error} />
@@ -296,7 +296,8 @@ export function TeamScreen({ membership }: { membership: Membership }) {
   return <Screen>
     <Title>{t('team')}</Title>
     <View style={styles.seatRow}><Sub>{t('seatUsage', { active, limit })}</Sub></View>
-    <View style={styles.seatBar}><View style={[styles.seatFill, { width: `${Math.min(100, (active / limit) * 100)}%` }, full && { backgroundColor: colors.warn }]} /></View>
+    <View style={styles.seatBar}><View style={[styles.seatFill, { width: `${limit ? Math.min(100, (active / limit) * 100) : 100}%` }, full && { backgroundColor: colors.warn }]} /></View>
+    {limit === 0 ? <Banner tone="info" text={t('soloPlanHint')} /> : null}
     <Banner text={error} />
     <Banner tone="info" text={notice} />
     <JoinLinkCard link={link} shopName={membership.organization_name ?? ''} onChange={changeLink} />

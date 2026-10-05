@@ -69,8 +69,10 @@ export class ManagementController {
   for(const key of ['code','name_th','name_en'])payload[key]=v.text(key,p[key],{max:key==='code'?50:150});
   if(!/^[a-z][a-z0-9_-]{1,49}$/.test(payload.code as string))v.fail('code','field.required');
   if(!['paid','trial'].includes(p.kind as string))v.fail('kind','field.required');payload.kind=p.kind;
+  // OCR is not a plan limit (migration 023); older clients may still send ocr_per_period.
+  if(p.ocr_per_period===undefined)p.ocr_per_period=0;
   for(const key of ['technician_seats','storage_bytes','ocr_per_period','trial_days','grace_days']){
-   const val=p[key];if(typeof val!=='number'||!Number.isSafeInteger(val)||val<(['technician_seats','storage_bytes'].includes(key)?1:0)||(['trial_days','grace_days'].includes(key)&&val>365))v.fail(key,'field.required');payload[key]=val;
+   const val=p[key];if(typeof val!=='number'||!Number.isSafeInteger(val)||val<(key==='storage_bytes'?1:0)||(['trial_days','grace_days'].includes(key)&&val>365))v.fail(key,'field.required');payload[key]=val;
   }
   if(typeof p.effective_at!=='string'||Number.isNaN(Date.parse(p.effective_at)))v.fail('effective_at','field.required');else payload.effective_at=new Date(p.effective_at).toISOString();
   if(!Array.isArray(p.prices)||(p.kind==='paid'&&!p.prices.length)||p.prices.length>2)v.fail('prices','field.required');

@@ -75,6 +75,13 @@ test('platform admins still need a second person; a super admin publishes direct
  await ok(one,'/changes',{kind:'plan',target_id:own.id,version:own.version,reason:'Publish directly'});
  assert.equal((await db.query("SELECT count(*)::int AS n FROM billing.plans WHERE code='super-direct'")).rows[0].n,1);
 });
+test('a plan may have no technician seats and needs no OCR limit (migration 023)',async()=>{
+ const solo=await ok(one,'/catalog/drafts',{payload:{code:'solo-test',name_th:'เดี่ยว',name_en:'Solo',kind:'paid',technician_seats:0,storage_bytes:10000000000,trial_days:0,grace_days:7,effective_at:new Date().toISOString(),prices:[{interval_unit:'month',amount_minor:29000}]}});
+ await ok(one,'/changes',{kind:'plan',target_id:solo.id,version:solo.version,reason:'Owner-only plan'});
+ const v=(await db.query("SELECT pv.technician_seats,pv.ocr_per_period FROM billing.plan_versions pv JOIN billing.plans p ON p.id=pv.plan_id WHERE p.code='solo-test'")).rows[0];
+ assert.deepEqual([v.technician_seats,v.ocr_per_period],[0,0]);
+ assert.equal((await http(one,'/catalog/drafts',{payload:{code:'negative-seats',name_th:'ผิด',name_en:'Bad',kind:'paid',technician_seats:-1,storage_bytes:1000000000,trial_days:0,grace_days:0,effective_at:new Date().toISOString(),prices:[{interval_unit:'month',amount_minor:100}]}})).status,400);
+});
 test('a new trial version applies only to shops created after it takes effect',async()=>{
  const before=await a.createShop('Old trial');const days=async s=>(await db.query("SELECT round(extract(epoch FROM trial_end_at-trial_started_at)/86400)::int AS d FROM billing.subscriptions WHERE organization_id=$1",[s.organizationId])).rows[0].d;
  assert.equal(await days(before),14);
@@ -114,7 +121,7 @@ test('OCR retry re-reserves quota once, refuses non-failed jobs, deleted images 
  const limit=(await db.query('SELECT ocr_per_period FROM billing.entitlement($1)',[quota.organizationId])).rows[0].ocr_per_period;
  await db.query("INSERT INTO billing.usage_counters(organization_id,metric,window_key,used) SELECT $1,'ocr',billing.usage_window('ocr',(SELECT period_id FROM billing.entitlement($1))),$2-2 ON CONFLICT(organization_id,metric,window_key) DO UPDATE SET used=excluded.used",[quota.organizationId,limit]);
  const results=[];for(const j of jobs)results.push((await http(one,`/operations/ocr/${j.id}/retry`,{version:(await ocrRow(j.id)).version,reason:'Quota check'})).status);
- assert.deepEqual(results.sort(),[200,200,422]);
+ assert.deepEqual(results,[200,200,200],'OCR has no per-period quota (migration 023)');
 });
 test('Stripe refresh goes through the trusted service only for open checkouts',async()=>{
  const r=await http(one,`/operations/checkouts/${randomUUID()}/refresh`,{reason:'Missing checkout'});assert.equal(r.status,422);assert.equal(stripeRefreshed.length,0);
