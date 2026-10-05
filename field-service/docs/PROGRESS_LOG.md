@@ -7,19 +7,19 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-04 ดึก — จุดส่งต่อก่อนเคลียร์แชท)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-05 — จุดส่งต่อก่อนเคลียร์แชท)
 
 **เริ่มต่อจากตรงนี้**
-- โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด 9a47066 + commit บันทึกนี้) **ยังไม่ได้ push — ไม่มี git remote**
-- **Staging บน server2 (ใช้ภายใน LAN)**: console http://192.168.1.127:3200/console, เว็บร้าน http://192.168.1.127:3200/shop, API http://192.168.1.127:4100 — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api` บน server2), ฐานข้อมูล cluster 16/staging พอร์ต 5434, ยังไม่มีบัญชี console และยังไม่มีแพ็กเกจ วิธีอัปเดต/คำสั่งทั้งหมดใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
-- **เครื่อง dev**: API :4000, console :3001 (`/console`), ฐานข้อมูล dev บน server2 16/main รัน migration ถึง 020 แล้ว; บัญชี console ทดลองอยู่ในไฟล์ `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
-- **งานล่าสุด**: ปรับดีไซน์ console เป็นแนว SaaS สว่าง (เมนูแบ่งกลุ่มมีไอคอน, top bar, ฟอนต์ Inter + Noto Sans Thai) ขึ้น staging แล้ว — รอผู้ใช้ดูและให้ความเห็น
-- **ผู้ใช้กำลังทำ**: สร้างบัญชี console 2 คนบน staging เอง (Claude ไม่สร้างบัญชี/รหัสผ่านบนเครื่องจริง) แล้วสร้างแพ็กเกจ trial + รายเดือนใน console
+- โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด 8d76e10 + commit บันทึกนี้) **ยังไม่ได้ push — ไม่มี git remote**
+- **Staging บน server2 (ใช้ภายใน LAN)** อัปเดตถึง 8d76e10 แล้ว: console http://192.168.1.127:3200/console, เว็บร้าน http://192.168.1.127:3200/shop, API http://192.168.1.127:4100 — โหมด development (OTP ดูจาก `pm2 logs fs-staging-api`), ฐานข้อมูล 16/staging พอร์ต 5434 (migration ถึง 021), มีบัญชี console 1 คน, **ยังไม่มีแพ็กเกจ** วิธีอัปเดตใน [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)
+- **เครื่อง dev**: API :4000, console/เว็บร้าน :3001, ฐานข้อมูล dev (server2 16/main) migration ถึง 021; มีร้านทดลอง "ร้านทดสอบดีไซน์" เบอร์ทดลอง 0800009876; บัญชี console ทดลองอยู่ใน `.dev-platform-accounts.txt` (ไม่อยู่ใน git)
+- **การตัดสินใจล่าสุด**: super admin ทำทุกอย่างได้เองไม่ต้องมีผู้อนุมัติ (migration 021; บทบาทอื่นยังใช้สองคน); console และเว็บร้านใช้ดีไซน์ SaaS สว่างชุดเดียวกัน
+- **ขั้นต่อไปของผู้ใช้**: สร้างแพ็กเกจ trial + รายเดือนใน console staging (super admin กดเผยแพร่ได้ทันที), ลองใช้ดีไซน์ใหม่แล้วให้ความเห็น
 - **ยังไม่มี**: ชื่อระบบ, โดเมน, DeeSMSx key, EasySlip/Stripe key, ANTHROPIC_API_KEY, ผู้ให้บริการ Push
 
 **สรุปสิ่งที่ทำเสร็จ**
 - Console `/console` ครบตาม MVP (migration 017–020) + ดีไซน์ใหม่; เว็บเจ้าของร้าน `/shop`; แอปมือถือ (Expo); ชำระเงิน EasySlip/Stripe; OTP DeeSMSx; OCR ป้ายเครื่องด้วย Claude API ([OCR_CLAUDE.md](OCR_CLAUDE.md))
-- ผลตรวจล่าสุด: PostgreSQL 16 164/164 ผ่าน; PGlite 141 ผ่าน 27 ข้าม 0 ล้มเหลว; typecheck + Next production build ผ่าน
+- ผลตรวจล่าสุด: PostgreSQL 16 169/169 ผ่าน; PGlite 142 ผ่าน 27 ข้าม 0 ล้มเหลว; typecheck + Next production build ผ่าน
 
 - Branch `field-service-a02` — พัฒนาฟังก์ชัน A01 → D ฝั่ง API/mobile/platform console แล้ว และรอบนี้เพิ่มเว็บเจ้าของร้านโดยเฉพาะที่ `/shop`; การยืนยันบนอุปกรณ์จริงและ production providers ยังไม่ครบ
 - เว็บเจ้าของร้าน MVP ครอบคลุมภาพรวมร้าน ทีม ลูกค้า/สถานที่/พิกัด อุปกรณ์/OCR งาน/ผลบริการ/ร่าง รอบดูแล สมาชิก/สลิป ซัพพอร์ต และบัญชี ไทย/อังกฤษ ดู [OWNER_WEB.md](OWNER_WEB.md)
@@ -38,8 +38,8 @@
 งานโค้ดครบแล้ว (แอปมือถือ, เว็บเจ้าของร้าน, console, OCR ด้วย Claude) และ **staging บน server2 ติดตั้งแล้ว** ใช้ได้ใน LAN ที่ http://192.168.1.127:3200/console (ดู [DEPLOY_SERVER2.md](DEPLOY_SERVER2.md)) ที่เหลือคือการตัดสินใจ การตั้งค่าบริการจริง และการทดสอบ
 
 **A. ทำต่อบน staging ได้ทันที**
-1. สร้างบัญชี console อย่างน้อย 2 คน — เจ้าของบัญชีรัน `scripts/platform-account.mjs create` เองบน server2 (คำสั่งอยู่ใน DEPLOY_SERVER2.md)
-2. สร้างแพ็กเกจทดลองใช้ + แพ็กเกจรายเดือน/รายปีใน console แล้วให้อีกคนอนุมัติ (ตอนนี้ไม่มีแพ็กเกจ ร้านใหม่จะติด "รอชำระเงิน")
+1. (ทำแล้ว 1 คน) บัญชี console เพิ่มเติมสร้างได้ด้วย `scripts/platform-account.mjs create` บน server2 — super admin คนเดียวพอ ไม่ต้องมีผู้อนุมัติแล้ว
+2. สร้างแพ็กเกจทดลองใช้ + แพ็กเกจรายเดือน/รายปีใน console (super admin เผยแพร่ได้ทันที) (ตอนนี้ไม่มีแพ็กเกจ ร้านใหม่จะติด "รอชำระเงิน")
 3. ตั้งค่านโยบายระบบ: จำนวนวัน retention และ cooling ก่อนลบข้อมูลร้าน
 4. ชี้แอปมือถือไปที่ staging (`EXPO_PUBLIC_API_URL=http://192.168.1.127:4100`) แล้วทดสอบบนมือถือจริง
 
