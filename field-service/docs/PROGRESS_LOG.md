@@ -102,6 +102,13 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-05 — เตรียม build APK สำหรับทดสอบ (EAS Build)
+
+- ผู้ใช้ขอไฟล์ APK เพื่อติดตั้งทดสอบ
+- ตรวจเครื่อง dev: build เองไม่สะดวก — Java ที่มากับ Android Studio (`jbr`) ไม่มี `java.exe`, ไม่มี NDK/CMake, ไดรฟ์ D: เหลือ 5 GB (98%)
+- ทำอะไร: เพิ่ม `apps/mobile/eas.json` โปรไฟล์ `staging-apk` (APK สำหรับแจกภายใน เรียก `https://api-staging.koochang.com`) และ `production` (AAB สำหรับ Play Store)
+- สถานะ: ⏳ ผู้ใช้สมัคร/ล็อกอิน Expo เอง แล้วสั่ง build ครั้งแรกแบบ interactive (สร้างโปรเจกต์ EAS และ keystore); push ใช้ได้เมื่อมี `google-services.json` (ไฟล์อยู่นอก git ต้องอัปโหลดเป็น EAS file variable `GOOGLE_SERVICES_JSON`)
+
 ### 2026-10-05 — แจ้งผล "บันทึกสำเร็จ / ไม่สำเร็จ" ด้วย toast (console + เว็บร้าน)
 
 - ผู้ใช้แจ้ง: บันทึกข้อมูลแต่ละครั้งไม่มีข้อความบอกสถานะ ต้องการ toast
