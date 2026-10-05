@@ -68,7 +68,7 @@ No domain or product name yet, so this first install is reachable only on the ho
 | API | http://192.168.1.127:4100 (`/v1/ready` → ready) |
 | Console / owner web / join page | http://192.168.1.127:3200/console · /shop · /join/… |
 | Mode | `NODE_ENV=development` with real random secrets: OTP codes appear only in the API log (`pm2 logs fs-staging-api`), OCR = development (empty suggestions), Stripe test mode only |
-| Database | cluster 16/staging :5434 (localhost), database `field_service`, migrations 001–020, 68 tables, **no seed, no plans yet** |
+| Database | cluster 16/staging :5434 (localhost), database `field_service`, migrations 001–021 (022 not yet applied), 68 tables, **no seed, no plans yet** |
 | Processes | pm2 (ton07): fs-staging-api, fs-staging-worker, fs-staging-web; `pm2 save` done (starts on boot via pm2-ton07) |
 | Secrets | /etc/field-service/staging.env (root:ton07 0640), generated on the server by `infra/deploy/staging-setup.sh` |
 | Backups | /etc/cron.d/field-service-staging: daily 02:30 dump + media → /data/field-service/staging/backups, copy to /data3/field-service-backups; restore check Sundays 03:30. First run: RESTORE OK (68 tables, 2 s) |
@@ -83,8 +83,8 @@ server2 `/tmp`, then in /opt/field-service/staging `git fetch /tmp/fs.bundle fie
 
 1. **Console accounts** — the people who will use them run, on server2:
    `cd /opt/field-service/staging/field-service && /opt/node-24/bin/node --env-file=/etc/field-service/staging.env scripts/platform-account.mjs create --email … --name "…" --roles super_admin`
-   (password and authenticator secret are shown once, to that person; at least two people because approvals need a second person).
-2. **Plans** — no plans exist (no seed). In the console: Plans and prices → trial plan + paid plans → a second person approves.
+   (password and authenticator secret are shown once, to that person; one super_admin is enough since migration 021 — other roles still need a second approver).
+2. **Plans** — no plans exist (no seed). In the console: Plans and prices → trial plan + paid plans → a super admin publishes directly.
    Until a trial plan is published, new shops start in "pending payment".
 3. Mobile testing against staging: `EXPO_PUBLIC_API_URL=http://192.168.1.127:4100` in apps/mobile/.env.local.
 4. When a domain exists: tunnel hostnames, `HOST=127.0.0.1`, https origins in the env file, rebuild the web with the https API URL;

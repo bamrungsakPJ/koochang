@@ -137,6 +137,19 @@ test('finance report totals payments and refunds by source, plan and day, and va
  assert.equal((await http(operator,'/billing/report?from=2024-01-01&to=2026-01-01')).status,400);
  assert.equal((await http(ops,`/billing/report?from=${today}&to=${today}`)).status,403);
 });
+test('paying shop count matches per-shop entitlement now, in grace and after expiry',async()=>{
+ const paid=await a.createShop('Paid count');const inv=await invoice(paid);
+ assert.equal((await db.query('SELECT * FROM padmin.confirm_payment($1,$2,59000,$3,now(),NULL,NULL,$4)',[operator.id,inv,`REF-${randomUUID()}`,randomUUID()])).rows[0].outcome,'ok');
+ const cancelled=await a.createShop('Paid cancelled');const inv2=await invoice(cancelled);
+ assert.equal((await db.query('SELECT * FROM padmin.confirm_payment($1,$2,59000,$3,now(),NULL,NULL,$4)',[operator.id,inv2,`REF-${randomUUID()}`,randomUUID()])).rows[0].outcome,'ok');
+ await db.query('UPDATE billing.subscriptions SET cancel_at_period_end=true WHERE organization_id=$1',[cancelled.organizationId]);
+ for(const days of [0,20,33,40,45,400]){
+  const at=new Date(Date.now()+days*86400000).toISOString();
+  const expected=(await db.query("SELECT count(*)::int AS n FROM core.organizations o CROSS JOIN LATERAL billing.entitlement(o.id,$1) e WHERE e.source='paid' AND e.state IN ('active','past_due')",[at])).rows[0].n;
+  assert.equal((await db.query('SELECT billing.paid_shop_count($1)::int AS n',[at])).rows[0].n,expected,`day ${days}`);
+ }
+ assert.ok((await db.query('SELECT billing.paid_shop_count()::int AS n')).rows[0].n>=2);
+});
 test('shop, invoice and data request lists page past their first 50 rows',async()=>{
  for(let i=0;i<52;i++){const s=await a.createShop(`Paged ${String(i).padStart(2,'0')}`);await invoice(s);if(i<51)await a.one('SELECT auth.request_privacy($1,$2,$3,$4) AS v',[s.owner.userId,s.organizationId,'export','Paged request']);}
  const first=await ok(one,'/shops?q=Paged'),second=await ok(one,'/shops?q=Paged&offset=50');

@@ -1,3 +1,11 @@
+# Paid shop count (migration 022) — 2026-10-05
+
+- New case in tests/console-completion.test.mjs compares `billing.paid_shop_count(at)` with the per-shop `billing.entitlement()` count at now, +20, +33, +40, +45 and +400 days, including a shop cancelled at period end.
+- Full isolated PostgreSQL 16 suite: **170 passed / 0 skipped / 0 failed** (`node --env-file=.env --test --test-concurrency=1 tests/*.test.mjs`).
+- Dev database migrated to 022. Staging not updated.
+
+---
+
 # Console settings and account security — 2026-10-04
 
 - Workspace typechecks, API production compilation and Next.js production build passed.
