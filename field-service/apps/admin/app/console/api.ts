@@ -38,6 +38,19 @@ export async function call<T = unknown>(method: string, path: string, body?: unk
   throw new ConsoleError(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {});
 }
 
+/** Authenticated raw file upload (images); the body is the file itself. */
+export async function upload<T = unknown>(path: string, file: Blob): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${base}${path}`, { method: 'POST', body: file,
+      headers: { 'content-type': file.type || 'application/octet-stream', 'accept-language': language, authorization: `Bearer ${session.get() ?? ''}` } });
+  } catch { throw new ConsoleError(0, 'NETWORK_ERROR', adminText(language, 'networkError')); }
+  const data = await response.json().catch(() => null) as { code?: string; message?: string; field_errors?: Record<string, string> } | null;
+  if (response.ok) return data as T;
+  if (response.status === 401) { session.set(null); onSignedOut(); }
+  throw new ConsoleError(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {});
+}
+
 /** Authenticated binary download (proof images, CSV) as an object URL. */
 export async function download(path: string): Promise<{ url: string; type: string }> {
   const response = await fetch(`${base}${path}`, { headers: { authorization: `Bearer ${session.get() ?? ''}`, 'accept-language': language } });

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, isThaiMobile, normalizePhone, type Language } from '@field-service/core';
 import type { TranslationKey } from '@field-service/i18n';
-import { api, ApiFailure, tokenFromLink, type Challenge } from '../api';
+import { api, apiBaseUrl, ApiFailure, tokenFromLink, type Challenge } from '../api';
 import { Banner, Button, Card, colors, Field, fonts, Icon, IconTile, Loading, Screen, Steps, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
 export function LanguageSwitch({ language, onChange }: { language: Language; onChange: (value: Language) => void }) {
@@ -21,10 +21,23 @@ function Feature({ icon, tone, text }: { icon: IconName; tone: Tone; text: strin
   </View>;
 }
 
+/** Logo set by a super admin in the console (public GET /v1/branding); null keeps the built-in mark. */
+function useBrandLogo(): string | null {
+  const [uri, setUri] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`${apiBaseUrl}/v1/branding`).then(r => r.ok ? r.json() : null)
+      .then((b: { version?: number; logo?: boolean } | null) => { if (live && b?.logo) setUri(`${apiBaseUrl}/v1/branding/logo.png?v=${b.version}`); }, () => {});
+    return () => { live = false; };
+  }, []);
+  return uri;
+}
+
 export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
   language: Language; onLanguage: (value: Language) => void; onCreate: () => void; onSignIn: () => void; onJoin: () => void;
 }) {
   const t = useT();
+  const logo = useBrandLogo();
   return <Screen footer={<>
     <Button title={t('createShop')} icon="storefront" onPress={onCreate} />
     <Button title={t('joinShop')} icon="link" kind="secondary" onPress={onJoin} />
@@ -33,7 +46,8 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
     </Pressable>
   </>}>
     <View style={styles.topRow}>
-      <View style={styles.brandRow}><View style={styles.logo}><Icon name="construct" size={20} color={colors.onPrimary} /></View>
+      <View style={styles.brandRow}>{logo ? <Image source={{ uri: logo }} style={styles.logoImage} accessibilityIgnoresInvertColors />
+        : <View style={styles.logo}><Icon name="construct" size={20} color={colors.onPrimary} /></View>}
         <Text style={styles.brand}>{t('appName')}</Text></View>
       <LanguageSwitch language={language} onChange={onLanguage} />
     </View>
@@ -216,6 +230,7 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 36 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   logo: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  logoImage: { width: 36, height: 36, borderRadius: 10 },
   brand: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.ink, flexShrink: 1 },
   heroTitle: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 46, color: colors.ink },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },

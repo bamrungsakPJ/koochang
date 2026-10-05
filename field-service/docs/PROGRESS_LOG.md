@@ -102,6 +102,16 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-05 — super admin เปลี่ยนโลโก้และ favicon ได้ (migration 025)
+
+- ทำอะไร: เมนู console ใหม่ "โลโก้และไอคอน" (สิทธิ์ `branding.manage` เฉพาะ super_admin) อัปโหลดโลโก้และ favicon แยกกัน; ถ้าไม่อัปโหลด favicon แยก ระบบสร้างจากโลโก้ให้ (64×64); รีเซ็ตกลับค่าเดิมได้; ทุกการแก้บันทึก audit `branding.updated` และกันแก้ทับกันด้วย version
+  - API: `GET /v1/branding` (สาธารณะ), `GET /v1/branding/logo.png|favicon.png` (ใส่ `?v=` แล้ว cache ยาว), `POST /v1/platform/branding/{logo|favicon}?version=` (ส่งไฟล์ดิบ), `POST /v1/platform/branding/reset`
+  - ความปลอดภัย: รับเฉพาะ PNG/JPEG/WebP ≤ 5 MB ไม่รับ SVG (อาจมี script); ทุกรูปถูก re-encode ด้วย sharp เป็น PNG (โลโก้ ≤ 512 px) ตัด metadata; ตอบด้วย `Content-Security-Policy: default-src 'none'`
+  - เว็บ: console, เว็บร้าน `/shop` และหน้าเข้าร่วมร้านแสดงโลโก้แทนไอคอนเดิม; favicon ของแท็บเบราว์เซอร์เปลี่ยนตาม (ค่าเริ่มต้นใหม่ `app/icon.svg` เพราะเดิมไม่มี favicon เลย); มือถือ: หน้าต้อนรับแสดงโลโก้ (ไอคอนแอปบนหน้าจอโทรศัพท์เปลี่ยนแบบนี้ไม่ได้ ต้อง build แอปใหม่)
+- ปัญหา: (1) route `POST :kind` ประกาศก่อน `reset` จะรับ `/reset` ไปเป็นชนิดรูป → ย้าย `reset` ขึ้นก่อน (2) `pnpm db:migrate` บนฐาน dev ล้มเพราะ checksum ของ 024 ไม่ตรง: ลง 024 ตอนไฟล์ยังเป็น CRLF แล้วค่อยแปลงเป็น LF ก่อน commit (เนื้อหาเหมือนเดิม) → แก้ checksum ใน `migration.history` ของฐาน dev ให้ตรงไฟล์ที่ commit; staging ใช้ไฟล์ LF อยู่แล้วไม่กระทบ (3) เปิด web dev server แยกไม่ได้เพราะครบ 5 server ต่อโฟลเดอร์ (อีก 4 ตัวเป็นของแชตอื่น) จึงตรวจ API จริงด้วย curl และหน้าเว็บด้วย build
+- ตรวจแล้ว: `tests/branding.test.mjs` 6 ข้อ (สิทธิ์, re-encode/ขนาด, cache header, SVG/ไฟล์เสียถูกปฏิเสธ, version conflict, favicon แยกไม่ถูกทับ, reset, fs_api เข้าไม่ได้); PGlite ผ่านทั้งหมด; typecheck ทุก workspace + `next build` ผ่าน; API จริงบนฐาน dev ตอบ `/v1/branding` 200, รูปที่ยังไม่ตั้ง 404, อัปโหลดไม่มี session 401
+- สถานะ: ✅ โค้ด; ⏳ deploy staging
+
 ### 2026-10-05 — อัปเดต staging บน server2 + เตรียมเปิดผ่าน Cloudflare Tunnel (คู่ช่าง)
 
 - ผู้ใช้ตั้ง hostname ใน tunnel แล้ว: `app-staging.koochang.com` → `http://localhost:3200`, `api-staging.koochang.com` → `http://localhost:4100`

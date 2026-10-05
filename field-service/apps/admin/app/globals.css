@@ -8,7 +8,7 @@ main { max-width:1100px; margin:auto; padding:32px; } header { display:flex; jus
 footer { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:28px; flex-wrap:wrap; } button { background:var(--teal); color:white; cursor:pointer; }
 button:focus-visible,select:focus-visible { outline:3px solid #caab36; outline-offset:3px; }
 @media(max-width:650px) { main { padding:22px; } .intro { margin-top:38px; } .modules { grid-template-columns:1fr; } }
-.join { max-width:560px; } .join-card { margin-top:48px; background:white; border:1px solid #d9e4dd; border-radius:20px; padding:28px; }
+.join { max-width:560px; } .join-brand { display:inline-flex; align-items:center; gap:10px; } .join-card { margin-top:48px; background:white; border:1px solid #d9e4dd; border-radius:20px; padding:28px; }
 .join-card h1 { font-size:28px; line-height:1.35; margin:6px 0 12px; } .join-card p { line-height:1.6; }
 .join-card .primary { display:block; text-align:center; margin:24px 0 12px; padding:15px 18px; border-radius:14px; background:#008570; color:white; font-weight:bold; text-decoration:none; }
 .join-card .hint { color:#657b72; font-size:14px; }
@@ -75,6 +75,13 @@ button:focus-visible,select:focus-visible { outline:3px solid #caab36; outline-o
 .brand-mark { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:9px; color:#fff; flex:none;
   background:linear-gradient(135deg,#2563eb,#1d4ed8 55%,#1e3a8a); box-shadow:0 4px 10px rgba(29,78,216,.3); }
 .brand-mark.lg { width:44px; height:44px; border-radius:12px; }
+.brand-mark.has-logo { background:transparent; box-shadow:none; }
+.brand-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+.brand-preview { display:flex; align-items:center; justify-content:center; height:140px; border:1px dashed var(--c-line); border-radius:12px; background:repeating-conic-gradient(#f1f5f9 0 25%,#fff 0 50%) 0 0/16px 16px; margin:8px 0 12px; }
+.brand-preview img { max-width:80%; max-height:110px; object-fit:contain; }
+.brand-preview.favicon img { width:64px; height:64px; }
+.brand-card .actions button { display:inline-flex; align-items:center; gap:6px; }
+.brand-mark img { width:100%; height:100%; object-fit:contain; border-radius:inherit; }
 
 /* Shell */
 .shell { display:grid; grid-template-columns:264px minmax(0,1fr); min-height:100vh; }
