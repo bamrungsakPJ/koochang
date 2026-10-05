@@ -112,6 +112,8 @@
 - แก้: script `eas-build-post-install` ใน apps/mobile สั่ง `pnpm build:packages`; ทดสอบโดยลบ dist แล้วรัน script สร้างกลับครบ
 - ผล: build ที่ 2 (2dd54adf) สำเร็จ ได้ APK staging (รอคิวประมาณ 50 นาทีบนบัญชีฟรี)
 - ข้อสังเกต: archive ใหญ่ 254 MB เพราะ EAS อัปโหลดทั้ง git repo (รวม ServiceFlow เดิม) ควรเพิ่ม .easignore
+- ติดตั้งบนมือถือจริง: Google Play Protect บล็อก ("ไม่เคยเห็นแอปจากนักพัฒนารายนี้") เพราะ APK ไม่ได้มาจาก Play Store; ทางเลี่ยงช่วงทดสอบ: "ติดตั้งต่อไป" ในรายละเอียด / ปิดสแกนชั่วคราว / ติดตั้งผ่าน ADB
+- Google Play Console: ผู้ใช้กำลังขอเลข D-U-N-S เพื่อเปิดบัญชีแบบบริษัท (2026-10-05) → หลังได้บัญชีจะแจกทดสอบผ่าน Internal testing
 - สถานะ: ✅ มี APK; ⏳ ทดสอบบนมือถือจริง; push ใช้ได้เมื่อมี `google-services.json` (ไฟล์อยู่นอก git ต้องอัปโหลดเป็น EAS file variable `GOOGLE_SERVICES_JSON`)
 
 ### 2026-10-05 — แจ้งผล "บันทึกสำเร็จ / ไม่สำเร็จ" ด้วย toast (console + เว็บร้าน)
