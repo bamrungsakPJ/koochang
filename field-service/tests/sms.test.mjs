@@ -54,3 +54,30 @@ test('OTP service uses DeeSMSx acknowledgment and maps provider failure to gener
   await assert.rejects(service.requestOtp({phone:'0912345678'},'127.0.0.1','en'),error=>error.getStatus()===503&&error.getResponse().code==='TEMPORARILY_UNAVAILABLE');
   assert.match(messages[1].msg,/Your verification code/);
 });
+
+const thsmsEnv = { NODE_ENV:'production', SMS_PROVIDER:'thsms', THSMS_TOKEN:'synthetic-token', THSMS_SENDER:'TestSender' };
+test('THSMS requires token and sender', () => {
+  assert.equal(createSmsSender(thsmsEnv).delivery,'sms');
+  for(const key of ['THSMS_TOKEN','THSMS_SENDER']) {
+    const incomplete={...thsmsEnv,[key]:' '};
+    assert.equal(createSmsSender(incomplete),null);
+    assert.ok(productionProblems(incomplete).includes(key));
+  }
+  assert.ok(!productionProblems(thsmsEnv).some(p=>p.startsWith('SMS_PROVIDER')||p.startsWith('THSMS')));
+});
+test('THSMS sends V2 JSON with a Bearer token and a local Thai number, no retries', async t => {
+  const calls=[];let reply=()=>new Response(JSON.stringify({success:true,code:200,message:'OK',data:{credit_usage:1,remaining_credit:5008}}),{status:200});
+  t.mock.method(globalThis,'fetch',async(url,options)=>{calls.push({url,options});return reply();});
+  const sender=createSmsSender(thsmsEnv);
+  await sender.send('+66912345678','รหัสยืนยัน 123456');
+  assert.equal(calls[0].url,'https://thsms.com/api/send-sms');
+  assert.equal(calls[0].options.method,'POST');assert.equal(calls[0].options.redirect,'error');
+  assert.equal(calls[0].options.headers.Authorization,'Bearer synthetic-token');
+  assert.deepEqual(JSON.parse(calls[0].options.body),{sender:'TestSender',msisdn:['0912345678'],message:'รหัสยืนยัน 123456'});
+  await assert.rejects(sender.send('+14155550100','x'),/SMS_INVALID_REQUEST/);
+  for(const r of [()=>new Response('{"success":false}',{status:200}),()=>new Response('nope',{status:401}),()=>new Response('[]',{status:200}),()=>new Response('{}',{status:200})]) {
+    reply=r;const before=calls.length;
+    await assert.rejects(sender.send('+66912345678','OTP 123456'),e=>e.message==='SMS_DELIVERY_UNAVAILABLE');
+    assert.equal(calls.length,before+1);
+  }
+});

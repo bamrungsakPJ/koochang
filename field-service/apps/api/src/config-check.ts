@@ -1,5 +1,5 @@
 import { loadAuthSettings, loadMediaSettings, loadPlatformSettings } from './config.js';
-import { deeSmsxSettings } from './sms/sms.sender.js';
+import { deeSmsxSettings, thsmsSettings } from './sms/sms.sender.js';
 import { fcmAccount } from './notifications/push.sender.js';
 
 /** Settings a production start is missing, by name only (never values). Each missing item makes
@@ -14,7 +14,7 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env, saved?:
     if(saved.bank){const bank=saved.bank.enabled?saved.bank:undefined;
       env.PAYMENT_BANK_NAME=bank?.bankName;env.PAYMENT_ACCOUNT_NAME=bank?.accountName;
       env.PAYMENT_ACCOUNT_NUMBER=bank?.accountNumber;env.PAYMENT_BANK_CODE=bank?.bankCode;}
-    if(saved.sms){env.SMS_PROVIDER=saved.sms.enabled?'deesmsx':undefined;env.DEESMSX_SENDER=saved.sms.sender;
+    if(saved.sms&&env.SMS_PROVIDER!=='thsms'){env.SMS_PROVIDER=saved.sms.enabled?'deesmsx':undefined;env.DEESMSX_SENDER=saved.sms.sender;
       env.DEESMSX_API_KEY=saved.sms.apiKeySealed?'configured':undefined;env.DEESMSX_SECRET_KEY=saved.sms.secretKeySealed?'configured':undefined;}
     if(saved.easyslip)env.EASYSLIP_API_KEY=saved.easyslip.enabled&&saved.easyslip.keySealed?'configured':undefined;
   }
@@ -24,7 +24,9 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env, saved?:
   if (!auth.otpSecret) problems.push('OTP_SECRET (32+ bytes base64)');
   if (!auth.joinLinkKey) problems.push('JOIN_LINK_KEY (32 bytes base64)');
   if (!auth.joinLinkBaseUrl.startsWith('https://')) problems.push('JOIN_LINK_BASE_URL (https)');
-  if (env.SMS_PROVIDER !== 'deesmsx') problems.push('SMS_PROVIDER (deesmsx required for production SMS)');
+  if (env.SMS_PROVIDER === 'thsms') {
+    for (const name of ['THSMS_TOKEN', 'THSMS_SENDER']) if (!thsmsSettings(env) && !env[name]?.trim()) problems.push(name);
+  } else if (env.SMS_PROVIDER !== 'deesmsx') problems.push('SMS_PROVIDER (deesmsx or thsms required for production SMS)');
   else if (!deeSmsxSettings(env)) {
     for (const name of ['DEESMSX_API_KEY', 'DEESMSX_SECRET_KEY', 'DEESMSX_SENDER']) {
       if (!env[name]?.trim()) problems.push(name);
