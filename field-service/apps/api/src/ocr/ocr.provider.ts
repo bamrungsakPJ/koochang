@@ -1,3 +1,4 @@
+import { decrypt } from '../shared/crypto.js';
 import Anthropic from '@anthropic-ai/sdk';
 
 /** Nameplate reading. Without a configured provider, production answers 503 to new requests and
@@ -13,6 +14,7 @@ export class TemporaryOcrError extends Error {}
 
 export abstract class OcrProvider {
   abstract readonly name: string;
+  async resolve(): Promise<OcrProvider | null> { return this; }
   abstract read(image: Buffer): Promise<OcrResult>;
 }
 
@@ -106,3 +108,21 @@ export function createOcrProvider(env: NodeJS.ProcessEnv = process.env): OcrProv
 }
 
 export const OCR_PROVIDER = Symbol('OCR_PROVIDER');
+
+export interface OcrSettings { enabled: boolean; model: string; keySealed?: string }
+/** Console settings override environment, including explicit disable. Re-read for every request/batch. */
+export class RuntimeOcrProvider extends OcrProvider {
+  readonly name = 'runtime';
+  constructor(private readonly settings: () => Promise<OcrSettings | null | undefined>, private readonly secretKey?: Buffer, private readonly env: NodeJS.ProcessEnv = process.env) { super(); }
+  override async resolve(): Promise<OcrProvider | null> {
+    const saved = await this.settings();
+    if (!saved) return createOcrProvider(this.env);
+    if (!saved.enabled || !saved.keySealed || !this.secretKey) return null;
+    return createOcrProvider({ ...this.env, OCR_PROVIDER: 'claude', ANTHROPIC_API_KEY: decrypt(this.secretKey, saved.keySealed), OCR_CLAUDE_MODEL: saved.model });
+  }
+  async read(image: Buffer): Promise<OcrResult> {
+    const provider = await this.resolve();
+    if (!provider) throw new Error('OCR_UNAVAILABLE');
+    return provider.read(image);
+  }
+}

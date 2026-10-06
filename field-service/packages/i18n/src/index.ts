@@ -1,6 +1,8 @@
 export type Language = 'th' | 'en';
 const th = {
-  aboutApp: 'เกี่ยวกับแอป', appCompany: 'บริษัทผู้พัฒนา', appCompanyPending: 'รอระบุชื่อบริษัท', appDetails: 'รายละเอียดแอป', appVersion: 'เวอร์ชัน', appBuild: 'หมายเลขรุ่น', appPlatform: 'ระบบ', appVersionLabel: 'เวอร์ชัน {version} (Build {build})', aboutAppDescription: 'ระบบจัดการงานบริการสำหรับเจ้าของร้านและช่าง',
+  biometricUnlock: 'สแกนเพื่อเข้าแอป', biometricHint: 'ใช้ลายนิ้วมือหรือใบหน้าเมื่อเปิดแอปบนเครื่องนี้', biometricUnavailable: 'กรุณาตั้งค่าลายนิ้วมือหรือใบหน้าบนเครื่องก่อน', biometricPrompt: 'ยืนยันตัวตนเพื่อเข้า คู่ช่าง', biometricLocked: 'ยืนยันตัวตนเพื่อเข้าใช้งาน', usePassword: 'ใช้รหัสผ่านแทน',
+  sessionStorageUnavailable: 'บันทึกการเข้าสู่ระบบในเครื่องไม่ได้ กรุณาตรวจพื้นที่จัดเก็บและลองใหม่', uploadInvalidImage: 'ส่งรูปไม่สำเร็จ กรุณาเลือกรูป JPEG หรือ PNG แล้วลองใหม่', uploadTooLarge: 'รูปมีขนาดเกินที่รับได้ กรุณาใช้รูปที่เล็กลง', uploadNotReceived: 'ส่งรูปไม่ครบ กรุณาลองส่งอีกครั้ง ยังไม่ได้เริ่มอ่านป้ายเครื่อง',
+
   'ownerWeb.pagination': 'หน้ารายการ', 'ownerWeb.previousPage': 'หน้าก่อน', 'ownerWeb.nextPage': 'หน้าถัดไป', 'ownerWeb.pageNumber': 'หน้า {n}',
   'ownerWeb.technicianAccount': 'บัญชีช่างใช้งานผ่านแอปมือถือได้ เว็บนี้สำหรับเจ้าของร้าน',
   'ownerWeb.workspace': 'พื้นที่จัดการร้าน', 'ownerWeb.navigation': 'เมนูร้าน', 'ownerWeb.groupWork': 'งานประจำวัน', 'ownerWeb.groupShop': 'ร้านของฉัน', 'ownerWeb.groupHelp': 'ช่วยเหลือและบัญชี', 'ownerWeb.openMenu': 'เปิดเมนู', 'ownerWeb.closeMenu': 'ปิดเมนู',
@@ -299,7 +301,9 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
-  aboutApp: 'About', appCompany: 'Developer company', appCompanyPending: 'Company name pending', appDetails: 'App details', appVersion: 'Version', appBuild: 'Build number', appPlatform: 'Platform', appVersionLabel: 'Version {version} (Build {build})', aboutAppDescription: 'Service management for shop owners and technicians.',
+  biometricUnlock: 'Unlock with biometrics', biometricHint: 'Use fingerprint or face recognition when opening this app on this device', biometricUnavailable: 'Set up fingerprint or face recognition on this device first', biometricPrompt: 'Verify your identity to open KooChang', biometricLocked: 'Verify your identity to continue', usePassword: 'Use password instead',
+  sessionStorageUnavailable: 'Your sign-in could not be saved on this device. Check available storage and retry.', uploadInvalidImage: 'The image could not be uploaded. Select a JPEG or PNG image and retry.', uploadTooLarge: 'The image is too large. Select a smaller image.', uploadNotReceived: 'The image was not received completely. Retry uploading; nameplate reading has not started.',
+
   'ownerWeb.pagination': 'List pages', 'ownerWeb.previousPage': 'Previous', 'ownerWeb.nextPage': 'Next', 'ownerWeb.pageNumber': 'Page {n}',
   'ownerWeb.technicianAccount': 'Technicians use the mobile app. This workspace is for shop owners.',
   'ownerWeb.workspace': 'Shop workspace', 'ownerWeb.navigation': 'Shop navigation', 'ownerWeb.groupWork': 'Daily work', 'ownerWeb.groupShop': 'My shop', 'ownerWeb.groupHelp': 'Help & account', 'ownerWeb.openMenu': 'Open menu', 'ownerWeb.closeMenu': 'Close menu',

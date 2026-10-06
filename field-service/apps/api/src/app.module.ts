@@ -35,7 +35,7 @@ import { SupportController } from './support/support.controller.js';
 import { AUTH_SETTINGS, loadAuthSettings, loadMediaSettings, loadPlatformSettings, MEDIA_SETTINGS, PLATFORM_SETTINGS } from './config.js';
 import { SMS_SENDER } from './sms/sms.sender.js';
 import { createStorage, OBJECT_STORAGE } from './media/object-storage.js';
-import { createOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
+import { RuntimeOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
 @Module({
   controllers: [HealthController, AuthController, MeController, OrganizationsController, JoinController, CustomersController,
     MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController, MaintenanceController,
@@ -47,7 +47,7 @@ import { createOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
     { provide: SMS_SENDER, useFactory: (runtime:RuntimeSettingsService) => new RuntimeSmsSender(runtime), inject:[RuntimeSettingsService] },
     { provide: MEDIA_SETTINGS, useFactory: () => loadMediaSettings() },
     { provide: OBJECT_STORAGE, useFactory: (settings: ReturnType<typeof loadMediaSettings>) => createStorage(settings.mediaDir), inject: [MEDIA_SETTINGS] },
-    { provide: OCR_PROVIDER, useFactory: () => createOcrProvider() },
+    { provide: OCR_PROVIDER, useFactory: (runtime:RuntimeSettingsService, settings:ReturnType<typeof loadPlatformSettings>) => new RuntimeOcrProvider(() => runtime.ocrSettings(), settings.secretKey), inject:[RuntimeSettingsService, PLATFORM_SETTINGS] },
   ],
 })
 export class AppModule {}

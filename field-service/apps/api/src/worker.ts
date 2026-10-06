@@ -2,9 +2,9 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import { Pool } from 'pg';
 import { translate, type TranslationKey } from '@field-service/i18n';
 import { normalizeLanguage } from '@field-service/core';
-import { loadMediaSettings } from './config.js';
+import { loadMediaSettings, loadPlatformSettings } from './config.js';
 import { createStorage, type ObjectStorage } from './media/object-storage.js';
-import { createOcrProvider, TemporaryOcrError, type OcrProvider } from './ocr/ocr.provider.js';
+import { RuntimeOcrProvider, TemporaryOcrError, type OcrProvider } from './ocr/ocr.provider.js';
 import { createPushSender, TemporaryPushError, type PushSender } from './notifications/push.sender.js';
 
 /** Background worker: OCR queue, push deliveries, subscription reminders and housekeeping.
@@ -19,17 +19,18 @@ export async function verifyWorkerRole(pool: Pool): Promise<void> {
 
 export async function runOcr(deps: WorkerDeps, limit = 5): Promise<number> {
   const jobs = (await deps.pool.query('SELECT * FROM worker.claim_ocr($1)', [limit])).rows;
+  const provider = jobs.length ? await deps.ocr?.resolve() : null;
   for (const job of jobs) {
     let outcome = 'failed', result: unknown = null, error: string | null = null;
     try {
-      if (!deps.ocr || !deps.storage) throw new Error('OCR_UNAVAILABLE');
-      const read = await deps.ocr.read(await deps.storage.get(job.object_key));
+      if (!provider || !deps.storage) throw new Error('OCR_UNAVAILABLE');
+      const read = await provider.read(await deps.storage.get(job.object_key));
       outcome = 'succeeded'; result = read;
     } catch (e) {
       outcome = e instanceof TemporaryOcrError ? 'retry' : 'failed';
       error = e instanceof Error ? e.message.slice(0, 80) : 'OCR_FAILED';
     }
-    await deps.pool.query('SELECT worker.finish_ocr($1,$2,$3,$4,$5,$6)', [job.id, outcome, deps.ocr?.name ?? null, result, error, 30 * job.attempts]);
+    await deps.pool.query('SELECT worker.finish_ocr($1,$2,$3,$4,$5,$6)', [job.id, outcome, provider?.name ?? null, result, error, 30 * job.attempts]);
   }
   return jobs.length;
 }
@@ -114,7 +115,7 @@ async function main() {
   if (!url) throw new Error('WORKER_DATABASE_URL_REQUIRED');
   const pool = new Pool({ connectionString: url, max: 4 });
   await verifyWorkerRole(pool);
-  const deps: WorkerDeps = { pool, storage: createStorage(loadMediaSettings().mediaDir), ocr: createOcrProvider(), push: createPushSender(), log: console.log };
+  const deps: WorkerDeps = { pool, storage: createStorage(loadMediaSettings().mediaDir), ocr: new RuntimeOcrProvider(async () => (await pool.query('SELECT worker.ocr_settings() AS value')).rows[0].value, loadPlatformSettings().secretKey), push: createPushSender(), log: console.log };
   const registry = process.env.ERASURE_REGISTRY_FILE || undefined;
   if (process.argv.includes('replay-erasure')) {
     const n = await replayErasure(deps, registry);

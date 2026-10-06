@@ -138,3 +138,23 @@ test('startup diagnostics honor console overrides without reading or leaking sec
    {...saved,sms:{...saved.sms,enabled:false},easyslip:{enabled:false}});
  assert.ok(disabled.some(p=>p.startsWith('SMS_PROVIDER')));assert.ok(disabled.includes('EASYSLIP_API_KEY'));
 });
+
+test('OCR settings seal keys, preserve them, apply immediately and restrict worker access', async () => {
+ const initial=await controller.get(admin);
+ await assert.rejects(controller.save(admin,randomUUID(),{section:'ocr',version:initial.version,enabled:true,model:'claude-opus-5'}),e=>e.getStatus()===400);
+ const saved=await save('ocr',{enabled:true,model:'claude-opus-5',api_key:'synthetic-anthropic-key'});
+ assert.equal(saved.ocr.key_configured,true);assert.ok(!JSON.stringify(saved).includes('synthetic-anthropic-key'));assert.ok(!JSON.stringify(saved).includes('keySealed'));
+ const row=await runtime.ocrSettings();assert.equal(decrypt(settings.secretKey,row.keySealed),'synthetic-anthropic-key');
+ const {RuntimeOcrProvider}=await import('../apps/api/dist/ocr/ocr.provider.js');
+ const provider=new RuntimeOcrProvider(()=>runtime.ocrSettings(),settings.secretKey,{OCR_PROVIDER:'development'});
+ assert.equal((await provider.resolve()).name,'claude');
+ const workerRow=await role('fs_worker',async c=>(await c.query('SELECT worker.ocr_settings() AS value')).rows[0].value);
+ assert.equal(workerRow.keySealed,row.keySealed);
+ await assert.rejects(role('fs_api',c=>c.query('SELECT worker.ocr_settings()')),e=>e.code==='42501');
+ await assert.rejects(role('fs_worker',c=>c.query('SELECT padmin.runtime_settings()')),e=>e.code==='42501');
+ await save('ocr',{enabled:false,model:'claude-opus-5'});assert.equal(await provider.resolve(),null);
+ assert.equal((await runtime.ocrSettings()).keySealed,row.keySealed);
+ await save('ocr',{enabled:true,model:'claude-sonnet-4-6'});assert.equal((await provider.resolve()).name,'claude');
+ const audits=(await db.query("SELECT details FROM platform.audit_logs WHERE action='console_settings.updated' AND details->>'section'='ocr'")).rows;
+ assert.ok(audits.length>=3);assert.ok(!JSON.stringify(audits).includes('synthetic-anthropic-key'));assert.ok(!JSON.stringify(audits).includes('keySealed'));
+});

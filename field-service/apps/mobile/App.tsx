@@ -1,4 +1,4 @@
-import { About, VersionLabel } from './src/screens/about';
+import { Unlock } from './src/biometrics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -27,8 +27,7 @@ type Next =
   | { kind: 'signin' } | { kind: 'reset' }
   | { kind: 'join'; token: string; shopName: string; displayName: string };
 type Route =
-  | { screen: 'about'; back: 'welcome' | 'account' }
-  | { screen: 'boot' } | { screen: 'welcome' } | { screen: 'register' } | { screen: 'signin'; join?: { token: string; shopName: string } } | { screen: 'reset' }
+  | { screen: 'unlock' } | { screen: 'boot' } | { screen: 'welcome' } | { screen: 'register' } | { screen: 'signin'; join?: { token: string; shopName: string } } | { screen: 'reset' }
   | { screen: 'setPassword'; next: Next } | { screen: 'changePassword' }
   | { screen: 'joinEntry' } | { screen: 'joinPreview'; token: string }
   | { screen: 'joinPhone'; token: string; shopName: string } | { screen: 'joinName'; token: string; shopName: string }
@@ -81,7 +80,7 @@ export default function App() {
   const openJoinUrl = useCallback((url: string | null) => {
     const token = url ? tokenFromLink(url) : null;
     if (!token) return;
-    setRoute(current => current.screen === 'boot' ? (pendingToken.current = token, current) : { screen: 'joinPreview', token });
+    setRoute(current => ['boot', 'unlock'].includes(current.screen) ? (pendingToken.current = token, current) : { screen: 'joinPreview', token });
   }, []);
 
   useEffect(() => {
@@ -94,6 +93,7 @@ export default function App() {
       openJoinUrl(await Linking.getInitialURL().catch(() => null));
       let next: Route = { screen: 'welcome' };
       if (await api.restore()) {
+        if (await storage.get(keys.biometric) === 'true') { setRoute({ screen: 'unlock' }); return; }
         try { const loaded = await loadMe(); next = loaded.user.password_set ? { screen: 'shop' } : { screen: 'setPassword', next: { kind: 'signin' } }; if (loaded.user.preferred_language !== initial) { setLanguage(loaded.user.preferred_language); api.language = loaded.user.preferred_language; } }
         // Still signed in but the service is unreachable: offer a retry instead of the welcome page.
         catch { next = api.signedIn ? { screen: 'offline' } : { screen: 'welcome' }; }
@@ -162,14 +162,18 @@ export default function App() {
   }
   let content;
   switch (route.screen) {
-    case 'about': content = <About onBack={() => setRoute({ screen: route.back })} />; break;
+    case 'unlock': content = <Unlock onUnlock={async () => {
+      try { const loaded = await loadMe(); const token = pendingToken.current; pendingToken.current = null;
+        setRoute(token ? { screen: 'joinPreview', token } : loaded.user.password_set ? { screen: 'shop' } : { screen: 'setPassword', next: { kind: 'signin' } });
+      } catch (e) { if (api.signedIn) setRoute({ screen: 'offline' }); else setRoute({ screen: 'welcome' }); }
+    }} onPassword={async () => { await signOut(); setRoute({ screen: 'signin' }); }} />; break;
     case 'boot': content = <Loading />; break;
     case 'offline': content = <Screen><Banner text={translate(language, 'networkError')} />
       <Button title={translate(language, 'retry')} icon="refresh" onPress={async () => {
         try { await loadMe(); setRoute({ screen: 'shop' }); } catch { if (!api.signedIn) setRoute({ screen: 'welcome' }); }
       }} /></Screen>; break;
     case 'welcome': content = <Welcome language={language} onLanguage={changeLanguage}
-      onAbout={() => setRoute({ screen: 'about', back: 'welcome' })} onCreate={() => setRoute({ screen: 'register' })} onSignIn={() => setRoute({ screen: 'signin' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />; break;
+      onCreate={() => setRoute({ screen: 'register' })} onSignIn={() => setRoute({ screen: 'signin' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />; break;
     case 'register': content = api.signedIn
       ? <CreateShopSignedIn onBack={() => setRoute({ screen: 'shop' })} onCreated={async (shopName, link, id) => { await loadMe(id); setRoute({ screen: 'shopReady', shopName, link }); }} />
       : <PhoneForm mode="register" onBack={() => setRoute({ screen: 'welcome' })}
@@ -289,7 +293,7 @@ export default function App() {
         onOpen={id => setRoute({ screen: 'job', id })} onCreate={() => setRoute({ screen: 'jobPick' })} />;
       else if (route.screen === 'customers' && membership && active) content = <CustomersScreen membership={membership}
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
-      else if (route.screen === 'account') content = <Account onAbout={() => setRoute({ screen: 'about', back: 'account' })} me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
+      else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onChangePassword={() => setRoute({ screen: 'changePassword' })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
@@ -321,7 +325,6 @@ function BrandStart() {
   return <View style={startStyles.root} onLayout={() => { void SplashScreen.hideAsync().catch(() => {}); }}>
     <StatusBar barStyle="light-content" backgroundColor={brandNavy} />
     <Image source={require('./assets/splash-lockup.png')} style={startStyles.lockup} resizeMode="contain" accessibilityLabel="KooChang คู่ช่าง" />
-    <VersionLabel light />
   </View>;
 }
 const brandNavy = '#12243A';

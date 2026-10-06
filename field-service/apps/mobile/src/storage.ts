@@ -7,17 +7,19 @@ export const storage = {
     try { return Platform.OS === 'web' ? localStorage.getItem(key) : await SecureStore.getItemAsync(key); }
     catch { return null; }
   },
-  async set(key: string, value: string | null): Promise<void> {
+  async set(key: string, value: string | null, required = false): Promise<void> {
     try {
       if (Platform.OS === 'web') { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); }
       else if (value === null) await SecureStore.deleteItemAsync(key);
       else await SecureStore.setItemAsync(key, value);
-    } catch { /* storage unavailable: the session just will not survive a restart */ }
+    } catch { if (required) throw new Error('SESSION_STORAGE_UNAVAILABLE'); }
   },
 };
 
 export const keys = {
   language: 'foundation.language',
+  tokens: 'session.tokens',
+  biometric: 'session.biometric',
   access: 'session.access',
   refresh: 'session.refresh',
   organization: 'session.organization',

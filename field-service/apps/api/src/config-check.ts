@@ -16,6 +16,7 @@ export function productionProblems(env: NodeJS.ProcessEnv = process.env, saved?:
       env.PAYMENT_ACCOUNT_NUMBER=bank?.accountNumber;env.PAYMENT_BANK_CODE=bank?.bankCode;}
     if(saved.sms&&env.SMS_PROVIDER!=='thsms'){env.SMS_PROVIDER=saved.sms.enabled?'deesmsx':undefined;env.DEESMSX_SENDER=saved.sms.sender;
       env.DEESMSX_API_KEY=saved.sms.apiKeySealed?'configured':undefined;env.DEESMSX_SECRET_KEY=saved.sms.secretKeySealed?'configured':undefined;}
+    if(saved.ocr){env.OCR_PROVIDER=saved.ocr.enabled?'claude':undefined;env.ANTHROPIC_API_KEY=saved.ocr.enabled&&saved.ocr.keySealed?'configured':undefined;}
     if(saved.easyslip)env.EASYSLIP_API_KEY=saved.easyslip.enabled&&saved.easyslip.keySealed?'configured':undefined;
   }
   const auth = loadAuthSettings(env), media = loadMediaSettings(env), platform = loadPlatformSettings(env);

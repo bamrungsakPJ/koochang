@@ -1,3 +1,13 @@
+# Photo/session/AI settings — 2026-10-06
+
+- All workspace typechecks and Next production build pass.
+- 19 pass: actual mobile transport/session with mocked HTTP/storage (6), mocked Claude provider (4), console settings/PGlite (9). Secrets redacted, encryption, permission, version conflict, preserve-key and immediate enable/disable covered.
+- Worker SQL/PGlite: 11 pass. HTTP auth suite without TEST_DATABASE_URL skips; do not count as device/upload verification.
+- Staging observation: 5 pending_upload media, no OCR requests in last day; OCR_PROVIDER=development, no Anthropic key. API registration occurred but reading never started. Native upload changed to direct ArrayBuffer; actual Android camera/library validation pending.
+- Biometrics is opt-in, device-local, on cold launch; session tokens in SecureStore, no saved password. Native fingerprint/face flow still requires device validation.
+- API/worker resolve encrypted console OCR settings dynamically; narrow worker function added in migration 027.
+- Local 0.2.5 APK build and staging deployment in progress. Actual Anthropic reading awaits user-supplied console key.
+
 # Local Android APK build — 2026-10-06
 
 - Windows local Release APK build SUCCESSFUL: 0.2.4 / versionCode 6, 291 tasks, 21m43s. Source snapshot b40b210 under D:\kc with pnpm hoisted and unchanged lockfile.

@@ -123,7 +123,7 @@ export class MediaController {
    * retries are not counted. Without a provider the app goes straight to manual entry. */
   @Post('ocr-requests')
   async requestOcr(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Body() body: Record<string, unknown> = {}) {
-    if (!this.ocr) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
+    if (!this.ocr || !await this.ocr.resolve()) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
     const check = new Validation();
     const requestKey = typeof body.request_key === 'string' && uuidPattern.test(body.request_key) ? body.request_key : undefined;
     const assetId = typeof body.media_asset_id === 'string' && uuidPattern.test(body.media_asset_id) ? body.media_asset_id : undefined;

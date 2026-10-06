@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Equipment, type EquipmentSummary, type Media, type Membership } from '../api';
-import { CameraDeniedError, pickPhoto, uploadPhoto, uuid } from '../photos';
+import { CameraDeniedError, pickPhoto, uploadPhoto, uuid, type Picked } from '../photos';
 import { EquipmentHistoryView } from './service';
 import { Banner, Button, Card, colors, Field, fonts, Icon, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
@@ -20,7 +20,7 @@ export function useEquipmentTitle() {
     e.name?.trim() || [t(`category.${categories.includes(e.category as never) ? e.category : 'other'}` as TranslationKey), e.brand, e.model].filter(Boolean).join(' ');
 }
 
-type PhotoState = { state: 'empty' } | { state: 'uploading' } | { state: 'ready'; media: Media } | { state: 'error'; message: string };
+type PhotoState = { state: 'empty' } | { state: 'uploading'; uri?: string } | { state: 'ready'; media: Media; uri?: string } | { state: 'error'; message: string; uri?: string };
 type Ocr = { state: 'submitting' } | { state: 'none' } | { state: 'reading'; id: string } | { state: 'done'; id: string; fields: Record<string, string> } | { state: 'empty'; id: string } | { state: 'failed'; id?: string; message: string; terminal?: boolean } | { state: 'waiting'; id: string };
 
 /** Choose camera / library / skip for one photo slot. */
@@ -28,12 +28,12 @@ function PhotoSlot({ title, hint, photo, onPick, onRetry, children }: { children
   const t = useT();
   return <Card>
     <View style={styles.slotHead}>
-      {photo.state === 'ready' && photo.media.thumbnail_url ? <Image source={{ uri: photo.media.thumbnail_url }} style={styles.slotImage} />
+      {('uri' in photo && photo.uri) || (photo.state === 'ready' && photo.media.thumbnail_url) ? <Image source={{ uri: ('uri' in photo ? photo.uri : undefined) || (photo.state === 'ready' ? photo.media.thumbnail_url! : '') }} style={styles.slotImage} />
         : <IconTile icon="camera" tone="sky" size={56} />}
       <View style={{ flex: 1 }}><Strong>{title}</Strong>{hint ? <Sub>{hint}</Sub> : null}</View>
     </View>
     {children}
-    {photo.state === 'uploading' ? <Sub>{t('uploading')}</Sub> : null}
+    {photo.state === 'uploading' ? <Banner tone="info" text={t('uploading')} /> : null}
     {photo.state === 'error' ? <Banner tone="info" text={photo.message} /> : null}
     {photo.state !== 'uploading' ? <View style={styles.row}>
       <View style={{ flex: 1 }}><Button small icon="camera" title={t('takePhoto')} kind={photo.state === 'ready' ? 'secondary' : 'primary'} onPress={() => onPick('camera')} /></View>
@@ -63,6 +63,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
   const [saved, setSaved] = useState<Equipment | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const pendingPhotos = useRef<Partial<Record<'nameplate' | 'equipment', { picked: Picked; key: string }>>>({});
   const generation = useRef(0);
   const ocrKey = useRef({ mediaId: '', key: '' });
   useEffect(() => () => { generation.current++; }, []);
@@ -116,15 +117,30 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
     try { picked = await pickPhoto(source); }
     catch (e) { set({ state: 'error', message: e instanceof CameraDeniedError ? t('cameraDenied') : t('uploadFailed') }); return; }
     if (!picked) return;
+    pendingPhotos.current[slot] = { picked, key: uuid() };
+    await sendPhoto(slot);
+  }
+
+  async function sendPhoto(slot: 'nameplate' | 'equipment') {
+    const pending = pendingPhotos.current[slot];
+    if (!pending) return;
+    const set = slot === 'nameplate' ? setNameplate : setUnitPhoto;
+    const { picked, key } = pending;
     const token = slot === 'nameplate' ? ++generation.current : generation.current;
     if (slot === 'nameplate') setOcr({ state: 'none' });
-    set({ state: 'uploading' });
+    set({ state: 'uploading', uri: picked.uri });
     try {
-      const media = await uploadPhoto(org, picked, slot);
-      if (slot === 'nameplate' && token !== generation.current) return;
-      set({ state: 'ready', media });
+      const media = await uploadPhoto(org, picked, slot, key);
+      if (pendingPhotos.current[slot] !== pending || (slot === 'nameplate' && token !== generation.current)) return;
+      set({ state: 'ready', media, uri: picked.uri });
       if (slot === 'nameplate') await startReading(media);
-    } catch (e) { if (slot === 'nameplate' && token !== generation.current) return; set({ state: 'error', message: e instanceof ApiFailure && e.message ? e.message : t('uploadFailed') }); }
+    } catch (e) {
+      if (pendingPhotos.current[slot] !== pending || (slot === 'nameplate' && token !== generation.current)) return;
+      const contentError = e instanceof ApiFailure ? e.fieldErrors.content : undefined;
+      const message = contentError === 'field.required' ? t('uploadNotReceived') : contentError === 'field.image' ? t('uploadInvalidImage')
+        : e instanceof ApiFailure && e.status === 413 ? t('uploadTooLarge') : errorText(e);
+      set({ state: 'error', message, uri: picked.uri });
+    }
   }
 
   const suggestions = ocr.state === 'done' ? ocr.fields : {};
@@ -147,7 +163,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
     } finally { setBusy(false); }
   }
   function another() {
-    generation.current++; key.current = uuid(); setRound(round + 1); setSaved(null); setNameplate({ state: 'empty' }); setUnitPhoto({ state: 'empty' }); setOcr({ state: 'none' });
+    pendingPhotos.current = {}; generation.current++; key.current = uuid(); setRound(round + 1); setSaved(null); setNameplate({ state: 'empty' }); setUnitPhoto({ state: 'empty' }); setOcr({ state: 'none' });
     setValues({ name: '', brand: '', model: '', serial_number: '' }); setDuplicates([]); setFailure(null);
   }
   const title = useEquipmentTitle();
@@ -171,7 +187,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
   return <Screen key={round} onBack={onBack} footer={<Button title={t('saveEquipment')} icon="checkmark" busy={busy} disabled={nameplate.state === 'uploading' || unitPhoto.state === 'uploading'} onPress={() => save()} />}>
     <Title>{t('addEquipment')}</Title>
     <PhotoSlot title={t('nameplatePhoto')} hint={t('nameplateHint')} photo={nameplate} onPick={source => pick('nameplate', source)}
-      onRetry={() => pick('nameplate', 'camera')}>
+      onRetry={() => sendPhoto('nameplate')}>
       {ocr.state === 'submitting' || ocr.state === 'reading' ? <Banner tone="info" text={t(ocr.state === 'submitting' ? 'ocrSubmitting' : 'ocrReading')} /> : null}
       {ocr.state === 'done' ? <>
         <Banner tone="success" text={t('ocrDone')} />
@@ -186,7 +202,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
         else void startReading(nameplate.media, ocr.state === 'empty' || (ocr.state === 'failed' && !!ocr.terminal));
       }} /> : null}
     </PhotoSlot>
-    <PhotoSlot title={t('equipmentPhoto')} photo={unitPhoto} onPick={source => pick('equipment', source)} />
+    <PhotoSlot title={t('equipmentPhoto')} photo={unitPhoto} onPick={source => pick('equipment', source)} onRetry={() => sendPhoto('equipment')} />
 
     <Section>{t('category')}</Section>
     <View style={styles.chips}>

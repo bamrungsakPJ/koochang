@@ -8,6 +8,7 @@ export interface RuntimeSettings {
  policy?:{new_shops_enabled:boolean;new_payments_enabled:boolean;business_retention_days?:number|null;deletion_cooling_days?:number|null}|null;
  bank?: {enabled:boolean;bankName:string;accountName:string;accountNumber:string;bankCode?:string;promptPayId?:string};
  sms?: {enabled:boolean;sender:string;apiKeySealed?:string;secretKeySealed?:string};
+ ocr?: import('../ocr/ocr.provider.js').OcrSettings;
  easyslip?: {enabled:boolean;keySealed?:string};
 }
 @Injectable()
@@ -34,6 +35,7 @@ export class RuntimeSettingsService {
    return createSmsSender({NODE_ENV:process.env.NODE_ENV,SMS_PROVIDER:'deesmsx',DEESMSX_API_KEY:this.open(row.sms.apiKeySealed),
      DEESMSX_SECRET_KEY:this.open(row.sms.secretKeySealed),DEESMSX_SENDER:row.sms.sender});
  }
+ async ocrSettings(){return (await this.read())?.ocr;}
  async slipKey():Promise<string|undefined>{
    const row=await this.read();
    if(!row?.easyslip)return process.env.EASYSLIP_API_KEY;

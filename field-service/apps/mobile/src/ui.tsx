@@ -48,6 +48,7 @@ export function useT() {
 export function useErrorText() {
   const t = useT();
   return (error: unknown): string => {
+    if (error instanceof Error && error.message === 'SESSION_STORAGE_UNAVAILABLE') return t('sessionStorageUnavailable');
     if (error instanceof ApiFailure) return error.code === 'NETWORK_ERROR' || !error.message ? t('networkError') : error.message;
     return t('INTERNAL_ERROR');
   };

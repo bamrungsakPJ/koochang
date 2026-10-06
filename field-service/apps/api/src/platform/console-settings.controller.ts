@@ -16,6 +16,8 @@ export class ConsoleSettingsController {
    return {...value,bank:value.bank??(this.settings.payment?{...this.settings.payment,enabled:true}:null),
      sms:value.sms??{enabled:process.env.SMS_PROVIDER==='deesmsx',sender:process.env.DEESMSX_SENDER??'',key_configured:Boolean(process.env.DEESMSX_API_KEY&&process.env.DEESMSX_SECRET_KEY)},
      easyslip:value.easyslip??{enabled:Boolean(process.env.EASYSLIP_API_KEY),key_configured:Boolean(process.env.EASYSLIP_API_KEY)},
+     ocr:value.ocr??{enabled:process.env.OCR_PROVIDER==='claude'&&Boolean(process.env.ANTHROPIC_API_KEY),model:process.env.OCR_CLAUDE_MODEL||'claude-opus-5',key_configured:Boolean(process.env.ANTHROPIC_API_KEY)},
+     ocr_worker_ready:Boolean(process.env.WORKER_DATABASE_URL&&this.settings.secretKey),
      server_ready:Boolean(this.settings.secretKey),slip_worker_ready:Boolean(process.env.SLIP_DATABASE_URL)};
  }
  @Post() @HttpCode(200) @Permission('settings.manage') @StepUp()
@@ -23,7 +25,7 @@ export class ConsoleSettingsController {
    const check=new Validation();
    const version=typeof body.version==='number'&&Number.isSafeInteger(body.version)&&body.version>=0?body.version:(check.fail('version','field.required'),0);
    const section=body.section as string;
-   if(!['bank','sms','easyslip'].includes(section))check.fail('section','field.required');
+   if(!['bank','sms','easyslip','ocr'].includes(section))check.fail('section','field.required');
    if(typeof body.enabled!=='boolean')check.fail('enabled','field.required');
    const value:Record<string,unknown>={enabled:body.enabled};
    if(section==='bank'){
@@ -39,7 +41,8 @@ export class ConsoleSettingsController {
      if(Boolean(apiKey)!==Boolean(secret))check.fail(!apiKey?'api_key':'secret_key','field.required');
      if(apiKey&&secret){if(!this.settings.secretKey)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
        value.apiKeySealed=encrypt(this.settings.secretKey,apiKey);value.secretKeySealed=encrypt(this.settings.secretKey,secret);}
-   }else if(section==='easyslip'){
+   }else if(section==='easyslip'||section==='ocr'){
+     if(section==='ocr'){value.model=check.text('model',body.model,{required:true,max:100});if(!/^claude-[a-z0-9.-]+$/.test(String(value.model)))check.fail('model','field.required');}
      const key=check.text('api_key',body.api_key,{required:false,max:500});
      if(key){if(!this.settings.secretKey)throw apiError(503,'TEMPORARILY_UNAVAILABLE');value.keySealed=encrypt(this.settings.secretKey,key);}
    }
@@ -51,6 +54,8 @@ export class ConsoleSettingsController {
        value.apiKeySealed=encrypt(this.settings.secretKey,process.env.DEESMSX_API_KEY);value.secretKeySealed=encrypt(this.settings.secretKey,process.env.DEESMSX_SECRET_KEY);}
    }
    if(section==='easyslip'&&!value.keySealed&&!old?.easyslip&&this.settings.secretKey&&process.env.EASYSLIP_API_KEY)value.keySealed=encrypt(this.settings.secretKey,process.env.EASYSLIP_API_KEY);
+   if(section==='ocr'&&!value.keySealed&&!old?.ocr&&this.settings.secretKey&&process.env.ANTHROPIC_API_KEY)value.keySealed=encrypt(this.settings.secretKey,process.env.ANTHROPIC_API_KEY);
+   if(body.enabled&&section==='ocr'&&!(value.keySealed||old?.ocr?.keySealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{api_key:'field.required'}});
    if(body.enabled&&section==='sms'&&!(value.apiKeySealed||old?.sms?.apiKeySealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{api_key:'field.required'}});
    if(body.enabled&&section==='easyslip'&&!(value.keySealed||old?.easyslip?.keySealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{api_key:'field.required'}});
    const result=await this.database.run(async c=>(await c.query('SELECT padmin.save_console_settings($1,$2,$3::jsonb,$4,$5) AS value',[a.accountId,section,JSON.stringify(value),version,requestId])).rows[0].value);

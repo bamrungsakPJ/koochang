@@ -1,4 +1,3 @@
-import { VersionLabel } from './about';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, isThaiMobile, normalizePhone, type Language } from '@field-service/core';
@@ -34,8 +33,8 @@ function useBrandLogo(): string | null {
   return uri;
 }
 
-export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin, onAbout }: {
-  language: Language; onLanguage: (value: Language) => void; onCreate: () => void; onSignIn: () => void; onJoin: () => void; onAbout: () => void;
+export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
+  language: Language; onLanguage: (value: Language) => void; onCreate: () => void; onSignIn: () => void; onJoin: () => void;
 }) {
   const t = useT();
   const logo = useBrandLogo();
@@ -52,8 +51,6 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin, onAb
         <Text style={styles.brand}>{t('appName')}</Text></View>
       <LanguageSwitch language={language} onChange={onLanguage} />
     </View>
-    <VersionLabel />
-    <Button small kind="ghost" icon="information-circle-outline" title={t('aboutApp')} onPress={onAbout} />
     <Text style={styles.heroTitle}>{t('welcomeTitle')}</Text>
     <Sub>{t('welcomeBody')}</Sub>
     <Card>
@@ -183,7 +180,6 @@ export function PasswordSignIn({ onBack, onSignedIn, onForgot, subtitle }: {
   return <Screen onBack={onBack} footer={<Button title={t('signIn')} icon="log-in-outline" onPress={submit} busy={busy} />}>
     <Sub>{subtitle ?? t('signInHint')}</Sub>
     <Title>{t('signIn')}</Title>
-    <VersionLabel />
     <Field label={t('phone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="username" placeholder="08x-xxx-xxxx" />
     <Field label={t('password')} icon="lock-closed-outline" value={password} onChangeText={setPassword} error={errors.password} secureTextEntry autoCapitalize="none" autoCorrect={false}
       autoComplete="current-password" textContentType="password" maxLength={200} returnKeyType="go" onSubmitEditing={submit} />

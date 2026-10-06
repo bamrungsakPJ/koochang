@@ -101,18 +101,34 @@ export class Api {
   private refreshing: Promise<'ok' | 'rejected' | 'unavailable'> | null = null;
   onSignedOut: () => void = () => {};
 
-  async restore(): Promise<boolean> {
-    this.access = await storage.get(keys.access);
-    this.refreshToken = await storage.get(keys.refresh);
-    return Boolean(this.access && this.refreshToken);
+  private async storedTokens(): Promise<{ access_token: string | null; refresh_token: string | null }> {
+    const saved = await storage.get(keys.tokens);
+    if (saved) {
+      try {
+        const pair = JSON.parse(saved);
+        if (typeof pair.refresh_token === 'string') return { access_token: typeof pair.access_token === 'string' ? pair.access_token : null, refresh_token: pair.refresh_token };
+      } catch { /* migrate an older valid session if available */ }
+    }
+    return { access_token: await storage.get(keys.access), refresh_token: await storage.get(keys.refresh) };
   }
-  get signedIn() { return Boolean(this.access); }
+
+  async restore(): Promise<boolean> {
+    const pair = await this.storedTokens();
+    this.access = pair.access_token;
+    this.refreshToken = pair.refresh_token;
+    if (!this.refreshToken) return false;
+    
+    return true;
+  }
+  get signedIn() { return Boolean(this.access || this.refreshToken); }
 
   async setTokens(tokens: Tokens | null) {
+    // One secure-store write keeps the access/refresh pair together across app restarts.
+    await storage.set(keys.tokens, tokens ? JSON.stringify({ access_token: tokens.access_token, refresh_token: tokens.refresh_token }) : null, true);
     this.access = tokens?.access_token ?? null;
     this.refreshToken = tokens?.refresh_token ?? null;
-    await storage.set(keys.access, this.access);
-    await storage.set(keys.refresh, this.refreshToken);
+    await storage.set(keys.access, null);
+    await storage.set(keys.refresh, null);
   }
 
   // auth --------------------------------------------------------------------------------------
@@ -176,7 +192,7 @@ export class Api {
   createMedia(organizationId: string, body: { request_key: string; mime_type: string; byte_size: number; purpose: string }) {
     return this.call<Media>('POST', `/organizations/${organizationId}/media`, body);
   }
-  uploadMedia(organizationId: string, assetId: string, data: Blob, mimeType: string) {
+  uploadMedia(organizationId: string, assetId: string, data: Blob | ArrayBuffer, mimeType: string) {
     return this.call<Media>('PUT', `/organizations/${organizationId}/media/${assetId}/content`, data, true, { 'content-type': mimeType });
   }
   requestOcr(organizationId: string, mediaAssetId: string, requestKey: string) {
@@ -224,7 +240,7 @@ export class Api {
   createInvoice(organizationId: string, priceVersionId: string, requestKey: string) {
     return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices`, { price_version_id: priceVersionId, request_key: requestKey });
   }
-  uploadProof(organizationId: string, invoiceId: string, proofId: string, data: Blob, mimeType: string) {
+  uploadProof(organizationId: string, invoiceId: string, proofId: string, data: Blob | ArrayBuffer, mimeType: string) {
     return this.call<Invoice>('PUT', `/organizations/${organizationId}/billing/invoices/${invoiceId}/proof?proof_id=${proofId}`, data, true, { 'content-type': mimeType });
   }
   support(organizationId: string) { return this.call<SupportOverview>('GET', `/organizations/${organizationId}/support`); }
@@ -255,13 +271,18 @@ export class Api {
 
   // transport ---------------------------------------------------------------------------------
   private async call<T = unknown>(method: string, path: string, body?: unknown, auth = true, headers: Record<string, string> = {}, retried = false): Promise<T> {
+    if (auth && !this.access && this.refreshToken) {
+      const refreshed = await this.refresh();
+      if (refreshed === 'unavailable') throw new ApiFailure(0, 'NETWORK_ERROR', '');
+      if (refreshed === 'rejected') { await this.setTokens(null); this.onSignedOut(); throw new ApiFailure(401, 'SESSION_EXPIRED', ''); }
+    }
     let response: Response;
     const usedAccess = this.access;
     try {
       response = await fetch(`${apiBaseUrl}/v1${path}`, {
         method,
         headers: { 'content-type': 'application/json', 'accept-language': this.language, ...(auth && this.access ? { authorization: `Bearer ${this.access}` } : {}), ...headers },
-        body: body === undefined ? undefined : typeof Blob !== 'undefined' && body instanceof Blob ? body : JSON.stringify(body),
+        body: body === undefined ? undefined : (body instanceof ArrayBuffer || (typeof Blob !== 'undefined' && body instanceof Blob)) ? body : JSON.stringify(body),
       });
     } catch { throw new ApiFailure(0, 'NETWORK_ERROR', ''); }
     const text = await response.text();
@@ -286,10 +307,11 @@ export class Api {
   }
 
   private async adoptStoredTokens(usedAccess: string | null): Promise<boolean> {
-    const access = await storage.get(keys.access);
+    const pair = await this.storedTokens();
+    const access = pair.access_token;
     if (!access || access === usedAccess) return false;
     this.access = access;
-    this.refreshToken = await storage.get(keys.refresh);
+    this.refreshToken = pair.refresh_token;
     return true;
   }
 
@@ -305,8 +327,9 @@ export class Api {
       } catch (error) {
         if (!(error instanceof ApiFailure && error.status === 401)) return 'unavailable' as const;
         // Someone else refreshed first: their tokens are in storage.
-        const stored = await storage.get(keys.refresh);
-        if (stored && stored !== usedRefresh) { this.refreshToken = stored; this.access = await storage.get(keys.access); return 'ok' as const; }
+        const pair = await this.storedTokens();
+        const stored = pair.refresh_token;
+        if (stored && stored !== usedRefresh) { this.refreshToken = stored; this.access = pair.access_token; return 'ok' as const; }
         return 'rejected' as const;
       } finally { this.refreshing = null; }
     })();

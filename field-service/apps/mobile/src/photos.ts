@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { api, type Media } from './api';
 
@@ -25,9 +27,9 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<Picked | 
 
 /** Reserve storage, send the bytes, get the processed file back. One request key per photo so a
  * retried upload never counts twice. */
-export async function uploadPhoto(organizationId: string, picked: Picked, purpose: 'nameplate' | 'equipment' | 'service' | 'other'): Promise<Media> {
-  const data = await (await fetch(picked.uri)).blob();
-  const media = await api.createMedia(organizationId, { request_key: uuid(), mime_type: picked.mimeType, byte_size: data.size, purpose });
+export async function uploadPhoto(organizationId: string, picked: Picked, purpose: 'nameplate' | 'equipment' | 'service' | 'other', requestKey = uuid()): Promise<Media> {
+  const data = Platform.OS === 'web' ? await (await fetch(picked.uri)).arrayBuffer() : await new File(picked.uri).arrayBuffer();
+  const media = await api.createMedia(organizationId, { request_key: requestKey, mime_type: picked.mimeType, byte_size: data.byteLength, purpose });
   return api.uploadMedia(organizationId, media.id, data, picked.mimeType);
 }
 

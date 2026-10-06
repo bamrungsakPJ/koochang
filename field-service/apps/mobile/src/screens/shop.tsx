@@ -1,3 +1,4 @@
+import { BiometricSetting } from '../biometrics';
 import { useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, type Language, type SubscriptionState } from '@field-service/core';
@@ -216,8 +217,8 @@ export function ShopPicker({ me, onPick, onCreate, onJoin, onBack }: { me: Me; o
   </Screen>;
 }
 
-export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack, onSupport, onChangePassword, onAbout }: {
-  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void; onChangePassword: () => void; onAbout: () => void;
+export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack, onSupport, onChangePassword }: {
+  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void; onChangePassword: () => void;
 }) {
   const t = useT();
   return <Screen onBack={onBack}>
@@ -232,7 +233,7 @@ export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack,
       {onSwitch ? <Row icon="swap-horizontal" tone="sky" title={t('myShops')} onPress={onSwitch} last /> : null}
     </Card>
     {onSupport ? <Card padded={false}><Row icon="help-buoy" tone="teal" title={t('support')} subtitle={t('supportHint')} onPress={onSupport} last /></Card> : null}
-    <Card padded={false}><Row icon="information-circle-outline" tone="sky" title={t('aboutApp')} onPress={onAbout} last /></Card>
+    <BiometricSetting />
     <Button title={t('signOut')} kind="danger" icon="log-out-outline" onPress={onSignOut} />
   </Screen>;
 }

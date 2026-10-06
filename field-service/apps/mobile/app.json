@@ -2,7 +2,7 @@
   "expo": {
     "name": "คู่ช่าง",
     "slug": "koochang",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.koochang.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",
@@ -55,6 +55,12 @@
             "image": "./assets/splash-icon.png",
             "backgroundColor": "#12243A"
           }
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "ใช้ใบหน้าเพื่อเข้าแอปเมื่อคุณเปิดใช้การสแกน / Use Face ID to unlock the app when enabled."
         }
       ]
     ],
