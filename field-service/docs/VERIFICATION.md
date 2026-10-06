@@ -8,7 +8,7 @@
 - API/worker resolve encrypted console OCR settings dynamically; narrow worker function added in migration 027.
 - PostgreSQL 16 real run: 42 cases, 40 passed initially; 2 stale fixtures failed (phone mandatory, ambient development SMS). Updated fixtures; console all 9 pass and customer scope targeted rerun passes. Upload/private file/retry/OCR queue, runtime worker and auth journeys passed on real PostgreSQL. Results are from separate runs, not a single all-green rerun.
 - Staging deployed 1d77395; migration 027 applied, worker-scoped function works, PLATFORM_SECRET_KEY present. API readiness and public console HTTPS 200. OCR_PROVIDER now claude; no key -> unavailable, no development reader.
-- Local 0.2.5 APK build in progress. Actual Anthropic reading awaits user-supplied console key.
+- Local 0.2.5 / build 7 APK SUCCESSFUL, source 891f731, 75,700,232 bytes. Original EAS certificate 4eed94856fe8200e9f9f1b71c296be0f9e43c323549ef1584f110b3b7fd4f7f9 verified. aapt confirms package/version/all four ABIs/USE_BIOMETRIC. app.config confirms exact Thai/English company; JS bundle confirms staging API and biometric module. SHA256 e890e260544ea945b5aff0bac0b33c5de8b529343639ceef6cf3a13970ef7a76. Native camera/fingerprint/face and real Anthropic reading are not yet tested; AI awaits user-supplied console key.
 
 # Local Android APK build — 2026-10-06
 
