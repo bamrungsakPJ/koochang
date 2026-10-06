@@ -13,7 +13,7 @@ const answer = (data, stop_reason = 'end_turn') => ({ stop_reason, content: [{ t
 test('Claude OCR sends the image with a JSON schema and returns cleaned suggestions', async () => {
   const c = client(answer({ brand: ' Daikin ', model: 'FTKC18TV2S', serial_number: 'E012345', raw_text: 'DAIKIN\nFTKC18TV2S', confidence: 1.4 }));
   const result = await new ClaudeOcrProvider(c, 'claude-haiku-4-5-20251001').read(jpeg);
-  assert.deepEqual(result, { fields: { brand: 'Daikin', model: 'FTKC18TV2S', serial_number: 'E012345' }, confidence: 1 });
+  assert.deepEqual(result, { fields: { brand: 'Daikin', model: 'FTKC18TV2S', serial_number: 'E012345' } });
   const p = c.calls[0];
   assert.equal(p.model, 'claude-haiku-4-5-20251001');
   assert.equal(p.max_tokens, 512);
@@ -23,6 +23,9 @@ test('Claude OCR sends the image with a JSON schema and returns cleaned suggesti
   assert.equal(p.betas, undefined);
   assert.equal(p.output_config.format.schema.properties.raw_text, undefined);
   assert.equal(p.output_config.format.type, 'json_schema');
+  assert.deepEqual(p.output_config.format.schema.required, ['brand', 'model', 'serial_number']);
+  assert.equal(p.messages[0].content.length, 1);
+  assert.equal(typeof p.system, 'string');
   assert.equal(p.messages[0].content[0].source.media_type, 'image/jpeg');
   assert.equal(p.messages[0].content[0].source.data, jpeg.toString('base64'));
   await new ClaudeOcrProvider(c, 'claude-haiku-4-5-20251001').read(png);
