@@ -116,3 +116,7 @@ longer serves the app; use the https hostnames (needs Cloudflare Universal SSL a
 ### 2026-10-06 — console AI settings and worker connection
 
 Deployed commit 1d77395 on server2 only, migration 027 applied. API/worker/web restarted. /v1/ready returns ready, public /console HTTPS returns 200. fs_worker successfully calls worker.ocr_settings(); encryption key is present. Changed OCR_PROVIDER from development to claude so absent configuration returns unavailable rather than pretending an empty development result is AI. No Anthropic key saved yet; the user will enter it at /console > Platform settings > AI nameplate reading. Saved keys are encrypted and read dynamically without restart. No real Anthropic request made in this task.
+
+### 2026-10-06 — Haiku OCR cost reduction
+
+Deployed 3df7321 API. Env and saved OCR model now claude-haiku-4-5-20251001. Saved encrypted key/enable preserved; configuration version increment and audit recorded. API/worker restarted, ready passes. Real Anthropic synthetic nameplate smoke test reads TESTCO / MODEL-123 / SN-456 exactly in 4127ms. No real customer data or native-device test. No APK rebuild needed.

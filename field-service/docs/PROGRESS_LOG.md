@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-06 — แก้รูป/session และ AI settings)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-06 — OCR Haiku ใช้งานจริงแล้ว)
 
 - **Android build ในเครื่อง (2026-10-06)**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.30.5 และ SDK Manager บน D แล้ว; doctor ทุกตัวผ่านและเรียก java/javac/adb/cmake/clang สำเร็จ ตั้งค่า user environment/cache D; ดาวน์โหลด signing เดิมและ build Release APK ล่าสุด 0.2.5 / Build 7 สำเร็จแล้วบน D:\kc (pnpm hoisted แก้ Ninja/พาธยาว) ตรวจ certificate/version/API/ชื่อบริษัทผ่าน; ยังไม่ได้ทดสอบบนอุปกรณ์ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 
@@ -21,7 +21,7 @@
 
 - **ชุดโลโก้ KooChang v1 (2026-10-05)**: สร้าง PNG โลโก้เว็บพื้นโปร่งใส ไอคอนแอปพื้นทึบ และภาพหน้าเปิดแอปไว้ใน `output/branding/koochang-v1/` พร้อม README; ตรวจภาพแล้ว เป็นชุดแบบออกแบบ ยังไม่ได้แทนไฟล์ในแอป/เว็บหรือ deploy ต้องเตรียมขนาดเฉพาะแพลตฟอร์มและตรวจบนอุปกรณ์ก่อนใช้จริง
 
-- **งานล่าสุด 0.2.5**: แก้ส่งรูปและ feedback, atomic session + optional biometric, console Anthropic settings migration 027; deploy staging สำเร็จ migration 027 และ HTTPS พร้อม; APK 0.2.5 / Build 7 เสร็จพร้อมเซ็นเดิม; รอผู้ใช้ใส่ API key จึงยังอ่าน AI จริงไม่ได้
+- **งานล่าสุด 0.2.5**: แก้ส่งรูปและ feedback, atomic session + optional biometric, console Anthropic settings migration 027; deploy staging สำเร็จ migration 027 และ HTTPS พร้อม; APK 0.2.5 / Build 7 เสร็จพร้อมเซ็นเดิม; ผู้ใช้บันทึก API key แล้วและทดสอบ Haiku อ่านป้ายสังเคราะห์จริงผ่าน; ยังรอทดสอบรูปถ่ายจริง
 
 **เริ่มต่อจากตรงนี้**
 - โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit Push FCM, migration 024) **ยังไม่ได้ push — ไม่มี git remote**
@@ -120,7 +120,8 @@
 - ตามคำสั่งผู้ใช้ ลดค่าเริ่มต้น OCR เป็น claude-haiku-4-5-20251001 ทั้ง API และ console
 - จำกัด max_tokens 512 จาก 4000; ส่งกลับยี่ห้อ รุ่น ซีเรียล และ confidence ไม่ถอด raw_text ทั้งป้าย; ปิด thinking สำหรับ Haiku ไม่ส่ง effort ที่ Haiku ไม่รองรับ และลบ automatic fallback ไปโมเดลอื่น
 - API build และ mocked Claude tests 4 ข้อผ่าน ยืนยัน model/token cap/no effort/no fallback/no raw_text; ยังไม่ได้ทดสอบ AI จริง
-- กำลัง deploy staging และเปลี่ยน model ที่บันทึกโดยคง key/enabled เดิม; ไม่ต้อง rebuild APK เนื่องจากเป็นฝั่งเซิร์ฟเวอร์
+- Deploy staging 3df7321 สำเร็จ เปลี่ยน model ใน env และ console row เป็น Haiku โดยคง key/enabled เดิมและเพิ่ม version/audit; restart API/worker และ ready ผ่าน
+- พบ key บันทึกแล้ว ทดสอบ Anthropic จริงหนึ่งครั้งด้วยป้ายสังเคราะห์ (ไม่ใช้ข้อมูลร้าน/ลูกค้า): TESTCO / MODEL-123 / SN-456 อ่านตรงครบ 3 ช่อง ใช้เวลา 4.127 วินาที; ยังไม่ได้ทดสอบป้ายถ่ายจริงบนมือถือ; ไม่ต้อง rebuild APK เพราะเปลี่ยนฝั่งเซิร์ฟเวอร์
 
 
 ### 2026-10-06 — แก้การส่งรูป/session และเพิ่ม AI settings

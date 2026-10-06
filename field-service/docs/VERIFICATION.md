@@ -1,3 +1,11 @@
+# Lower-cost nameplate OCR — 2026-10-06
+
+- Default changed to claude-haiku-4-5-20251001, max output 512 tokens, thinking disabled for Haiku, no unsupported effort, no automatic model fallback. Schema only brand/model/serial/confidence; full-plate raw_text removed.
+- API build + mocked provider 4 tests pass, including exact model/limit/no effort/no fallback/no raw_text assertions.
+- Staging deployed 3df7321; encrypted key/enable preserved while saved model changed with version increment and audit. Env model matches. API/worker restarted; ready passes.
+- Real Anthropic request using saved key and synthetic 800x300 PNG: TESTCO / MODEL-123 / SN-456 all exact, confidence 0.95, elapsed 4127ms. Direct provider smoke test, not a mobile/API workflow/device or real-world accuracy benchmark; no customer images, no stored shop/quota data.
+- Server-only change: APK 0.2.5/build7 remains current. Real photographed nameplates/device accuracy still require validation.
+
 # Photo/session/AI settings — 2026-10-06
 
 - All workspace typechecks and Next production build pass.
