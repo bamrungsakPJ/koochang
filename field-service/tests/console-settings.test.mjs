@@ -80,8 +80,8 @@ test('console bank changes apply to new invoices and retain the immutable old re
  const plans=await billing.plans(session,tenant);assert.equal(plans.payment_available,false);
 });
 test('runtime DeeSMSx uses saved credentials immediately and disabled services override environment',async t=>{
- const old={api:process.env.DEESMSX_API_KEY,secret:process.env.DEESMSX_SECRET_KEY,sender:process.env.DEESMSX_SENDER,slip:process.env.EASYSLIP_API_KEY};
- process.env.DEESMSX_API_KEY='synthetic-env-api';process.env.DEESMSX_SECRET_KEY='synthetic-env-secret';process.env.DEESMSX_SENDER='Env';process.env.EASYSLIP_API_KEY='synthetic-env-slip';
+ const old={provider:process.env.SMS_PROVIDER,api:process.env.DEESMSX_API_KEY,secret:process.env.DEESMSX_SECRET_KEY,sender:process.env.DEESMSX_SENDER,slip:process.env.EASYSLIP_API_KEY};
+ process.env.SMS_PROVIDER='deesmsx';process.env.DEESMSX_API_KEY='synthetic-env-api';process.env.DEESMSX_SECRET_KEY='synthetic-env-secret';process.env.DEESMSX_SENDER='Env';process.env.EASYSLIP_API_KEY='synthetic-env-slip';
  try{
    let request;t.mock.method(globalThis,'fetch',async(_url,options)=>{request=JSON.parse(options.body);return new Response('{}',{status:200});});
    await (await runtime.sms()).send('+66912345678','OTP 123456');assert.equal(request.apiKey,'synthetic-dee-api');assert.equal(request.sender,'ChangedTest');
@@ -95,7 +95,7 @@ test('runtime DeeSMSx uses saved credentials immediately and disabled services o
    }finally{oldProvider===undefined?delete process.env.SMS_PROVIDER:process.env.SMS_PROVIDER=oldProvider;oldNode===undefined?delete process.env.NODE_ENV:process.env.NODE_ENV=oldNode;delete process.env.THSMS_TOKEN;delete process.env.THSMS_SENDER;}
    await save('easyslip',{enabled:true,api_key:'synthetic-console-slip'});assert.equal(await runtime.slipKey(),'synthetic-console-slip');
    await save('easyslip',{enabled:false});assert.equal(await runtime.slipKey(),undefined);
- }finally{for(const [name,value] of Object.entries({DEESMSX_API_KEY:old.api,DEESMSX_SECRET_KEY:old.secret,DEESMSX_SENDER:old.sender,EASYSLIP_API_KEY:old.slip}))value===undefined?delete process.env[name]:process.env[name]=value;}
+ }finally{for(const [name,value] of Object.entries({SMS_PROVIDER:old.provider,DEESMSX_API_KEY:old.api,DEESMSX_SECRET_KEY:old.secret,DEESMSX_SENDER:old.sender,EASYSLIP_API_KEY:old.slip}))value===undefined?delete process.env[name]:process.env[name]=value;}
 });
 test('own profile works for ordinary staff but cannot edit another account or replay stale updates',async()=>{
  const d=await accountController.get(operator);

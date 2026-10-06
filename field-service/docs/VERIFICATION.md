@@ -6,7 +6,9 @@
 - Staging observation: 5 pending_upload media, no OCR requests in last day; OCR_PROVIDER=development, no Anthropic key. API registration occurred but reading never started. Native upload changed to direct ArrayBuffer; actual Android camera/library validation pending.
 - Biometrics is opt-in, device-local, on cold launch; session tokens in SecureStore, no saved password. Native fingerprint/face flow still requires device validation.
 - API/worker resolve encrypted console OCR settings dynamically; narrow worker function added in migration 027.
-- Local 0.2.5 APK build and staging deployment in progress. Actual Anthropic reading awaits user-supplied console key.
+- PostgreSQL 16 real run: 42 cases, 40 passed initially; 2 stale fixtures failed (phone mandatory, ambient development SMS). Updated fixtures; console all 9 pass and customer scope targeted rerun passes. Upload/private file/retry/OCR queue, runtime worker and auth journeys passed on real PostgreSQL. Results are from separate runs, not a single all-green rerun.
+- Staging deployed 1d77395; migration 027 applied, worker-scoped function works, PLATFORM_SECRET_KEY present. API readiness and public console HTTPS 200. OCR_PROVIDER now claude; no key -> unavailable, no development reader.
+- Local 0.2.5 APK build in progress. Actual Anthropic reading awaits user-supplied console key.
 
 # Local Android APK build — 2026-10-06
 

@@ -21,7 +21,7 @@
 
 - **ชุดโลโก้ KooChang v1 (2026-10-05)**: สร้าง PNG โลโก้เว็บพื้นโปร่งใส ไอคอนแอปพื้นทึบ และภาพหน้าเปิดแอปไว้ใน `output/branding/koochang-v1/` พร้อม README; ตรวจภาพแล้ว เป็นชุดแบบออกแบบ ยังไม่ได้แทนไฟล์ในแอป/เว็บหรือ deploy ต้องเตรียมขนาดเฉพาะแพลตฟอร์มและตรวจบนอุปกรณ์ก่อนใช้จริง
 
-- **งานล่าสุด 0.2.5**: แก้ส่งรูปและ feedback, atomic session + optional biometric, console Anthropic settings migration 027; กำลัง build/deploy ยังรอผู้ใช้ใส่ API key จึงยังอ่าน AI จริงไม่ได้
+- **งานล่าสุด 0.2.5**: แก้ส่งรูปและ feedback, atomic session + optional biometric, console Anthropic settings migration 027; deploy staging สำเร็จ migration 027 และ HTTPS พร้อม; APK กำลัง build; รอผู้ใช้ใส่ API key จึงยังอ่าน AI จริงไม่ได้
 
 **เริ่มต่อจากตรงนี้**
 - โค้ดทั้งหมดอยู่ branch `field-service-a02` (ล่าสุด commit Push FCM, migration 024) **ยังไม่ได้ push — ไม่มี git remote**
@@ -122,7 +122,7 @@
 - เพิ่ม /console > ตั้งค่าระบบ > อ่านป้ายเครื่องด้วย AI: key เข้ารหัส AES-GCM, ไม่คืน secret ไม่ใส่ audit, step-up และ settings.manage; migration 027; API/worker โหลดค่าที่บันทึกทันทีโดย worker อ่านได้เฉพาะ OCR settings
 - เก็บ access/refresh แบบ atomic ใน SecureStore พร้อมอ่าน legacy; เครือข่ายเสียไม่ล้าง session เพิ่มตัวเลือก biometric ในบัญชี (ปิดเป็นค่าเริ่มต้น) ใช้เมื่อเปิดแอปใหม่ มีใช้รหัสผ่านแทน ไม่เก็บรหัสผ่าน
 - ลบ Version/About ออกจาก UI ตามคำสั่งผู้ใช้; metadata บริษัทคงไว้; เตรียม Android 0.2.5 / Build 7
-- ตรวจ typecheck ทุกส่วนและ Next build ผ่าน; mobile transport/session + Claude mocked + console settings 19 ผ่าน; worker SQL 11 ผ่านบน PGlite; ยังไม่มี device test/AI จริง และ build/deploy อยู่ระหว่างดำเนินการ
+- ตรวจ typecheck ทุกส่วนและ Next build ผ่าน; mobile transport/session + Claude mocked + console settings 19 ผ่าน; worker SQL 11 ผ่านบน PGlite; PostgreSQL จริง 42 ข้อ: รอบแรก 40 ผ่าน/2 ล้มจาก fixture เก่า (ไม่กรอก phone และ SMS_PROVIDER จาก .env); แก้ fixture แล้วตรวจ console 9 ผ่านและ customer-scope ผ่านแยก; ยังไม่มี device test/AI จริง; staging deploy 1d77395 + migration 027 สำเร็จ, worker อ่านฟังก์ชันตั้งค่าได้, OCR_PROVIDER เปลี่ยนเป็น claude (ไม่มี key จะ 503), API ready/console HTTPS 200; APK build อยู่ระหว่างดำเนินการ
 
 
 ### 2026-10-06 — ทดลอง local Android build สำเร็จ

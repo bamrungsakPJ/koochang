@@ -393,8 +393,8 @@ test('locations: version conflicts, explicit coordinate capture, replacing needs
 test('customers: technician scope, other shops, and an expired plan is read-only', { skip }, async () => {
   const { owner, tech, shopId } = await shopWithTechnician('Scope');
   const path = `/organizations/${shopId}/customers`;
-  const ownerCustomer = (await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Owner customer' } })).body;
-  const techCustomer = (await call('POST', path, { token: tech.access_token, body: { request_key: randomUUID(), name: 'On-site customer', location: { label: 'ร้าน' } } }));
+  const ownerCustomer = (await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Owner customer', phone: '0812223301' } })).body;
+  const techCustomer = (await call('POST', path, { token: tech.access_token, body: { request_key: randomUUID(), name: 'On-site customer', phone: '0812223302', location: { label: 'ร้าน' } } }));
   assert.equal(techCustomer.status, 201);
   assert.deepEqual((await call('GET', path, { token: tech.access_token })).body.items.map(c => c.name), ['On-site customer']);
   assert.equal((await call('GET', `${path}/${ownerCustomer.id}`, { token: tech.access_token })).status, 404, 'not visible to the technician');
@@ -406,7 +406,7 @@ test('customers: technician scope, other shops, and an expired plan is read-only
   assert.equal((await call('GET', `${path}/${ownerCustomer.id}`, { token: other.access_token })).status, 403);
 
   await db.query("UPDATE billing.subscription_periods SET start_at = start_at - interval '15 days', end_at = end_at - interval '15 days' WHERE organization_id = $1", [shopId]);
-  const refused = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Too late' } });
+  const refused = await call('POST', path, { token: owner.access_token, body: { request_key: randomUUID(), name: 'Too late', phone: '0812223303' } });
   assert.equal(refused.status, 403);
   assert.equal(refused.body.code, 'SUBSCRIPTION_EXPIRED');
   assert.equal((await call('GET', path, { token: owner.access_token })).status, 200, 'reading stays allowed');

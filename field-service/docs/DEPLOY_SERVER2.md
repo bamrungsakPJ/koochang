@@ -112,3 +112,7 @@ longer serves the app; use the https hostnames (needs Cloudflare Universal SSL a
 - OCR: `OCR_PROVIDER=claude` once `ANTHROPIC_API_KEY` is provided.
 - Off-site backup target still to choose (the registry and backups on other local disks protect
   against one-disk loss only).
+
+### 2026-10-06 — console AI settings and worker connection
+
+Deployed commit 1d77395 on server2 only, migration 027 applied. API/worker/web restarted. /v1/ready returns ready, public /console HTTPS returns 200. fs_worker successfully calls worker.ocr_settings(); encryption key is present. Changed OCR_PROVIDER from development to claude so absent configuration returns unavailable rather than pretending an empty development result is AI. No Anthropic key saved yet; the user will enter it at /console > Platform settings > AI nameplate reading. Saved keys are encrypted and read dynamically without restart. No real Anthropic request made in this task.
