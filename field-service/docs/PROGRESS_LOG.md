@@ -108,7 +108,7 @@
 
 ### 2026-10-06 — ส่ง OTP ผ่าน THSMS ชั่วคราวระหว่างทดสอบ
 
-- **ทำอะไร**: ผู้ใช้ขอให้ใช้ THSMS (thsms.com API V2) ส่ง SMS ระหว่างทดสอบ จึงเพิ่ม  (POST https://thsms.com/api/send-sms, Bearer token, body { sender, msisdn: ['09xxxxxxxx'], message }, ถือว่าสำเร็จเมื่อได้ success: true) เลือกด้วย  +  +  (ชื่อผู้ส่งต้องตรงตัวพิมพ์กับที่ THSMS อนุมัติ) ค่านี้ใน env ชนะค่า SMS ที่ตั้งใน console เพื่อสลับกลับได้ง่าย; DeeSMSx ยังอยู่ครบ
+- **ทำอะไร**: ผู้ใช้ขอให้ใช้ THSMS (thsms.com API V2) ส่ง SMS ระหว่างทดสอบ จึงเพิ่ม `ThsmsSender` (POST https://thsms.com/api/send-sms, Bearer token, body { sender, msisdn: ['09xxxxxxxx'], message }, ถือว่าสำเร็จเมื่อได้ success: true) เลือกด้วย `SMS_PROVIDER=thsms` + `THSMS_TOKEN` + `THSMS_SENDER` (ชื่อผู้ส่งต้องตรงตัวพิมพ์กับที่ THSMS อนุมัติ) ค่านี้ใน env ชนะค่า SMS ที่ตั้งใน console เพื่อสลับกลับได้ง่าย; DeeSMSx ยังอยู่ครบ deploy โค้ด 10f606e ขึ้น staging แล้ว
 - **ปัญหา**: หน้า thsms.com/sms-api ไม่แสดงรายละเอียด API (ตัวอย่างอยู่ใน GitHub gist) และระบบอนุญาตอัตโนมัติบล็อกการอ่าน gist ครั้งแรก
 - **แก้อย่างไร**: ผู้ใช้ยืนยันให้ศึกษาหน้านั้น จึงอ่าน gist ของ THSMS และผู้ใช้ส่งภาพเอกสาร Send SMS (มีตัวอย่าง response) มายืนยัน
 - **ปัญหาระหว่างตรวจ**: รันทดสอบรอบแรก tunnel SSH หลุดกลางทาง ทำให้ค้างและล้มหลายข้อ → เปิด tunnel ใหม่ (ServerAliveInterval) รันใหม่ผ่าน 192/192
