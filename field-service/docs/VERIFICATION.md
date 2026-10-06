@@ -1,7 +1,7 @@
 # App version and About — 2026-10-06
 
 - Shared package compilation and mobile typecheck passed. Version/build displayed from Expo manifest in startup, welcome, sign-in and About; About routes return to welcome/account.
-- Prepared app version 0.2.4 / Android versionCode 6. Company name awaits user confirmation and is read from expo.extra.company.th/en. No 0.2.4 APK, deployment or device verification yet.
+- Prepared app version 0.2.4 / Android versionCode 6. Company confirmed as บริษัท ไอ ที อีส มี จำกัด / IT IS ME Co., Ltd. and stored in expo.extra.company.th/en. Uploaded EAS 0.2.4 build e2f12506-0b9c-43cc-9457-dfd5d459566c; awaiting result. No deployment or device verification yet.
 - Previously queued 0.2.3 EAS build is now FINISHED; APK URL recorded in its release note. Cannot determine the version installed on the user device.
 
 # Mobile nameplate OCR feedback — 2026-10-06
