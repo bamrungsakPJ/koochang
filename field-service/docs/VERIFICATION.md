@@ -1,3 +1,9 @@
+# Three-field nameplate prompt — 2026-10-06
+
+- System prompt limits extraction to brand/model/serial_number, explicit Thai/English labels, literal character/case/leading-zero preservation, empty when absent/unreadable/ambiguous, no substitutions or image instructions. Schema now only these 3 fields; no confidence/raw_text/prose.
+- API build and 4 provider tests pass. Staging deployed 8349bae and ready passes after API/worker restart.
+- Real Haiku synthetic nameplate test: all three identifiers exact, 4044ms, returned only fields. Not a native-device or real-photo accuracy benchmark. APK unchanged.
+
 # Lower-cost nameplate OCR — 2026-10-06
 
 - Default changed to claude-haiku-4-5-20251001, max output 512 tokens, thinking disabled for Haiku, no unsupported effort, no automatic model fallback. Schema only brand/model/serial/confidence; full-plate raw_text removed.
