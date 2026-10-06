@@ -2,7 +2,7 @@
 import { useContext, useState } from 'react';
 import { translate, type TranslationKey } from '@field-service/i18n';
 import { Bell, CalendarClock, ClipboardList, UserPlus } from 'lucide-react';
-import { api, type Me, type TeamMember } from './api';
+import { api, ApiFailure, type Me, type TeamMember } from './api';
 import type { Go } from './OwnerApp';
 import { ActionState, Button, dateTime, Empty, Field, LanguageContext, Notice, PageTitle, Panel, ResourceState, statusText, useAction, useResource, useText } from './ui';
 
@@ -40,7 +40,21 @@ export function TeamView({ org }: { org: string }) {
 }
 export function AccountView({ me, onMe }: { me: Me; onMe: () => Promise<void> }) {
   const t = useText(), a = useAction(), [name, setName] = useState(me.user.display_name);
-  return <><PageTitle>{t('account')}</PageTitle><Panel><form onSubmit={e => { e.preventDefault(); void a.run(async () => { await api.updateMe({ display_name: name.trim() }); await onMe(); }, t('saved')); }}><Field label={t('yourName')} required maxLength={80} value={name} onChange={e => setName(e.target.value)} /><Field label={t('phone')} value={me.user.phone_e164} readOnly /><Button kind="primary" busy={a.busy} type="submit">{t('save')}</Button><ActionState action={a} /></form><p className="muted">{t('ownerWeb.use_the_language_menu_at_the_top_right_your')}</p></Panel></>;
+  return <><PageTitle>{t('account')}</PageTitle><Panel><form onSubmit={e => { e.preventDefault(); void a.run(async () => { await api.updateMe({ display_name: name.trim() }); await onMe(); }, t('saved')); }}><Field label={t('yourName')} required maxLength={80} value={name} onChange={e => setName(e.target.value)} /><Field label={t('phone')} value={me.user.phone_e164} readOnly /><Button kind="primary" busy={a.busy} type="submit">{t('save')}</Button><ActionState action={a} /></form><p className="muted">{t('ownerWeb.use_the_language_menu_at_the_top_right_your')}</p></Panel><Panel title={t('changePassword')}><PasswordForm requireCurrent onDone={async () => {}} /></Panel></>;
+}
+/** New password + confirmation. With requireCurrent it is a change from the account page. */
+export function PasswordForm({ onDone, requireCurrent }: { onDone: () => Promise<void>; requireCurrent?: boolean }) {
+  const t = useText(), a = useAction(), [current, setCurrent] = useState(''), [next, setNext] = useState(''), [again, setAgain] = useState('');
+  return <form onSubmit={e => { e.preventDefault(); void a.run(async () => {
+    if ([...next].length < 8) throw new ApiFailure(400, 'VALIDATION_ERROR', '', { password: 'field.password' });
+    if (next !== again) throw new ApiFailure(400, 'VALIDATION_ERROR', '', { password_confirm: 'field.passwordMismatch' });
+    await api.setPassword(next, requireCurrent ? current : undefined); setCurrent(''); setNext(''); setAgain(''); await onDone();
+  }, requireCurrent ? t('passwordChanged') : ''); }}>
+    {requireCurrent ? <Field label={t('currentPassword')} type="password" required maxLength={200} value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" /> : null}
+    <Field label={requireCurrent ? t('newPassword') : t('password')} type="password" required minLength={8} maxLength={200} value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
+    <Field label={t('passwordConfirm')} type="password" required maxLength={200} value={again} onChange={e => setAgain(e.target.value)} autoComplete="new-password" />
+    <p className="muted">{t('passwordHint')}</p>
+    <Button kind="primary" type="submit" busy={a.busy}>{requireCurrent ? t('changePassword') : t('save')}</Button><ActionState action={a} /></form>;
 }
 export function NotificationsView({ org, go }: { org: string; go: Go }) {
   const t = useText(), lang = useContext(LanguageContext), a = useAction(), r = useResource(() => api.notifications(org), [org]);

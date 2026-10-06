@@ -13,7 +13,7 @@ import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens
 import { keys, storage } from './src/storage';
 import { Banner, Button, colors, Field, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
 import { translate } from '@field-service/i18n';
-import { JoinEntry, JoinName, JoinPreview, OtpForm, PhoneForm, Welcome } from './src/screens/onboarding';
+import { JoinEntry, JoinName, JoinPreview, OtpForm, PasswordSetup, PasswordSignIn, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
 import { NotificationsScreen } from './src/screens/notifications';
 import { MaintenanceDetail, MaintenanceScreen } from './src/screens/maintenance';
@@ -23,10 +23,11 @@ import { listenForPush, registerPush, unregisterPush, type PushTarget } from './
 
 type Next =
   | { kind: 'register'; shopName: string; idempotencyKey: string }
-  | { kind: 'signin' }
+  | { kind: 'signin' } | { kind: 'reset' }
   | { kind: 'join'; token: string; shopName: string; displayName: string };
 type Route =
-  | { screen: 'boot' } | { screen: 'welcome' } | { screen: 'register' } | { screen: 'signin' }
+  | { screen: 'boot' } | { screen: 'welcome' } | { screen: 'register' } | { screen: 'signin'; join?: { token: string; shopName: string } } | { screen: 'reset' }
+  | { screen: 'setPassword'; next: Next } | { screen: 'changePassword' }
   | { screen: 'joinEntry' } | { screen: 'joinPreview'; token: string }
   | { screen: 'joinPhone'; token: string; shopName: string } | { screen: 'joinName'; token: string; shopName: string }
   | { screen: 'otp'; phone: string; challenge: Challenge; next: Next; back: Route }
@@ -91,7 +92,7 @@ export default function App() {
       openJoinUrl(await Linking.getInitialURL().catch(() => null));
       let next: Route = { screen: 'welcome' };
       if (await api.restore()) {
-        try { const loaded = await loadMe(); next = { screen: 'shop' }; if (loaded.user.preferred_language !== initial) { setLanguage(loaded.user.preferred_language); api.language = loaded.user.preferred_language; } }
+        try { const loaded = await loadMe(); next = loaded.user.password_set ? { screen: 'shop' } : { screen: 'setPassword', next: { kind: 'signin' } }; if (loaded.user.preferred_language !== initial) { setLanguage(loaded.user.preferred_language); api.language = loaded.user.preferred_language; } }
         // Still signed in but the service is unreachable: offer a retry instead of the welcome page.
         catch { next = api.signedIn ? { screen: 'offline' } : { screen: 'welcome' }; }
       }
@@ -123,9 +124,16 @@ export default function App() {
     if (api.signedIn) { try { setMe(await api.updateMe({ preferred_language: value })); } catch { /* kept locally */ } }
   }
 
+  // An SMS code proves the phone; a new account (or a forgotten password) then sets a password,
+  // so later sign-ins need no SMS.
   async function afterVerify(next: Next, challengeId: string, code: string) {
     const displayName = next.kind === 'join' ? next.displayName : undefined;
-    await api.verifyOtp(challengeId, code, displayName);
+    const verified = await api.verifyOtp(challengeId, code, displayName);
+    if (next.kind === 'reset' || !verified.password_set) setRoute({ screen: 'setPassword', next });
+    else await continueAfterSignIn(next);
+  }
+
+  async function continueAfterSignIn(next: Next) {
     if (next.kind === 'register') {
       const created = await api.createOrganization(next.shopName, next.idempotencyKey);
       await loadMe(created.organization.id);
@@ -158,18 +166,39 @@ export default function App() {
       : <PhoneForm mode="register" onBack={() => setRoute({ screen: 'welcome' })}
         onCodeSent={(phone, challenge, name) => setRoute({ screen: 'otp', phone, challenge, back: route, next: { kind: 'register', shopName: name, idempotencyKey: uuid() } })} />;
       break;
-    case 'signin': content = <PhoneForm mode="signin" onBack={() => setRoute({ screen: 'welcome' })}
-      onCodeSent={(phone, challenge) => setRoute({ screen: 'otp', phone, challenge, back: route, next: { kind: 'signin' } })} />; break;
+    case 'signin': {
+      const join = route.join;
+      content = <PasswordSignIn subtitle={join?.shopName} onBack={() => setRoute(join ? { screen: 'joinPreview', token: join.token } : { screen: 'welcome' })}
+        onForgot={() => setRoute({ screen: 'reset' })}
+        onSignedIn={async () => {
+          const loaded = await loadMe();
+          if (!loaded.user.password_set) setRoute({ screen: 'setPassword', next: { kind: 'signin' } });
+          else setRoute(join ? { screen: 'joinName', token: join.token, shopName: join.shopName } : { screen: 'shop' });
+        }} />;
+      break;
+    }
+    case 'reset': content = <PhoneForm mode="reset" onBack={() => setRoute({ screen: 'signin' })}
+      onCodeSent={(phone, challenge) => setRoute({ screen: 'otp', phone, challenge, back: route, next: { kind: 'reset' } })} />; break;
+    case 'setPassword': {
+      const next = route.next;
+      content = <PasswordSetup step={next.kind === 'register' || next.kind === 'join' ? 3 : undefined}
+        onDone={() => continueAfterSignIn(next.kind === 'reset' ? { kind: 'signin' } : next)} />;
+      break;
+    }
+    case 'changePassword': content = <PasswordSetup requireCurrent onBack={() => setRoute({ screen: 'account' })}
+      onDone={async () => { setRoute({ screen: 'account' }); }} />; break;
     case 'joinEntry': content = <JoinEntry onBack={() => setRoute(api.signedIn ? { screen: 'shop' } : { screen: 'welcome' })} onToken={token => setRoute({ screen: 'joinPreview', token })} />; break;
     case 'joinPreview': content = <JoinPreview token={route.token} onBack={() => setRoute(api.signedIn ? { screen: 'shop' } : { screen: 'welcome' })}
       signedInPhone={api.signedIn ? me?.user.phone_e164 : undefined}
       onUseAnotherPhone={async () => { await signOut(); setRoute({ screen: 'joinPreview', token: route.token }); }}
-      onContinue={shopName => setRoute(api.signedIn ? { screen: 'joinName', token: route.token, shopName } : { screen: 'joinPhone', token: route.token, shopName })} />; break;
+      onContinue={shopName => setRoute(api.signedIn ? { screen: 'joinName', token: route.token, shopName } : { screen: 'joinPhone', token: route.token, shopName })}
+      onSignIn={shopName => setRoute({ screen: 'signin', join: { token: route.token, shopName } })} />; break;
     case 'joinPhone': content = <PhoneForm mode="join" shopPreview={route.shopName} onBack={() => setRoute({ screen: 'joinPreview', token: route.token })}
       onCodeSent={(phone, challenge, name) => setRoute({ screen: 'otp', phone, challenge, back: route, next: { kind: 'join', token: route.token, shopName: route.shopName, displayName: name } })} />; break;
     case 'joinName': content = <JoinName shopName={route.shopName} initialName={me?.user.display_name ?? ''} onBack={() => setRoute({ screen: 'joinPreview', token: route.token })}
       onSubmit={async name => { const joined = await api.requestJoin(route.token, name); await loadMe(joined.organization_id); setRoute({ screen: 'shop' }); }} />; break;
     case 'otp': content = <OtpForm phone={route.phone} challenge={route.challenge} onBack={() => setRoute(route.back)}
+      step={route.next.kind === 'register' || route.next.kind === 'join' ? 2 : undefined}
       onVerify={(id, code) => afterVerify(route.next, id, code)} />; break;
     case 'shopReady': content = <ShopReady shopName={route.shopName} link={route.link} onDone={() => setRoute({ screen: 'shop' })} />; break;
     case 'notifications': content = membership?.status === 'active'
@@ -248,6 +277,7 @@ export default function App() {
       else if (route.screen === 'customers' && membership && active) content = <CustomersScreen membership={membership}
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
+        onChangePassword={() => setRoute({ screen: 'changePassword' })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
       else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })} />;

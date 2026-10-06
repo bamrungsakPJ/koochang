@@ -14,6 +14,12 @@ export interface AuthSettings {
   otpClientHourlyLimit: number;
   accessTtlSeconds: number;
   refreshTtlSeconds: number;
+  /** Wrong passwords in a row before the account is locked for passwordLockSeconds. */
+  passwordMaxFailures: number;
+  passwordLockSeconds: number;
+  passwordClientHourlyLimit: number;
+  /** How long after an SMS code a session may set a new password without the current one. */
+  passwordResetWindowSeconds: number;
 }
 
 function secret(value: string | undefined, minBytes: number): Buffer | undefined {
@@ -42,6 +48,10 @@ export function loadAuthSettings(env: NodeJS.ProcessEnv = process.env): AuthSett
     otpClientHourlyLimit: int(env.OTP_CLIENT_HOURLY_LIMIT, 20),
     accessTtlSeconds: int(env.ACCESS_TOKEN_TTL_SECONDS, 1800),
     refreshTtlSeconds: int(env.REFRESH_TOKEN_TTL_SECONDS, 60 * 24 * 3600),
+    passwordMaxFailures: int(env.PASSWORD_MAX_FAILURES, 5),
+    passwordLockSeconds: int(env.PASSWORD_LOCK_SECONDS, 900),
+    passwordClientHourlyLimit: int(env.PASSWORD_CLIENT_HOURLY_LIMIT, 60),
+    passwordResetWindowSeconds: int(env.PASSWORD_RESET_WINDOW_SECONDS, 900),
   };
 }
 

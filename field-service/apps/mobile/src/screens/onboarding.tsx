@@ -61,9 +61,10 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
   </Screen>;
 }
 
-type PhoneMode = 'register' | 'signin' | 'join';
+type PhoneMode = 'register' | 'reset' | 'join';
 
-/** Collects the phone number (plus shop name or display name) and requests a code. */
+/** Collects the phone number (plus shop name or display name) and requests an SMS code. Only
+ * creating an account and a forgotten password send SMS; everyday sign-in is PasswordSignIn. */
 export function PhoneForm({ mode, shopPreview, onBack, onCodeSent, initialName }: {
   mode: PhoneMode; shopPreview?: string; initialName?: string; onBack: () => void;
   onCodeSent: (phone: string, challenge: Challenge, name: string) => void;
@@ -79,7 +80,7 @@ export function PhoneForm({ mode, shopPreview, onBack, onCodeSent, initialName }
   async function submit() {
     const next: Record<string, string> = {};
     const e164 = normalizePhone(phone);
-    if (mode !== 'signin' && !name.trim()) next.name = t('field.required');
+    if (mode !== 'reset' && !name.trim()) next.name = t('field.required');
     if (!e164 || (e164.startsWith('+66') && !isThaiMobile(e164))) next.phone = t('field.phone');
     setErrors(next); setFailure(null);
     if (Object.keys(next).length) return;
@@ -92,9 +93,9 @@ export function PhoneForm({ mode, shopPreview, onBack, onCodeSent, initialName }
   }
 
   return <Screen onBack={onBack} footer={<Button title={t('next')} icon="arrow-forward" onPress={submit} busy={busy} />}>
-    <Sub>{mode === 'register' ? t('createShopHint') : mode === 'join' ? shopPreview : t('signInHint')}</Sub>
-    <Title>{mode === 'register' ? t('createShop') : mode === 'join' ? t('joinPreviewTitle') : t('signIn')}</Title>
-    {mode !== 'signin' ? <Steps step={1} total={2} /> : null}
+    <Sub>{mode === 'register' ? t('createShopHint') : mode === 'join' ? shopPreview : t('resetPasswordHint')}</Sub>
+    <Title>{mode === 'register' ? t('createShop') : mode === 'join' ? t('joinPreviewTitle') : t('resetPasswordTitle')}</Title>
+    {mode !== 'reset' ? <Steps step={1} total={3} /> : null}
     {mode === 'register' ? <Field label={t('shopName')} icon="storefront-outline" value={name} onChangeText={setName} error={errors.name} autoComplete="organization" maxLength={120} /> : null}
     {mode === 'join' ? <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={errors.name} hint={t('yourNameHint')} autoComplete="name" maxLength={80} /> : null}
     <Field label={t('phone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder="08x-xxx-xxxx" />
@@ -102,8 +103,8 @@ export function PhoneForm({ mode, shopPreview, onBack, onCodeSent, initialName }
   </Screen>;
 }
 
-export function OtpForm({ phone, challenge: initial, onBack, onVerify }: {
-  phone: string; challenge: Challenge; onBack: () => void; onVerify: (challengeId: string, code: string) => Promise<void>;
+export function OtpForm({ phone, challenge: initial, onBack, onVerify, step }: {
+  phone: string; challenge: Challenge; onBack: () => void; onVerify: (challengeId: string, code: string) => Promise<void>; step?: number;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -137,6 +138,7 @@ export function OtpForm({ phone, challenge: initial, onBack, onVerify }: {
   return <Screen onBack={onBack} footer={<Button title={t('confirm')} icon="checkmark" onPress={() => verify()} busy={busy} />}>
     <View style={styles.otpIcon}><Icon name="chatbubble-ellipses" size={28} color={colors.primary} /></View>
     <Title>{t('otpTitle')}</Title>
+    {step ? <Steps step={step} total={3} /> : null}
     <Sub>{t('otpSentTo', { phone: formatPhone(phone) })}</Sub>
     <Field label={t('otpCode')} big value={code} error={error ?? undefined} keyboardType="number-pad" autoComplete="one-time-code"
       textContentType="oneTimeCode" maxLength={6} autoFocus placeholder="••••••"
@@ -147,6 +149,82 @@ export function OtpForm({ phone, challenge: initial, onBack, onVerify }: {
         : <Pressable accessibilityRole="button" onPress={resend} disabled={busy}><Text style={styles.link}>{t('resend')}</Text></Pressable>}
       <Pressable accessibilityRole="button" onPress={onBack}><Text style={styles.link}>{t('changePhone')}</Text></Pressable>
     </View>
+  </Screen>;
+}
+
+/** Everyday sign-in with phone + password (no SMS). */
+export function PasswordSignIn({ onBack, onSignedIn, onForgot, subtitle }: {
+  onBack: () => void; onSignedIn: () => Promise<void>; onForgot: () => void; subtitle?: string;
+}) {
+  const t = useT();
+  const errorText = useErrorText();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    const next: Record<string, string> = {};
+    const e164 = normalizePhone(phone);
+    if (!e164 || (e164.startsWith('+66') && !isThaiMobile(e164))) next.phone = t('field.phone');
+    if (!password) next.password = t('field.required');
+    setErrors(next); setFailure(null);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try { await api.passwordLogin(e164!, password); await onSignedIn(); }
+    catch (error) { setFailure(errorText(error)); }
+    finally { setBusy(false); }
+  }
+
+  return <Screen onBack={onBack} footer={<Button title={t('signIn')} icon="log-in-outline" onPress={submit} busy={busy} />}>
+    <Sub>{subtitle ?? t('signInHint')}</Sub>
+    <Title>{t('signIn')}</Title>
+    <Field label={t('phone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="username" placeholder="08x-xxx-xxxx" />
+    <Field label={t('password')} icon="lock-closed-outline" value={password} onChangeText={setPassword} error={errors.password} secureTextEntry autoCapitalize="none" autoCorrect={false}
+      autoComplete="current-password" textContentType="password" maxLength={200} returnKeyType="go" onSubmitEditing={submit} />
+    <Banner text={failure} />
+    <Pressable accessibilityRole="button" onPress={onForgot} style={styles.forgotRow}><Text style={styles.link}>{t('forgotPassword')}</Text></Pressable>
+  </Screen>;
+}
+
+/** Sets the first password (after sign-up), a new one after a forgot-password SMS code, or
+ * changes it with the current one (requireCurrent). */
+export function PasswordSetup({ onDone, onBack, requireCurrent, step }: { onDone: () => Promise<void>; onBack?: () => void; requireCurrent?: boolean; step?: number }) {
+  const t = useT();
+  const errorText = useErrorText();
+  const [current, setCurrent] = useState('');
+  const [password, setPassword] = useState('');
+  const [again, setAgain] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    const next: Record<string, string> = {};
+    if (requireCurrent && !current) next.current = t('field.required');
+    if ([...password].length < 8) next.password = t('field.password');
+    else if (password !== again) next.again = t('field.passwordMismatch');
+    setErrors(next); setFailure(null);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try { await api.setPassword(password, requireCurrent ? current : undefined); await onDone(); }
+    catch (error) {
+      if (error instanceof ApiFailure && error.fieldErrors.current_password) setErrors({ current: t(error.fieldErrors.current_password as TranslationKey) });
+      else setFailure(errorText(error));
+    } finally { setBusy(false); }
+  }
+
+  const secret = { secureTextEntry: true, autoCapitalize: 'none', autoCorrect: false, maxLength: 200 } as const;
+  return <Screen onBack={onBack} footer={<Button title={requireCurrent ? t('changePassword') : t('save')} icon="checkmark" onPress={submit} busy={busy} />}>
+    <View style={styles.otpIcon}><Icon name="lock-closed" size={28} color={colors.primary} /></View>
+    <Title>{requireCurrent ? t('changePassword') : t('setPasswordTitle')}</Title>
+    {step ? <Steps step={step} total={3} /> : null}
+    {requireCurrent ? null : <Sub>{t('setPasswordBody')}</Sub>}
+    {requireCurrent ? <Field label={t('currentPassword')} icon="lock-closed-outline" value={current} onChangeText={setCurrent} error={errors.current} {...secret} autoComplete="current-password" textContentType="password" /> : null}
+    <Field label={requireCurrent ? t('newPassword') : t('password')} icon="key-outline" value={password} onChangeText={setPassword} error={errors.password} hint={t('passwordHint')} {...secret} autoComplete="new-password" textContentType="newPassword" />
+    <Field label={t('passwordConfirm')} icon="key-outline" value={again} onChangeText={setAgain} error={errors.again} {...secret} autoComplete="new-password" textContentType="newPassword" />
+    <Banner text={failure} />
   </Screen>;
 }
 
@@ -164,9 +242,11 @@ export function JoinEntry({ onBack, onToken }: { onBack: () => void; onToken: (t
 }
 
 /** Shows which shop the link belongs to before anything is sent. */
-export function JoinPreview({ token, onBack, onContinue, signedInPhone, onUseAnotherPhone }: {
+export function JoinPreview({ token, onBack, onContinue, signedInPhone, onUseAnotherPhone, onSignIn }: {
   token: string; onBack: () => void; onContinue: (shopName: string) => void;
   signedInPhone?: string; onUseAnotherPhone: () => Promise<void>;
+  /** Not signed in yet and already has an account: sign in with the password instead of an SMS code. */
+  onSignIn?: (shopName: string) => void;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -192,6 +272,9 @@ export function JoinPreview({ token, onBack, onContinue, signedInPhone, onUseAno
   return <Screen onBack={onBack} footer={<>
     <Button title={t('requestJoin')} icon="arrow-forward" disabled={switching} onPress={() => onContinue(state.organization_name ?? '')} />
     {signedInPhone ? <Button title={t('joinUseAnotherPhone')} kind="secondary" busy={switching} onPress={useAnotherPhone} /> : null}
+    {!signedInPhone && onSignIn ? <Pressable accessibilityRole="button" onPress={() => onSignIn(state.organization_name ?? '')} style={styles.signInRow}>
+      <Text style={styles.signInText}>{t('haveAccount')} <Text style={styles.signInLink}>{t('signIn')}</Text></Text>
+    </Pressable> : null}
   </>}>
     <Sub>{t('joinPreviewTitle')}</Sub>
     <Card>
@@ -245,6 +328,7 @@ const styles = StyleSheet.create({
   languageTextOn: { color: colors.ink },
   otpIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  forgotRow: { alignSelf: 'flex-end', paddingVertical: 8 },
   resendWait: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
   link: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.primary },
   shopRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

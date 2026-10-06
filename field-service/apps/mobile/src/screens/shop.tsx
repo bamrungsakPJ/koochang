@@ -216,8 +216,8 @@ export function ShopPicker({ me, onPick, onCreate, onJoin, onBack }: { me: Me; o
   </Screen>;
 }
 
-export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack, onSupport }: {
-  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void;
+export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack, onSupport, onChangePassword }: {
+  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void; onChangePassword: () => void;
 }) {
   const t = useT();
   return <Screen onBack={onBack}>
@@ -227,7 +227,8 @@ export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack,
         <View style={{ flex: 1 }}><Strong>{me.user.display_name.startsWith('+') ? formatPhone(me.user.display_name) : me.user.display_name}</Strong><Sub>{formatPhone(me.user.phone_e164)}</Sub></View></View>
     </Card>
     <Card padded={false}>
-      <Row icon="language" tone="violet" title={t('language')} trailing={<LanguageSwitch language={language} onChange={onLanguage} />} last={!onSwitch} />
+      <Row icon="language" tone="violet" title={t('language')} trailing={<LanguageSwitch language={language} onChange={onLanguage} />} />
+      <Row icon="key" tone="amber" title={t('changePassword')} onPress={onChangePassword} last={!onSwitch} />
       {onSwitch ? <Row icon="swap-horizontal" tone="sky" title={t('myShops')} onPress={onSwitch} last /> : null}
     </Card>
     {onSupport ? <Card padded={false}><Row icon="help-buoy" tone="teal" title={t('support')} subtitle={t('supportHint')} onPress={onSupport} last /></Card> : null}

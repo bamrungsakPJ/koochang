@@ -8,7 +8,7 @@ import { notifySave } from '../toast';
 import { api, ApiFailure, type Me, type Membership, type Challenge } from './api';
 import { keys, storage } from './storage';
 import { ActionState, Button, Field, LanguageContext, Notice, Panel, useAction, useText, uuid } from './ui';
-import { Dashboard, TeamView, AccountView, NotificationsView } from './shop';
+import { Dashboard, TeamView, AccountView, NotificationsView, PasswordForm } from './shop';
 import { CustomersView, CustomerView, EquipmentView } from './customers';
 import { JobsView, JobView, JobForm, ServiceForm } from './jobs';
 import { MaintenanceView, BillingView, InvoiceView, SupportView } from './operations';
@@ -72,6 +72,8 @@ export function OwnerApp() {
     {boot ? card(<p role="status">{tr('loading')}</p>)
       : offline ? card(<><Notice error>{tr('networkError')}</Notice><Button kind="primary" busy={a.busy} onClick={() => a.run(loadMe)}>{tr('retry')}</Button><Button onClick={signOut}>{tr('signOut')}</Button><ActionState action={a} /></>)
       : !me ? <Auth language={languageSelect} onDone={async id => { await loadMe(id); go({ section: 'home' }); }} />
+      : !me.user.password_set ? card(<><h1>{tr('setPasswordTitle')}</h1><p className="muted">{tr('setPasswordBody')}</p>
+          <PasswordForm onDone={async () => { await loadMe(); }} /><Button onClick={signOut}>{tr('signOut')}</Button></>)
       : creating || !membership ? card(<><CreateShop onCreated={async id => { await loadMe(id); setCreating(false); go({ section: 'home' }); }} />
           {me.memberships.some(m => m.role === 'owner') ? <Button onClick={() => setCreating(false)}>{tr('cancel')}</Button> : null}
           {!me.memberships.some(m => m.role === 'owner') ? <p>{tr('ownerWeb.technicianAccount')}</p> : null}<Button onClick={signOut}>{tr('signOut')}</Button></>)
@@ -136,27 +138,42 @@ function Workspace({ membership: m, me, route: r, go, onMe }: { membership: Memb
     default: return <Dashboard org={m.organization_id} go={go} />;
   }
 }
+/** Sign-in is phone + password. An SMS code is sent only to create an account (create a shop)
+ * and when the password is forgotten; both then set a password. */
+type AuthMode = 'signin' | 'register' | 'reset';
 function Auth({ onDone, language }: { onDone: (org?: string) => Promise<void>; language: React.ReactNode }) {
   const t = useText(), a = useAction();
-  const [register, setRegister] = useState(false), [name, setName] = useState(''), [phone, setPhone] = useState(''), [code, setCode] = useState(''), [challenge, setChallenge] = useState<Challenge | null>(null), [wait, setWait] = useState(0);
+  const [mode, setMode] = useState<AuthMode>('signin'), [name, setName] = useState(''), [phone, setPhone] = useState(''), [password, setPassword] = useState(''), [code, setCode] = useState(''), [challenge, setChallenge] = useState<Challenge | null>(null), [wait, setWait] = useState(0), [needPassword, setNeedPassword] = useState(false);
   const request = useRef<string | null>(null);
   useEffect(() => { if (wait > 0) { const timer = setTimeout(() => setWait(x => x - 1), 1000); return () => clearTimeout(timer); } }, [wait]);
-  const requestOtp = () => a.run(async () => {
+  const checkedPhone = () => {
     const normalized = normalizePhone(phone); if (!normalized || normalized.startsWith('+66') && !isThaiMobile(normalized)) throw new ApiFailure(400, 'VALIDATION_ERROR', '', { phone: 'field.phone' });
-    setPhone(normalized); const next = await api.requestOtp(normalized); setChallenge(next); setWait(next.resend_after); setCode('');
-  });
+    setPhone(normalized); return normalized;
+  };
+  const requestOtp = () => a.run(async () => { const next = await api.requestOtp(checkedPhone()); setChallenge(next); setWait(next.resend_after); setCode(''); });
+  const switchMode = (next: AuthMode) => { setMode(next); setChallenge(null); setPassword(''); request.current = null; a.setError(null); };
+  const finish = async () => {
+    if (mode === 'register') { const result = await api.createOrganization(name.trim(), request.current ?? (request.current = uuid())); await onDone(result.organization.id); } else await onDone();
+  };
+  const heading = mode === 'reset' ? t('resetPasswordTitle') : mode === 'register' ? t('createShop') : t('ownerWeb.your_shop_organized');
   return <div className="signin-page owner-auth"><div className="owner-language">{language}</div><main className="signin owner-card">
     <div className="signin-brand"><BrandMark large /><span><strong className="brand-name">{t('appName')}</strong><small>{t('ownerWeb.workspace')}</small></span></div>
-    <h1>{t('ownerWeb.your_shop_organized')}</h1><p className="muted">{t('ownerWeb.jobs_people_and_customers_in_one_workspace')}</p>
-    <form onSubmit={e => { e.preventDefault(); if (!challenge) void requestOtp(); else void a.run(async () => {
-      if (!api.signedIn) await api.verifyOtp(challenge.challenge_id, code);
-      if (register) { const result = await api.createOrganization(name.trim(), request.current ?? (request.current = uuid())); await onDone(result.organization.id); } else await onDone();
-    }); }}>
-      {!challenge ? <>{register ? <Field label={t('shopName')} required maxLength={120} value={name} onChange={e => setName(e.target.value)} /> : null}<Field label={t('phone')} type="tel" required value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" />
-      <Button kind="primary" type="submit" busy={a.busy}>{register ? t('createShop') : t('signIn')}</Button></>
+    <h1>{needPassword ? t('setPasswordTitle') : heading}</h1><p className="muted">{needPassword ? t('setPasswordBody') : mode === 'reset' ? t('resetPasswordHint') : t('ownerWeb.jobs_people_and_customers_in_one_workspace')}</p>
+    {needPassword ? <PasswordForm onDone={finish} />
+    : mode === 'signin' ? <form onSubmit={e => { e.preventDefault(); void a.run(async () => { await api.passwordLogin(checkedPhone(), password); await onDone(); }); }}>
+        <Field label={t('phone')} type="tel" required value={phone} onChange={e => setPhone(e.target.value)} autoComplete="username" />
+        <Field label={t('password')} type="password" required maxLength={200} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+        <Button kind="primary" type="submit" busy={a.busy}>{t('signIn')}</Button><Button disabled={a.busy} onClick={() => switchMode('reset')}>{t('forgotPassword')}</Button></form>
+    : <form onSubmit={e => { e.preventDefault(); if (!challenge) void requestOtp(); else void a.run(async () => {
+        if (!api.signedIn) { const verified = await api.verifyOtp(challenge.challenge_id, code); if (mode === 'reset' || !verified.password_set) { setNeedPassword(true); return; } }
+        await finish();
+      }); }}>
+      {!challenge ? <>{mode === 'register' ? <Field label={t('shopName')} required maxLength={120} value={name} onChange={e => setName(e.target.value)} /> : null}<Field label={t('phone')} type="tel" required value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" />
+      <Button kind="primary" type="submit" busy={a.busy}>{t('next')}</Button></>
       : <><Notice>{t('otpSentTo', { phone })}</Notice><Field label={t('otpCode')} required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} />
         {challenge.delivery === 'development' ? <Notice>{t('devOtpNotice')}</Notice> : null}<Button kind="primary" type="submit" busy={a.busy}>{t('confirm')}</Button><Button disabled={wait > 0 || a.busy} onClick={requestOtp}>{wait ? t('resendIn', { seconds: wait }) : t('resend')}</Button><Button disabled={a.busy} onClick={() => { setChallenge(null); request.current = null; }}>{t('changePhone')}</Button></>}
-    </form><ActionState action={a} />{!challenge ? <Button onClick={() => { setRegister(!register); request.current = null; }}>{register ? t('signIn') : t('createShop')}</Button> : null}<a className="platform-link" href="/console">{t('ownerWeb.platform_staff_sign_in')}</a></main></div>;
+    </form>}<ActionState action={a} />
+    {!challenge && !needPassword ? <Button onClick={() => switchMode(mode === 'signin' ? 'register' : 'signin')}>{mode === 'signin' ? t('createShop') : t('signIn')}</Button> : null}<a className="platform-link" href="/console">{t('ownerWeb.platform_staff_sign_in')}</a></main></div>;
 }
 function CreateShop({ onCreated }: { onCreated: (id: string) => Promise<void> }) {
   const t = useText(), a = useAction(), [name, setName] = useState(''), key = useRef<string | null>(null);

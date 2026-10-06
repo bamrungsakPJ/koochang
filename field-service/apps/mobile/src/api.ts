@@ -14,7 +14,7 @@ export interface Membership {
   member_id: string; organization_id: string; organization_name: string | null; organization_status: string;
   role: 'owner' | 'technician'; status: MemberStatus; display_name: string; version: number;
 }
-export interface Me { user: { id: string; display_name: string; phone_e164: string; preferred_language: Language; version: number }; memberships: Membership[]; }
+export interface Me { user: { id: string; display_name: string; phone_e164: string; preferred_language: Language; version: number; password_set: boolean }; memberships: Membership[]; }
 export interface Challenge { challenge_id: string; expires_at: string; resend_after: number; delivery: 'development' | 'sms'; }
 export interface JoinLink { id: string; status: 'active' | 'closed'; generation: number; version: number; url: string; qr_png: string; }
 export interface TeamMember {
@@ -118,10 +118,20 @@ export class Api {
   // auth --------------------------------------------------------------------------------------
   requestOtp(phone: string) { return this.call<Challenge>('POST', '/auth/otp/request', { phone }, false); }
   async verifyOtp(challengeId: string, code: string, displayName?: string) {
-    const result = await this.call<Tokens & { user_id: string; is_new_user: boolean }>('POST', '/auth/otp/verify',
+    const result = await this.call<Tokens & { user_id: string; is_new_user: boolean; password_set: boolean }>('POST', '/auth/otp/verify',
       { challenge_id: challengeId, code, display_name: displayName || undefined, preferred_language: this.language }, false);
     await this.setTokens(result);
     return result;
+  }
+  /** Everyday sign-in: phone + password, no SMS. */
+  async passwordLogin(phone: string, password: string) {
+    const result = await this.call<Tokens & { user_id: string; password_set: boolean }>('POST', '/auth/password/login', { phone, password }, false);
+    await this.setTokens(result);
+    return result;
+  }
+  /** First password, a new one right after an SMS code, or a change with currentPassword. */
+  setPassword(password: string, currentPassword?: string) {
+    return this.call<{ password_set: true }>('POST', '/auth/password', { password, current_password: currentPassword || undefined });
   }
   async signOut() {
     try { if (this.access) await this.call('POST', '/auth/logout'); } catch { /* already invalid */ }

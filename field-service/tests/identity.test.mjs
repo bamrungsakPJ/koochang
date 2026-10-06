@@ -309,3 +309,81 @@ test('concurrent duplicate join requests create one membership', { skip: process
   } finally { clients.forEach(c => c.release()); }
   assert.equal((await db.query('SELECT count(*)::int AS n FROM core.organization_members WHERE organization_id = $1 AND user_id = $2', [shop.organizationId, tech.userId])).rows[0].n, 1);
 });
+
+// Phone + password (026) --------------------------------------------------------------------
+const begin = (phone, client = null, maxFailures = 5) => one('SELECT * FROM auth.password_login_begin($1,$2,$3,900,$4)', [phone, client, maxFailures, 1000]);
+const finish = (userId, hash) => one('SELECT * FROM auth.password_login_finish($1,$2,$3,1800,$4,86400)', [userId, hash, randomHash(), randomHash()]);
+const setPassword = async (user, via, expected, next) => (await one('SELECT auth.set_password($1,$2,$3,$4,$5,900) AS outcome', [user.userId, user.sessionId, via, expected, next])).outcome;
+const sessionState = async id => (await db.query('SELECT auth_method, revoke_reason FROM auth.sessions WHERE id = $1', [id])).rows[0];
+
+test('password: set once after OTP, then sign in without SMS', async () => {
+  const phone = newPhone();
+  const user = await signIn(phone);
+  const before = await one('SELECT * FROM auth.password_status($1,$2,900)', [user.userId, user.sessionId]);
+  assert.deepEqual(before, { has_password: false, password_hash: null, fresh_otp: true });
+  assert.equal(await setPassword(user, 'first', null, 'scrypt$one'), 'ok');
+  assert.equal(await setPassword(user, 'first', null, 'scrypt$two'), 'conflict');
+
+  const started = await begin(phone);
+  assert.equal(started.outcome, 'check');
+  assert.equal(started.user_id, user.userId);
+  assert.equal(started.password_hash, 'scrypt$one');
+  const done = await finish(user.userId, 'scrypt$one');
+  assert.equal(done.outcome, 'ok');
+  assert.equal((await sessionState(done.session_id)).auth_method, 'password');
+  assert.equal((await finish(user.userId, 'scrypt$stale')).outcome, 'invalid');
+
+  const unknown = await begin(newPhone());
+  assert.deepEqual([unknown.outcome, unknown.user_id, unknown.password_hash], ['check', null, null]);
+});
+
+test('password: wrong guesses lock the account until a correct password or an SMS reset', async () => {
+  const phone = newPhone();
+  const user = await signIn(phone);
+  await setPassword(user, 'first', null, 'scrypt$right');
+  for (let i = 0; i < 4; i++) assert.equal((await begin(phone)).outcome, 'check');
+  // The 5th attempt is still checked; if it is wrong the account stays locked.
+  assert.equal((await begin(phone)).outcome, 'check');
+  const locked = await begin(phone);
+  assert.equal(locked.outcome, 'locked');
+  assert.ok(locked.retry_after_seconds > 800);
+
+  // Forgot password: a fresh OTP session may set a new one, which clears the lock and signs out
+  // the other sessions.
+  const other = await finishSession(user.userId);
+  const reset = await signIn(phone);
+  assert.equal(await setPassword(reset, 'otp', null, 'scrypt$new'), 'ok');
+  assert.equal((await sessionState(other)).revoke_reason, 'password_changed');
+  assert.equal((await sessionState(user.sessionId)).revoke_reason, 'password_changed');
+  assert.equal((await sessionState(reset.sessionId)).revoke_reason, null);
+  assert.equal((await begin(phone)).outcome, 'check');
+});
+/** Another signed-in device (setup runs as superuser; fs_api cannot call issue_session). */
+const finishSession = async userId => (await db.query('SELECT auth.issue_session($1,$2,1800,$3,86400) AS id', [userId, randomHash(), randomHash()])).rows[0].id;
+
+test('password: a password session cannot reset without the current password', async () => {
+  const phone = newPhone();
+  const user = await signIn(phone);
+  await setPassword(user, 'first', null, 'scrypt$a');
+  const done = await finish(user.userId, 'scrypt$a');
+  const viaPassword = { userId: user.userId, sessionId: done.session_id };
+  assert.equal(await setPassword(viaPassword, 'otp', null, 'scrypt$b'), 'not_allowed');
+  assert.equal(await setPassword(viaPassword, 'current', 'scrypt$wrong', 'scrypt$b'), 'conflict');
+  assert.equal(await setPassword(viaPassword, 'current', 'scrypt$a', 'scrypt$b'), 'ok');
+  assert.equal((await sessionState(user.sessionId)).revoke_reason, 'password_changed');
+  // An OTP session older than the window is no longer fresh.
+  const old = await signIn(phone);
+  await db.query("UPDATE auth.sessions SET created_at = now() - interval '1 hour' WHERE id = $1", [old.sessionId]);
+  assert.equal(await setPassword(old, 'otp', null, 'scrypt$c'), 'not_allowed');
+});
+
+test('password: attempts from one client are limited per hour', async () => {
+  const client = randomHash(), phone = newPhone();
+  for (let i = 0; i < 3; i++) assert.equal((await one('SELECT * FROM auth.password_login_begin($1,$2,5,900,3)', [phone, client])).outcome, 'check');
+  const limited = await one('SELECT * FROM auth.password_login_begin($1,$2,5,900,3)', [phone, client]);
+  assert.equal(limited.outcome, 'rate_limited');
+});
+
+test('fs_api cannot read password hashes directly', async () => {
+  await assert.rejects(api('SELECT * FROM auth.user_passwords'), /permission denied/);
+});

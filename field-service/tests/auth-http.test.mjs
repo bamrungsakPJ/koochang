@@ -44,7 +44,7 @@ before(async () => {
       JOIN_LINK_BASE_URL: 'https://join.example.test/join', SMS_PROVIDER: 'development',
       MEDIA_DIR: mediaDir, MEDIA_URL_SECRET: randomBytes(32).toString('base64'), OCR_PROVIDER: 'development',
       // Every test signs in from 127.0.0.1; the per-client OTP limit is tested separately.
-      OTP_CLIENT_HOURLY_LIMIT: '1000',
+      OTP_CLIENT_HOURLY_LIMIT: '1000', PASSWORD_CLIENT_HOURLY_LIMIT: '1000',
       PLATFORM_DATABASE_URL: platformUrl.toString(), PLATFORM_SECRET_KEY: platformKey.toString('base64'),
       PAYMENT_BANK_NAME: 'Test Bank', PAYMENT_ACCOUNT_NAME: 'Test Platform Co.', PAYMENT_ACCOUNT_NUMBER: '000-0-00000-0' },
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -1077,4 +1077,60 @@ test('pilot journey (th/en): sign up → team → customer without coordinates �
   assert.ok(metrics.record_minutes_median >= 0);
   assert.ok(metrics.maintenance_due >= 0);
   assert.equal((await call('GET', '/platform/metrics', { token: auditor })).status, 200);
+});
+
+test('phone + password: SMS only at sign-up and reset, everyday sign-in is the password', { skip }, async () => {
+  const local = newPhone(), e164 = `+66${local.slice(1)}`;
+  const first = await signIn(local, 'Pw Owner');
+  assert.equal(first.password_set, false);
+  assert.equal((await call('GET', '/me', { token: first.access_token })).body.user.password_set, false);
+
+  const short = await call('POST', '/auth/password', { token: first.access_token, body: { password: 'short' } });
+  assert.equal(short.status, 400);
+  assert.equal(short.body.field_errors.password, 'field.password');
+  const set = await call('POST', '/auth/password', { token: first.access_token, body: { password: 'correct horse 1' } });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  assert.equal((await call('GET', '/me', { token: first.access_token })).body.user.password_set, true);
+
+  const smsBefore = codes.size;
+  const login = await call('POST', '/auth/password/login', { body: { phone: local, password: 'correct horse 1' } });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  assert.match(login.body.access_token, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(login.body.password_set, true);
+  assert.equal(codes.size, smsBefore, 'no SMS for a password sign-in');
+  assert.equal((await call('GET', '/me', { token: login.body.access_token })).body.user.phone_e164, e164);
+
+  // Wrong password and unknown phone look the same.
+  const wrong = await call('POST', '/auth/password/login', { body: { phone: local, password: 'wrong password' } });
+  const nobody = await call('POST', '/auth/password/login', { body: { phone: newPhone(), password: 'whatever123' } });
+  assert.deepEqual([wrong.status, wrong.body.code], [401, 'PHONE_LOGIN_FAILED']);
+  assert.deepEqual([nobody.status, nobody.body.code], [401, 'PHONE_LOGIN_FAILED']);
+
+  // A password session cannot replace the password without the current one.
+  const blocked = await call('POST', '/auth/password', { token: login.body.access_token, body: { password: 'another pass 2' } });
+  assert.deepEqual([blocked.status, blocked.body.code], [403, 'PASSWORD_CHANGE_NOT_ALLOWED']);
+  const badCurrent = await call('POST', '/auth/password', { token: login.body.access_token, body: { password: 'another pass 2', current_password: 'nope nope' } });
+  assert.equal(badCurrent.body.field_errors.current_password, 'field.currentPassword');
+  const changed = await call('POST', '/auth/password', { token: login.body.access_token, body: { password: 'another pass 2', current_password: 'correct horse 1' } });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  // Other devices are signed out.
+  assert.equal((await call('GET', '/me', { token: first.access_token })).status, 401);
+
+  // Lockout after repeated wrong passwords, even for the right one.
+  for (let i = 0; i < 4; i++) await call('POST', '/auth/password/login', { body: { phone: local, password: `bad guess ${i}` } });
+  const fifth = await call('POST', '/auth/password/login', { body: { phone: local, password: 'bad guess 5' } });
+  assert.equal(fifth.body.code, 'PHONE_LOGIN_FAILED');
+  const locked = await call('POST', '/auth/password/login', { body: { phone: local, password: 'another pass 2' } });
+  assert.deepEqual([locked.status, locked.body.code], [429, 'LOGIN_LOCKED']);
+  assert.ok(Number(locked.headers.get('retry-after')) > 0);
+
+  // Forgot password: one SMS code, then a new password without the old one; that clears the lock.
+  await db.query("UPDATE auth.otp_challenges SET created_at = created_at - interval '2 hours', expires_at = expires_at - interval '2 hours' WHERE phone_e164 = $1", [e164]);
+  codes.delete(e164);
+  const reset = await signIn(local);
+  assert.equal(reset.password_set, true);
+  const fresh = await call('POST', '/auth/password', { token: reset.access_token, body: { password: 'brand new pass 3' } });
+  assert.equal(fresh.status, 200, JSON.stringify(fresh.body));
+  const after = await call('POST', '/auth/password/login', { body: { phone: local, password: 'brand new pass 3' } });
+  assert.equal(after.status, 200, JSON.stringify(after.body));
 });
