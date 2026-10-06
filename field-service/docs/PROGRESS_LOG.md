@@ -9,7 +9,7 @@
 
 ## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-06 — เข้าสู่ระบบด้วยเบอร์ + รหัสผ่าน)
 
-- **Android build ในเครื่อง (2026-10-06)**: ตรวจแล้วขาด JDK, SDK 36, NDK และ SDK Manager; เตรียม doctor/environment scripts และ [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md) แล้ว ยังไม่พร้อม build จนติดตั้งเครื่องมือและเชื่อม signing เดิม
+- **Android build ในเครื่อง (2026-10-06)**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.30.5 และ SDK Manager บน D แล้ว; doctor ทุกตัวผ่านและเรียก java/javac/adb/cmake/clang สำเร็จ ตั้งค่า user environment/cache D; ยังไม่ได้ดาวน์โหลด signing เดิมหรือ build APK ในเครื่อง ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 
 - **เลขเวอร์ชันและ About (2026-10-06)**: เพิ่มเวอร์ชัน/Build จาก manifest ในหน้าเปิดแอป ต้อนรับ และเข้าสู่ระบบ; เปิด About จากหน้าต้อนรับและบัญชี พร้อมชื่อผลิตภัณฑ์ บริษัทผู้พัฒนา และรายละเอียดรุ่น รองรับไทย/อังกฤษ; โค้ดเตรียม 0.2.4 / Build 6 ตรวจ shared build/mobile typecheck ผ่าน; ใส่ชื่อบริษัท ไอ ที อีส มี จำกัด / IT IS ME Co., Ltd. ตามผู้ใช้แล้ว อัปโหลด EAS APK 0.2.4 แล้ว รอผล build (e2f12506-0b9c-43cc-9457-dfd5d459566c)
 
@@ -113,6 +113,14 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-06 — ติดตั้ง Android toolchain บน D
+- ผู้ใช้สั่งติดตั้งบน D; ดาวน์โหลด Temurin JDK 17 และ Android command-line tools ทางการ ตรวจ SHA-256 ก่อนแตกไฟล์
+- ติดตั้ง SDK Platform 36 / Build Tools 36.0.0 / NDK 27.1.12297006 / CMake 3.30.5 / Platform Tools ใน D:\Android\Sdk พร้อม SDK licenses
+- ตั้งค่า JAVA_HOME/ANDROID_HOME/ANDROID_SDK_ROOT/GRADLE_USER_HOME และ user PATH สำหรับ D โดยคง PATH เดิม; แคช Gradle D:\Android\gradle-cache
+- ตรวจ doctor ผ่านทุกตัว java/javac/adb/cmake/clang ใช้งานได้จริง ไม่ลง emulator/Android Studio เพิ่ม
+- สถานะ: เครื่องมือพร้อม; ยังไม่ได้ดึง keystore เดิม สร้าง native project หรือ build APK ในเครื่อง การติดตั้งนี้ไม่เปลี่ยนงาน EAS ที่รออยู่
+
 
 ### 2026-10-06 — ตรวจเครื่องสำหรับ Android local build
 - ตรวจ Node/pnpm/Java/Android SDK และพื้นที่: Node 24/pnpm/Git/ADB/Build Tools 36 พร้อม; Java/Javac, SDK 36, NDK 27.1.12297006 และ SDK Manager ยังขาด

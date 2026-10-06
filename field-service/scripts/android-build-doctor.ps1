@@ -26,6 +26,7 @@ $checks = @(
   [pscustomobject]@{ Item='Build tools'; Ready=(Test-Path -LiteralPath (Join-Path $SdkPath "build-tools/$buildTools/apksigner.bat")); Required="build-tools;$buildTools"; Path=$SdkPath },
   [pscustomobject]@{ Item='NDK'; Ready=(Test-Path -LiteralPath (Join-Path $SdkPath "ndk/$ndk/source.properties")); Required="ndk;$ndk"; Path=$SdkPath },
   [pscustomobject]@{ Item='SDK Manager'; Ready=(Test-Path -LiteralPath (Join-Path $SdkPath 'cmdline-tools/latest/bin/sdkmanager.bat')); Required='cmdline-tools;latest'; Path=$SdkPath },
+  [pscustomobject]@{ Item='CMake'; Ready=(Test-Path -LiteralPath (Join-Path $SdkPath 'cmake/3.30.5/bin/cmake.exe')); Required='cmake;3.30.5'; Path=$SdkPath },
   [pscustomobject]@{ Item='ADB'; Ready=(Test-Path -LiteralPath (Join-Path $SdkPath 'platform-tools/adb.exe')); Required='platform-tools'; Path=$SdkPath }
 )
 $checks | Format-Table Item,Ready,Required -AutoSize
@@ -34,4 +35,4 @@ if ($checks | Where-Object { !$_.Ready }) { Write-Output 'NOT READY: install/con
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $javacExe -version
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Output 'Core tools found. Gradle downloads, SDK licenses, CMake and original signing credentials still need verification during the first native build.'
+Write-Output 'Core tools found. First native build still needs Gradle/Maven downloads and original signing credentials; check SDK license status if SDK Manager requests it.'

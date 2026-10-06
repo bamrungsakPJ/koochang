@@ -1,3 +1,10 @@
+# Windows Android toolchain installation — 2026-10-06
+
+- Installed JDK 17.0.20.1+1 and Android command-line tools with verified SHA-256 downloads on D.
+- SDK 36 / Build Tools 36.0.0 / NDK 27.1.12297006 / CMake 3.30.5 / ADB installed on D and SDK licenses accepted during authorized installation.
+- Doctor checks pass. java/javac/adb/cmake/NDK clang executed successfully. User environment and Gradle cache point to D; old SDK on C retained.
+- No actual Gradle/APK build, EAS signing download or device installation in this setup task.
+
 # App version and About — 2026-10-06
 
 - Shared package compilation and mobile typecheck passed. Version/build displayed from Expo manifest in startup, welcome, sign-in and About; About routes return to welcome/account.

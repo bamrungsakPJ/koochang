@@ -1,6 +1,19 @@
 # Build Android APK locally on Windows
 
-## Readiness audit — 2026-10-06
+## Installed on D — 2026-10-06
+
+User requested installation on D. Installed and verified:
+
+- Temurin JDK 17.0.20.1+1: D:\Android\Java\jdk-17.0.20.1+1 (java and javac run successfully).
+- Android command-line tools: D:\Android\Sdk\cmdline-tools\latest (official Windows archive 15859902, SHA-256 verified).
+- Android SDK Platform 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.30.5 and Platform Tools (ADB 37.0.1): D:\Android\Sdk.
+- SDK licenses accepted during the authorized installation. JDK download SHA-256 verified using official Adoptium metadata.
+- User JAVA_HOME, ANDROID_HOME, ANDROID_SDK_ROOT, GRADLE_USER_HOME and PATH configured for D paths, preserving prior PATH. Open a new terminal/app to inherit them; for the existing Codex session dot-source the environment script below.
+- Gradle cache: D:\Android\gradle-cache. Installer temporary files were placed in D:\Android\temp. Downloads retained in D:\Android\downloads.
+- Doctor checks all pass; java/javac/adb/cmake/clang execute successfully. No emulator needed for producing APKs.
+- No original signing key downloaded yet, no native project generated, and no local APK built. The first build still downloads Gradle/Maven dependencies. Signing with the original EAS certificate is necessary for installation over existing APKs.
+
+## Original readiness audit — 2026-10-06
 
 Checked this Windows machine using scripts/android-build-doctor.ps1. Node 24.19.0, pnpm, Git, ADB and Android Build Tools 36.0.0 are available. Java/Javac are not available from PATH or JAVA_HOME; Android Studio folders exist, but its bundled java.exe was not found. SDK has Android 35, but the installed React Native 0.86.3 needs Android 36 and NDK 27.1.12297006. Command-line SDK Manager and NDK were absent. No SDK/JDK software installed in this audit.
 
@@ -20,7 +33,7 @@ Expo EAS `build --local` does not officially support Windows. Use Expo prebuild 
 Run from the workspace root after installing tools, replacing JDK_PATH with the actual installed path:
 
 ```powershell
-. ./scripts/android-build-env.ps1 -JavaPath 'JDK_PATH' -SdkPath 'D:\Android\Sdk'
+. ./scripts/android-build-env.ps1 -JavaPath 'D:\Android\Java\jdk-17.0.20.1+1' -SdkPath 'D:\Android\Sdk'
 ./scripts/android-build-doctor.ps1 -JavaPath $env:JAVA_HOME -SdkPath $env:ANDROID_HOME
 pnpm build:packages
 ```
