@@ -45,8 +45,12 @@ test('customer form saves first-place GPS atomically, records actor, and retries
     withTenant: (userId, organizationId, run) => asMember(userId, organizationId, () => run(db)),
   };
   const controller = new CustomersController(database);
-  const body = { request_key: randomUUID(), name: 'GPS-only place', location: { label: 'Home', coordinates: { latitude: 13.7563314, longitude: 100.5017624, accuracy_m: 12, method: 'current_location' } } };
+  const body = { request_key: randomUUID(), phone: '0812345679', location: { label: 'Home', coordinates: { latitude: 13.7563314, longitude: 100.5017624, accuracy_m: 12, method: 'current_location' } } };
   const created = await controller.create(session, tenant, randomUUID(), body);
+  assert.equal(created.name, null, 'customer name is optional');
+  for (const phone of [undefined, '', '   ']) {
+    await assert.rejects(controller.create(session, tenant, randomUUID(), { ...body, request_key: randomUUID(), name: 'Name cannot replace phone', phone }), error => error.getStatus() === 400);
+  }
   assert.equal(created.locations.length, 1);
   assert.equal(created.locations[0].address, null, 'coordinates can replace typing an address');
   assert.equal(created.locations[0].latitude, 13.756331);
@@ -80,7 +84,7 @@ test('customer form saves first-place GPS atomically, records actor, and retries
     if (sql.startsWith('INSERT INTO ops.audit_logs')) throw new Error('synthetic audit failure');
     return db.query(sql, params);
   } })) });
-  await assert.rejects(failing.create(session, tenant, randomUUID(), { ...body, request_key: rollbackKey }), /synthetic audit failure/);
+  await assert.rejects(failing.create(session, tenant, randomUUID(), { ...body, request_key: rollbackKey, phone: '0812345680' }), /synthetic audit failure/);
   assert.equal((await db.query('SELECT count(*)::int n FROM core.customers WHERE create_request_key=$1', [rollbackKey])).rows[0].n, 0, 'customer and coordinates roll back together');
 });
 

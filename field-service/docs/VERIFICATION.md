@@ -1,5 +1,7 @@
 # Customer creation required indicators and GPS — 2026-10-06
 
+- Follow-up requirement: phone is always required for new customers; name remains optional. Mobile and owner-web creation forms and API create validation now agree. Targeted customer suite remains **4 passed / 0 skipped / 0 failed**, including missing/blank/whitespace phone rejection even with a name, and phone-only creation. Mobile/web typechecks and API compilation passed after the correction.
+
 - Shared packages built; mobile/API typechecks and API production compilation passed.
 - Targeted PGlite customer suite: **4 passed / 0 skipped / 0 failed**. Exercises inline first-location coordinates, actor/time/accuracy metadata, request-key replay retaining original coordinates, zero coordinates, rejected invalid/null payloads, atomic rollback on audit failure, and existing tenant RLS cases.
 - GPS is foreground and tap-triggered; actual permission and GPS behavior on Android/iOS have not been device-tested. No deployment or APK build was performed in this change.

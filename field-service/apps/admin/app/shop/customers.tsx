@@ -16,6 +16,7 @@ function CustomerEditor({ org, customer, onDone, onCancel }: { org: string; cust
   const t = useText(), a = useAction(), key = useRef<string | null>(null);
   const [name, setName] = useState(customer?.name ?? ''), [phone, setPhone] = useState(customer?.phone_normalized ?? ''), [note, setNote] = useState(customer?.note ?? ''), [label, setLabel] = useState(''), [address, setAddress] = useState(''), [duplicate, setDuplicate] = useState<ApiFailure | null>(null);
   async function submit(confirm = false) {
+    if (!customer && !phone.trim()) return;
     await a.run(async () => {
       try {
         const saved = customer ? await api.updateCustomer(org, customer.id, { expected_version: customer.version, name: name.trim(), phone: phone.trim(), note: note.trim() })
@@ -24,10 +25,10 @@ function CustomerEditor({ org, customer, onDone, onCancel }: { org: string; cust
       } catch (e) { if (e instanceof ApiFailure && e.candidates.length) setDuplicate(e); throw e; }
     });
   }
-  return <Panel title={customer ? t('edit') : t('addCustomer')}><form onSubmit={e => { e.preventDefault(); void submit(); }}><div className="grid2"><Field label={t('ownerWeb.name_optional_with_phone')} value={name} maxLength={200} onChange={e => { setName(e.target.value); setDuplicate(null); }} /><Field label={t('phone')} type="tel" value={phone} onChange={e => { setPhone(e.target.value); setDuplicate(null); }} /></div><Note label={t('ownerWeb.notes')} value={note} maxLength={2000} onChange={e => setNote(e.target.value)} />
+  return <Panel title={customer ? t('edit') : t('addCustomer')}><form onSubmit={e => { e.preventDefault(); void submit(); }}><div className="grid2"><Field label={t('ownerWeb.name_optional_with_phone')} value={name} maxLength={200} onChange={e => { setName(e.target.value); setDuplicate(null); }} /><Field required={!customer} label={t('phone')} type="tel" value={phone} onChange={e => { setPhone(e.target.value); setDuplicate(null); }} /></div><Note label={t('ownerWeb.notes')} value={note} maxLength={2000} onChange={e => setNote(e.target.value)} />
     {!customer ? <div className="grid2"><Field label={t('ownerWeb.first_location_name_optional')} value={label} onChange={e => setLabel(e.target.value)} /><Field label={t('ownerWeb.address')} value={address} onChange={e => setAddress(e.target.value)} /></div> : null}<ActionState action={a} />
     {duplicate ? <Notice error>{t('ownerWeb.possible_duplicate_review_before_saving')}{duplicate.candidates.map(c => <span key={c.id}> · {c.name || c.phone_normalized}</span>)} <Button busy={a.busy} onClick={() => submit(true)}>{t('ownerWeb.create_a_separate_customer')}</Button></Notice> : null}
-    <div className="actions"><Button kind="primary" type="submit" busy={a.busy} disabled={!name.trim() && !phone.trim()}>{t('save')}</Button><Button onClick={onCancel}>{t('cancel')}</Button></div></form></Panel>;
+    <div className="actions"><Button kind="primary" type="submit" busy={a.busy} disabled={customer ? !name.trim() && !phone.trim() : !phone.trim()}>{t('save')}</Button><Button onClick={onCancel}>{t('cancel')}</Button></div></form></Panel>;
 }
 export function CustomerView({ org, id, go }: { org: string; id: string; go: Go }) {
   const t = useText(), a = useAction(), r = useResource(() => api.customer(org, id), [org, id]);

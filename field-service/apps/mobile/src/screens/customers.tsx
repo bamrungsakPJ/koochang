@@ -84,7 +84,7 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     if (busy || capture.state === 'reading') return;
     const next: Record<string, string> = {};
     if (phone.trim() && !normalizePhone(phone)) next.phone = t('field.phone');
-    if (!phone.trim() && !name.trim()) next.phone = t('field.required');
+    if (!phone.trim()) next.phone = t('field.required');
     if (!label.trim()) next.label = t('field.required');
     setErrors(next); setFailure(null);
     if (Object.keys(next).length) return;
@@ -120,8 +120,8 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     <Title>{t('addCustomer')}</Title>
     <Sub>{t('requiredFieldsHint')}</Sub>
     <Sub>{t('customerIdentityHint')}</Sub>
-    <Field required={!name.trim()} label={t('customerPhone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" placeholder="08x-xxx-xxxx" />
-    <Field required={!phone.trim()} label={t('customerName')} icon="person-outline" value={name} onChangeText={setName} hint={phone.trim() ? t('customerNameHint') : undefined} maxLength={120} />
+    <Field required label={t('customerPhone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" placeholder="08x-xxx-xxxx" />
+    <Field label={t('customerName')} icon="person-outline" value={name} onChangeText={setName} hint={t('customerNameHint')} maxLength={120} />
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: business }} onPress={() => setBusiness(!business)} style={styles.check}>
       <Icon name={business ? 'checkbox' : 'square-outline'} size={22} color={business ? colors.primary : colors.faint} />
       <Text style={styles.checkText}>{t('businessCustomer')}</Text>

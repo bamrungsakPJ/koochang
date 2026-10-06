@@ -44,7 +44,7 @@ export class CustomersController {
     const requestKey = this.requestKey(check, body.request_key);
     const name = check.text('name', body.name, { required: false, max: 120 });
     const phone = this.phone(check, body.phone);
-    if (!name && !phone) check.fail('phone', 'field.required');
+    if (!phone) check.fail('phone', 'field.required');
     const note = check.text('note', body.note, { required: false, max: 1000 });
     const type = customerTypes.includes(body.customer_type as string) ? body.customer_type as string : 'individual';
     const location = body.location && typeof body.location === 'object' ? this.location(check, body.location as LocationInput, 'location.') : null;
