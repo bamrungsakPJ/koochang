@@ -106,6 +106,15 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-06 — สาเหตุที่ OTP ไม่ขึ้นใน log staging + THSMS ส่งไม่ถึงมือถือ
+
+- **ปัญหา 1**: ช่วงที่ staging ยังเป็น `SMS_PROVIDER=development` ผู้ใช้กดขอ OTP แต่ไม่มีรหัสใน log; ตอนนั้นสรุปผิดว่า "คำขอไม่ถึงเซิร์ฟเวอร์"
+- **สาเหตุ**: ใน console ของ staging มีค่า SMS ที่บันทึกไว้ (DeeSMSx เปิดใช้งาน, sender "ddd" ค่าทดลอง) ซึ่งตามการออกแบบเดิม "ค่าใน console ชนะ env" คำขอจึงไปที่ DeeSMSx ด้วย key ทดลอง ล้มเหลวและตอบ 503 ไม่เคยใช้ development sender
+- **แก้อย่างไร**: นอก production ถ้า env ตั้ง `SMS_PROVIDER=development` (หรือ `thsms`) ให้ใช้ค่า env ก่อนค่าใน console; production ยังใช้ค่าใน console ตามเดิม เพิ่มทดสอบใน console-settings.test.mjs; ค่า DeeSMSx ใน console ไม่ได้ลบ (ผู้ใช้จะแก้/ปิดเองใน console)
+- **ปัญหา 2**: THSMS รับคำขอ (มีในประวัติการส่ง ข้อความถูกต้อง) แต่สถานะปลายทาง "ส่งไม่สำเร็จ" และคืนเครดิต ทั้งจากแอปและจากการส่งทดสอบในเว็บ THSMS ชื่อผู้ส่ง "Direct SMS" ไปเบอร์ 0927946969
+- **สาเหตุ (คาด)**: ชื่อผู้ส่งไม่ผ่านค่ายมือถือ หรือเบอร์บล็อก SMS โฆษณา (*137) ฝั่งโค้ดเรียก API ถูกต้องแล้ว
+- **สถานะ**: รอผู้ใช้ตรวจชื่อผู้ส่ง/ลองเบอร์อื่น/ถาม THSMS; ทดสอบแอปต่อได้โดยสลับ `SMS_PROVIDER=development` แล้ว restart (ตอนนี้ได้ผลจริงแล้ว)
+
 ### 2026-10-06 — ส่ง OTP ผ่าน THSMS ชั่วคราวระหว่างทดสอบ
 
 - **ทำอะไร**: ผู้ใช้ขอให้ใช้ THSMS (thsms.com API V2) ส่ง SMS ระหว่างทดสอบ จึงเพิ่ม `ThsmsSender` (POST https://thsms.com/api/send-sms, Bearer token, body { sender, msisdn: ['09xxxxxxxx'], message }, ถือว่าสำเร็จเมื่อได้ success: true) เลือกด้วย `SMS_PROVIDER=thsms` + `THSMS_TOKEN` + `THSMS_SENDER` (ชื่อผู้ส่งต้องตรงตัวพิมพ์กับที่ THSMS อนุมัติ) ค่านี้ใน env ชนะค่า SMS ที่ตั้งใน console เพื่อสลับกลับได้ง่าย; DeeSMSx ยังอยู่ครบ deploy โค้ด 10f606e ขึ้น staging แล้ว

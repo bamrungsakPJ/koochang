@@ -86,6 +86,13 @@ test('runtime DeeSMSx uses saved credentials immediately and disabled services o
    let request;t.mock.method(globalThis,'fetch',async(_url,options)=>{request=JSON.parse(options.body);return new Response('{}',{status:200});});
    await (await runtime.sms()).send('+66912345678','OTP 123456');assert.equal(request.apiKey,'synthetic-dee-api');assert.equal(request.sender,'ChangedTest');
    await save('sms',{enabled:false,sender:'ChangedTest'});assert.equal(await runtime.sms(),null);
+   // Testing switches in the env win over the saved row (development only outside production).
+   const oldProvider=process.env.SMS_PROVIDER,oldNode=process.env.NODE_ENV;
+   try{
+     process.env.NODE_ENV='development';process.env.SMS_PROVIDER='development';assert.equal((await runtime.sms()).delivery,'development');
+     process.env.NODE_ENV='production';assert.equal(await runtime.sms(),null);
+     process.env.SMS_PROVIDER='thsms';process.env.THSMS_TOKEN='synthetic-thsms';process.env.THSMS_SENDER='SMS';assert.equal((await runtime.sms()).delivery,'sms');
+   }finally{oldProvider===undefined?delete process.env.SMS_PROVIDER:process.env.SMS_PROVIDER=oldProvider;oldNode===undefined?delete process.env.NODE_ENV:process.env.NODE_ENV=oldNode;delete process.env.THSMS_TOKEN;delete process.env.THSMS_SENDER;}
    await save('easyslip',{enabled:true,api_key:'synthetic-console-slip'});assert.equal(await runtime.slipKey(),'synthetic-console-slip');
    await save('easyslip',{enabled:false});assert.equal(await runtime.slipKey(),undefined);
  }finally{for(const [name,value] of Object.entries({DEESMSX_API_KEY:old.api,DEESMSX_SECRET_KEY:old.secret,DEESMSX_SENDER:old.sender,EASYSLIP_API_KEY:old.slip}))value===undefined?delete process.env[name]:process.env[name]=value;}

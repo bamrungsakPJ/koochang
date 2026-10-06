@@ -25,8 +25,9 @@ export class RuntimeSettingsService {
  }
  open(value:string|undefined){return value&&this.settings.secretKey?decrypt(this.settings.secretKey,value):undefined;}
  async sms():Promise<SmsSender|null>{
-   // SMS_PROVIDER=thsms in the env is a temporary testing switch and wins over the console row.
-   if(process.env.SMS_PROVIDER==='thsms')return createSmsSender();
+   // Testing switches in the env win over the console row: SMS_PROVIDER=thsms, and outside
+   // production SMS_PROVIDER=development (codes in the API log). Production keeps the console row.
+   if(process.env.SMS_PROVIDER==='thsms'||(process.env.SMS_PROVIDER==='development'&&process.env.NODE_ENV!=='production'))return createSmsSender();
    const row=await this.read();
    if(!row?.sms)return createSmsSender();
    if(!row.sms.enabled)return null;
