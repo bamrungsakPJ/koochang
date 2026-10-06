@@ -108,6 +108,16 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-06 — อัปเดต staging และเตรียม APK 0.2.2 (ยังไม่เริ่ม EAS build)
+
+- ผู้ใช้สั่งอัปเดตแอปและ build; เตรียม version 0.2.2 / Android versionCode 4 และข้อความสิทธิ์ตำแหน่งให้ตรงกับปุ่มใช้ตำแหน่งปัจจุบัน (commit 1e240fcf)
+- Staging uht-dev: ตรวจ working tree สะอาด, ส่ง incremental bundle จาก fa3b5828, fast-forward เป็น 1e240fcf, build shared/API/เว็บผ่าน และ restart เฉพาะ fs-staging-api/fs-staging-web ไม่มี migration ใหม่และไม่แตะ production
+- ตรวจหลังอัปเดต: localhost readiness และ HTTPS https://api-staging.koochang.com/v1/ready ได้ ready; https://app-staging.koochang.com/shop HTTP 200
+- APK: รุ่นก่อน 0.2.1 (versionCode 3) build 6c4f6fb4-d731-453b-b675-bcc7d1bec69d สำเร็จแล้ว; 0.2.2 ยังไม่มี build id หรือไฟล์ APK
+- ปัญหา: automatic approval review ปฏิเสธคำสั่งเริ่ม EAS build เนื่องจากอัปโหลดซอร์สไปปลายทางภายนอกและต้องการ authorization Expo/EAS โดยตรง จึงถามผู้ใช้แล้ว รอคำตอบ ไม่ใช้คำสั่งอื่นเลี่ยงการปฏิเสธ
+- ทำต่อ: เมื่อผู้ใช้อนุญาต Expo/EAS ให้รัน profile staging-apk Android 0.2.2 signing เดิม แล้วติดตามจนสำเร็จและส่ง URL APK
+
+
 ### 2026-10-06 — แก้กฎเพิ่มลูกค้า: เบอร์โทรบังคับ ชื่อไม่บังคับ
 
 - ผู้ใช้ยืนยัน: ต้องกรอกเบอร์โทรเสมอ ชื่อลูกค้าเว้นว่างได้
