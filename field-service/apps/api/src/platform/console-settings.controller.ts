@@ -16,7 +16,7 @@ export class ConsoleSettingsController {
    return {...value,bank:value.bank??(this.settings.payment?{...this.settings.payment,enabled:true}:null),
      sms:value.sms??{enabled:process.env.SMS_PROVIDER==='deesmsx',sender:process.env.DEESMSX_SENDER??'',key_configured:Boolean(process.env.DEESMSX_API_KEY&&process.env.DEESMSX_SECRET_KEY)},
      easyslip:value.easyslip??{enabled:Boolean(process.env.EASYSLIP_API_KEY),key_configured:Boolean(process.env.EASYSLIP_API_KEY)},
-     ocr:value.ocr??{enabled:process.env.OCR_PROVIDER==='claude'&&Boolean(process.env.ANTHROPIC_API_KEY),model:process.env.OCR_CLAUDE_MODEL||'claude-opus-5',key_configured:Boolean(process.env.ANTHROPIC_API_KEY)},
+     ocr:value.ocr??{enabled:process.env.OCR_PROVIDER==='claude'&&Boolean(process.env.ANTHROPIC_API_KEY),model:process.env.OCR_CLAUDE_MODEL||'claude-haiku-4-5-20251001',key_configured:Boolean(process.env.ANTHROPIC_API_KEY)},
      ocr_worker_ready:Boolean(process.env.WORKER_DATABASE_URL&&this.settings.secretKey),
      server_ready:Boolean(this.settings.secretKey),slip_worker_ready:Boolean(process.env.SLIP_DATABASE_URL)};
  }

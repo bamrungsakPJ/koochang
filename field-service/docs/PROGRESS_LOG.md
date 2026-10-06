@@ -116,6 +116,13 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-06 — ลดต้นทุนอ่านป้ายเป็น Haiku 4.5
+- ตามคำสั่งผู้ใช้ ลดค่าเริ่มต้น OCR เป็น claude-haiku-4-5-20251001 ทั้ง API และ console
+- จำกัด max_tokens 512 จาก 4000; ส่งกลับยี่ห้อ รุ่น ซีเรียล และ confidence ไม่ถอด raw_text ทั้งป้าย; ปิด thinking สำหรับ Haiku ไม่ส่ง effort ที่ Haiku ไม่รองรับ และลบ automatic fallback ไปโมเดลอื่น
+- API build และ mocked Claude tests 4 ข้อผ่าน ยืนยัน model/token cap/no effort/no fallback/no raw_text; ยังไม่ได้ทดสอบ AI จริง
+- กำลัง deploy staging และเปลี่ยน model ที่บันทึกโดยคง key/enabled เดิม; ไม่ต้อง rebuild APK เนื่องจากเป็นฝั่งเซิร์ฟเวอร์
+
+
 ### 2026-10-06 — แก้การส่งรูป/session และเพิ่ม AI settings
 - ตรวจ staging พบรูป 5 รายการค้าง pending_upload และไม่มี OCR request: ยังไม่ถึงขั้นอ่านรูป; เปลี่ยนมือถืออ่านไฟล์ native เป็น ArrayBuffer ส่ง bytes ตรง แสดงรูปทันที/สถานะ upload/ข้อความเฉพาะสาเหตุ และ retry รูปเดิมด้วย request key เดิม; แยกข้อความเมื่อกุญแจหรือโมเดล AI มีปัญหาและลบข้อความล้มเหลวซ้ำ
 - พบ staging OCR_PROVIDER=development และไม่มี Anthropic key: ยังไม่ได้อ่านด้วย AI จริง ผู้ใช้มีบัญชีแล้วและขอเพิ่มหน้าตั้งค่าเพื่อใส่เอง

@@ -35,10 +35,9 @@ const NAMEPLATE_SCHEMA = {
     brand: { type: 'string', description: 'Manufacturer or brand as printed, empty if not visible' },
     model: { type: 'string', description: 'Model number exactly as printed, empty if not visible' },
     serial_number: { type: 'string', description: 'Serial number exactly as printed, empty if not visible' },
-    raw_text: { type: 'string', description: 'All legible text on the plate, one line per printed line' },
     confidence: { type: 'number', description: '0 to 1: how sure the three fields are correct' },
   },
-  required: ['brand', 'model', 'serial_number', 'raw_text', 'confidence'],
+  required: ['brand', 'model', 'serial_number', 'confidence'],
   additionalProperties: false,
 } as const;
 
@@ -66,12 +65,10 @@ export class ClaudeOcrProvider extends OcrProvider {
     try {
       response = await this.client.beta.messages.create({
         model: this.model,
-        max_tokens: 4000,
-        // Extraction is a simple task; low effort keeps cost and latency down.
-        output_config: { effort: 'low', format: { type: 'json_schema', schema: NAMEPLATE_SCHEMA } },
-        // A policy decline is re-run on Anthropic's recommended fallback model inside the same call.
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
+        max_tokens: 512,
+        // Haiku does not support effort. No thinking or automatic model escalation for simple extraction.
+        ...(this.model.startsWith('claude-haiku-') ? { thinking: { type: 'disabled' as const } } : {}),
+        output_config: { format: { type: 'json_schema', schema: NAMEPLATE_SCHEMA } },
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: mediaType(image), data: image.toString('base64') } },
           { type: 'text', text: NAMEPLATE_PROMPT },
@@ -92,7 +89,7 @@ export class ClaudeOcrProvider extends OcrProvider {
     const fields: OcrResult['fields'] = {};
     for (const key of ['brand', 'model', 'serial_number'] as const) { const v = clean(data[key], 100); if (v) fields[key] = v; }
     const confidence = typeof data.confidence === 'number' && Number.isFinite(data.confidence) ? Math.min(1, Math.max(0, data.confidence)) : 0;
-    return { fields, raw_text: clean(data.raw_text, 2000), confidence };
+    return { fields, confidence };
   }
 }
 
@@ -102,7 +99,7 @@ export function createOcrProvider(env: NodeJS.ProcessEnv = process.env): OcrProv
   if (provider === 'claude') {
     // Fail closed: without a server-side key the OCR endpoints answer 503 and manual entry continues.
     if (!env.ANTHROPIC_API_KEY) return null;
-    return new ClaudeOcrProvider(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 2 }), env.OCR_CLAUDE_MODEL || 'claude-opus-5');
+    return new ClaudeOcrProvider(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 2 }), env.OCR_CLAUDE_MODEL || 'claude-haiku-4-5-20251001');
   }
   return provider === 'development' && !production ? new DevelopmentOcrProvider(production) : null;
 }
