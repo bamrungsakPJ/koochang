@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { openTestDatabase } from './support/database.mjs';
 import { actors } from './support/actors.mjs';
+import { CustomersController } from '../apps/api/dist/customers/customers.controller.js';
 
 let db, a;
 before(async () => { db = await openTestDatabase('customers'); a = actors(db); });
@@ -34,6 +35,54 @@ async function setup() {
 const insertCustomer = (organizationId, createdBy, name) => db.query(
   "INSERT INTO core.customers(organization_id, name, phone_normalized, created_by_member_id) VALUES ($1,$2,'+66812345678',$3) RETURNING id",
   [organizationId, name, createdBy]);
+
+test('customer form saves first-place GPS atomically, records actor, and retries without duplicating coordinates', async () => {
+  const shop = await a.createShop('Customer form GPS');
+  const tenant = { organizationId: shop.organizationId, memberId: await memberId(shop.organizationId, shop.owner.userId), role: 'owner' };
+  const session = { userId: shop.owner.userId, sessionId: randomUUID() };
+  const database = {
+    identity: run => asMember(session.userId, tenant.organizationId, () => run(db)),
+    withTenant: (userId, organizationId, run) => asMember(userId, organizationId, () => run(db)),
+  };
+  const controller = new CustomersController(database);
+  const body = { request_key: randomUUID(), name: 'GPS-only place', location: { label: 'Home', coordinates: { latitude: 13.7563314, longitude: 100.5017624, accuracy_m: 12, method: 'current_location' } } };
+  const created = await controller.create(session, tenant, randomUUID(), body);
+  assert.equal(created.locations.length, 1);
+  assert.equal(created.locations[0].address, null, 'coordinates can replace typing an address');
+  assert.equal(created.locations[0].latitude, 13.756331);
+  assert.equal(created.locations[0].longitude, 100.501762);
+  assert.equal(created.locations[0].capture_method, 'current_location');
+  const stored = (await db.query('SELECT location_captured_by, location_captured_at, accuracy_meters FROM core.customer_locations WHERE id=$1', [created.locations[0].id])).rows[0];
+  assert.equal(stored.location_captured_by, session.userId);
+  assert.ok(stored.location_captured_at);
+  assert.equal(Number(stored.accuracy_meters), 12);
+  const retry = await controller.create(session, tenant, randomUUID(), { ...body, location: { ...body.location, coordinates: { ...body.location.coordinates, latitude: 14 } } });
+  assert.equal(retry.id, created.id);
+  assert.equal(retry.locations[0].latitude, created.locations[0].latitude, 'retry cannot move an already created place');
+  assert.equal((await db.query("SELECT count(*)::int n FROM ops.audit_logs WHERE entity_id=$1 AND action='location.coordinates_saved'", [created.locations[0].id])).rows[0].n, 1);
+
+  const addBody = { request_key: randomUUID(), label: 'Second place', coordinates: { latitude: 0, longitude: 0, accuracy_m: null, method: 'current_location' } };
+  const added = await controller.addLocation(session, tenant, randomUUID(), created.id, addBody);
+  const second = added.locations.find(place => place.label === 'Second place');
+  assert.equal(second.latitude, 0, 'zero is a valid latitude, not a missing coordinate');
+  assert.equal(second.longitude, 0);
+  const addRetry = await controller.addLocation(session, tenant, randomUUID(), created.id, addBody);
+  assert.equal(addRetry.locations.length, 2);
+
+  for (const coordinates of [null, {}, { ...body.location.coordinates, latitude: 91 }, { ...body.location.coordinates, longitude: null }, { ...body.location.coordinates, accuracy_m: -1 }, { ...body.location.coordinates, method: 'background' }]) {
+    const request_key = randomUUID();
+    await assert.rejects(controller.create(session, tenant, randomUUID(), { ...body, request_key, location: { ...body.location, coordinates } }), error => error.getStatus() === 400);
+    assert.equal((await db.query('SELECT count(*)::int n FROM core.customers WHERE create_request_key=$1', [request_key])).rows[0].n, 0);
+  }
+
+  const rollbackKey = randomUUID();
+  const failing = new CustomersController({ ...database, withTenant: (userId, organizationId, run) => asMember(userId, organizationId, () => run({ query: (sql, params) => {
+    if (sql.startsWith('INSERT INTO ops.audit_logs')) throw new Error('synthetic audit failure');
+    return db.query(sql, params);
+  } })) });
+  await assert.rejects(failing.create(session, tenant, randomUUID(), { ...body, request_key: rollbackKey }), /synthetic audit failure/);
+  assert.equal((await db.query('SELECT count(*)::int n FROM core.customers WHERE create_request_key=$1', [rollbackKey])).rows[0].n, 0, 'customer and coordinates roll back together');
+});
 
 test('owners see every customer; technicians only the ones they created', async () => {
   const { shop, techs } = await setup();

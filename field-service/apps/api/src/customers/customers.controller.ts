@@ -7,7 +7,9 @@ import { DatabaseService } from '../database/database.service.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { pagination, pageRows } from '../shared/pagination.js';
 
-interface LocationInput { label?: string; address?: string | null; travel_note?: string | null }
+interface LocationInput { label?: string; address?: string | null; travel_note?: string | null; coordinates?: unknown }
+interface LocationCoordinates { latitude: number; longitude: number; accuracy_m: number | null; method: 'current_location' | 'manual_pin' }
+interface ParsedLocation { label: string; address: string | null; travel_note: string | null; coordinates: LocationCoordinates | null }
 const customerTypes = ['individual', 'business'];
 
 /** Customers and their service locations. Visibility is enforced by RLS: owners see the whole
@@ -61,7 +63,10 @@ export class CustomersController {
         `INSERT INTO core.customers(organization_id, name, phone, phone_normalized, customer_type, note, created_by_member_id, create_request_key)
          VALUES ($1,$2,$3,$3,$4,$5,$6,$7) RETURNING id`,
         [tenant.organizationId, name ?? null, phone, type, note ?? null, tenant.memberId, requestKey])).rows[0];
-      if (location) await this.insertLocation(client, tenant, customer.id, location, null);
+      if (location) {
+        const locationId = await this.insertLocation(client, tenant, session.userId, customer.id, location, null);
+        if (location.coordinates) await this.audit(client, session, tenant, requestId, 'location.coordinates_saved', 'customer_location', locationId, { method: location.coordinates.method });
+      }
       await this.audit(client, session, tenant, requestId, 'customer.created', 'customer', customer.id);
       return this.detail(client, tenant, customer.id);
     });
@@ -125,8 +130,9 @@ export class CustomersController {
       if (!customer) throw apiError(404, 'RESOURCE_NOT_FOUND');
       const existing = (await client.query('SELECT id FROM core.customer_locations WHERE organization_id = $1 AND create_request_key = $2', [tenant.organizationId, requestKey])).rows[0];
       if (!existing) {
-        const id = await this.insertLocation(client, tenant, customerId, location, requestKey);
+        const id = await this.insertLocation(client, tenant, session.userId, customerId, location, requestKey);
         await this.audit(client, session, tenant, requestId, 'location.created', 'customer_location', id);
+        if (location.coordinates) await this.audit(client, session, tenant, requestId, 'location.coordinates_saved', 'customer_location', id, { method: location.coordinates.method });
       }
       return this.detail(client, tenant, customerId);
     });
@@ -203,18 +209,34 @@ export class CustomersController {
     return { ...customer, locations };
   }
 
-  private async insertLocation(client: PoolClient, tenant: TenantContext, customerId: string, location: Required<LocationInput>, requestKey: string | null) {
+  private async insertLocation(client: PoolClient, tenant: TenantContext, userId: string, customerId: string, location: ParsedLocation, requestKey: string | null) {
+    const coords = location.coordinates;
     return (await client.query(
-      `INSERT INTO core.customer_locations(organization_id, customer_id, name, address, travel_note, created_by_member_id, create_request_key)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [tenant.organizationId, customerId, location.label, location.address, location.travel_note, tenant.memberId, requestKey])).rows[0].id as string;
+      `INSERT INTO core.customer_locations(organization_id, customer_id, name, address, travel_note, created_by_member_id, create_request_key,
+         latitude, longitude, accuracy_meters, capture_method, location_captured_at, location_captured_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,round($8::numeric,6),round($9::numeric,6),$10,$11,CASE WHEN $11::text IS NULL THEN NULL ELSE now() END,$12) RETURNING id`,
+      [tenant.organizationId, customerId, location.label, location.address, location.travel_note, tenant.memberId, requestKey,
+        coords?.latitude ?? null, coords?.longitude ?? null, coords?.accuracy_m ?? null, coords?.method ?? null, coords ? userId : null])).rows[0].id as string;
   }
 
-  private location(check: Validation, input: LocationInput, prefix: string): Required<LocationInput> {
+  private location(check: Validation, input: LocationInput, prefix: string): ParsedLocation {
+    let coordinates: LocationCoordinates | null = null;
+    if (input.coordinates !== undefined) {
+      if (!input.coordinates || typeof input.coordinates !== 'object' || Array.isArray(input.coordinates)) check.fail(`${prefix}coordinates`, 'field.required');
+      else {
+        const c = input.coordinates as Record<string, unknown>;
+        if (typeof c.latitude !== 'number' || !Number.isFinite(c.latitude) || c.latitude < -90 || c.latitude > 90) check.fail(`${prefix}coordinates.latitude`, 'field.required');
+        if (typeof c.longitude !== 'number' || !Number.isFinite(c.longitude) || c.longitude < -180 || c.longitude > 180) check.fail(`${prefix}coordinates.longitude`, 'field.required');
+        if (c.accuracy_m !== undefined && c.accuracy_m !== null && (typeof c.accuracy_m !== 'number' || !Number.isFinite(c.accuracy_m) || c.accuracy_m < 0 || c.accuracy_m > 100000)) check.fail(`${prefix}coordinates.accuracy_m`, 'field.required');
+        if (c.method !== 'current_location' && c.method !== 'manual_pin') check.fail(`${prefix}coordinates.method`, 'field.required');
+        coordinates = { latitude: c.latitude as number, longitude: c.longitude as number, accuracy_m: c.accuracy_m as number | null ?? null, method: c.method as LocationCoordinates['method'] };
+      }
+    }
     return {
       label: check.text(`${prefix}label`, input.label, { max: 80 }) ?? '',
       address: check.text(`${prefix}address`, input.address, { required: false, max: 500 }) ?? null,
       travel_note: check.text(`${prefix}travel_note`, input.travel_note, { required: false, max: 500 }) ?? null,
+      coordinates,
     };
   }
 

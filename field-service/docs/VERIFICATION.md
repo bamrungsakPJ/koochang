@@ -1,3 +1,9 @@
+# Customer creation required indicators and GPS — 2026-10-06
+
+- Shared packages built; mobile/API typechecks and API production compilation passed.
+- Targeted PGlite customer suite: **4 passed / 0 skipped / 0 failed**. Exercises inline first-location coordinates, actor/time/accuracy metadata, request-key replay retaining original coordinates, zero coordinates, rejected invalid/null payloads, atomic rollback on audit failure, and existing tenant RLS cases.
+- GPS is foreground and tap-triggered; actual permission and GPS behavior on Android/iOS have not been device-tested. No deployment or APK build was performed in this change.
+
 # Paid shop count (migration 022) — 2026-10-05
 
 - New case in tests/console-completion.test.mjs compares `billing.paid_shop_count(at)` with the per-shop `billing.entitlement()` count at now, +20, +33, +40, +45 and +400 days, including a shop cancelled at period end.

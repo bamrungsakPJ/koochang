@@ -158,7 +158,7 @@ export class Api {
   customers(organizationId: string, q: string) { return this.call<{ items: CustomerSummary[] }>('GET', `/organizations/${organizationId}/customers?q=${encodeURIComponent(q)}`); }
   customer(organizationId: string, id: string) { return this.call<Customer>('GET', `/organizations/${organizationId}/customers/${id}`); }
   createCustomer(organizationId: string, body: { request_key: string; name?: string; phone?: string; note?: string; customer_type?: string; confirm_duplicate?: boolean;
-    location?: { label: string; address?: string; travel_note?: string } }) { return this.call<Customer>('POST', `/organizations/${organizationId}/customers`, body); }
+    location?: { label: string; address?: string; travel_note?: string; coordinates?: { latitude: number; longitude: number; accuracy_m: number | null; method: 'current_location' } } }) { return this.call<Customer>('POST', `/organizations/${organizationId}/customers`, body); }
   updateCustomer(organizationId: string, id: string, body: { expected_version: number; name?: string; phone?: string; note?: string }) {
     return this.call<Customer>('PATCH', `/organizations/${organizationId}/customers/${id}`, body);
   }

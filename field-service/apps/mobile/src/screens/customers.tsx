@@ -77,8 +77,11 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
   const [failure, setFailure] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<ApiFailure['candidates']>([]);
   const [busy, setBusy] = useState(false);
+  const [capture, setCapture] = useState<Capture>({ state: 'idle' });
+  const captureReading = useRef(false);
 
   async function save(confirmDuplicate = false) {
+    if (busy || capture.state === 'reading') return;
     const next: Record<string, string> = {};
     if (phone.trim() && !normalizePhone(phone)) next.phone = t('field.phone');
     if (!phone.trim() && !name.trim()) next.phone = t('field.required');
@@ -89,7 +92,8 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     try {
       const saved = await api.createCustomer(membership.organization_id, {
         request_key: key, name: name.trim() || undefined, phone: phone.trim() || undefined, customer_type: business ? 'business' : 'individual',
-        confirm_duplicate: confirmDuplicate || undefined, location: { label: label.trim(), address: address.trim() || undefined, travel_note: travel.trim() || undefined },
+        confirm_duplicate: confirmDuplicate || undefined, location: { label: label.trim(), address: address.trim() || undefined, travel_note: travel.trim() || undefined,
+          coordinates: capture.state === 'preview' ? { latitude: capture.latitude, longitude: capture.longitude, accuracy_m: capture.accuracy === null ? null : Math.round(capture.accuracy), method: 'current_location' } : undefined },
       });
       onSaved(saved);
     } catch (e) {
@@ -99,17 +103,41 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     } finally { setBusy(false); }
   }
 
-  return <Screen onBack={onBack} footer={<Button title={t('saveCustomer')} icon="checkmark" busy={busy} onPress={() => save()} />}>
+  async function readLocation() {
+    if (captureReading.current || busy) return;
+    captureReading.current = true;
+    setCapture({ state: 'reading' });
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') { setCapture({ state: 'error', message: t('locationDenied') }); return; }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCapture({ state: 'preview', latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy ?? null });
+    } catch { setCapture({ state: 'error', message: t('locationUnavailable') }); }
+    finally { captureReading.current = false; }
+  }
+
+  return <Screen onBack={onBack} footer={<Button title={t('saveCustomer')} icon="checkmark" busy={busy} disabled={capture.state === 'reading'} onPress={() => save()} />}>
     <Title>{t('addCustomer')}</Title>
-    <Field label={t('customerPhone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" placeholder="08x-xxx-xxxx" />
-    <Field label={t('customerName')} icon="person-outline" value={name} onChangeText={setName} hint={t('customerNameHint')} maxLength={120} />
+    <Sub>{t('requiredFieldsHint')}</Sub>
+    <Sub>{t('customerIdentityHint')}</Sub>
+    <Field required={!name.trim()} label={t('customerPhone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" placeholder="08x-xxx-xxxx" />
+    <Field required={!phone.trim()} label={t('customerName')} icon="person-outline" value={name} onChangeText={setName} hint={phone.trim() ? t('customerNameHint') : undefined} maxLength={120} />
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: business }} onPress={() => setBusiness(!business)} style={styles.check}>
       <Icon name={business ? 'checkbox' : 'square-outline'} size={22} color={business ? colors.primary : colors.faint} />
       <Text style={styles.checkText}>{t('businessCustomer')}</Text>
     </Pressable>
     <Section>{t('firstLocation')}</Section>
-    <Field label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={errors.label} hint={t('locationLabelHint')} maxLength={80} />
+    <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={errors.label} hint={t('locationLabelHint')} maxLength={80} />
     <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
+    <Button kind="secondary" icon="locate" title={t('useCurrentLocation')} busy={capture.state === 'reading'} disabled={busy} onPress={readLocation} />
+    <Sub>{t('captureHint')}</Sub>
+    {capture.state === 'preview' ? <View style={styles.preview}>
+      <Text style={styles.coords}>{capture.latitude.toFixed(6)}, {capture.longitude.toFixed(6)}</Text>
+      <Sub>{t('capturedPreview', { meters: capture.accuracy === null ? '?' : Math.round(capture.accuracy) })}</Sub>
+      {capture.accuracy !== null && capture.accuracy > 50 ? <Banner tone="info" text={t('lowAccuracy')} /> : null}
+      <Button small kind="ghost" title={t('removeCapturedLocation')} disabled={busy} onPress={() => setCapture({ state: 'idle' })} />
+    </View> : null}
+    {capture.state === 'error' ? <Banner tone="info" text={capture.message} /> : null}
     <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
     <Banner text={failure} />
     {duplicates.length ? <Card>
@@ -144,7 +172,7 @@ export function LocationForm({ membership, customerId, location, onBack, onSaved
   }
   return <Screen onBack={onBack} footer={<Button title={t('saveLocation')} icon="checkmark" busy={busy} onPress={save} />}>
     <Title>{location ? t('edit') : t('addLocation')}</Title>
-    <Field label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={error} hint={t('locationLabelHint')} maxLength={80} />
+    <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={error} hint={t('locationLabelHint')} maxLength={80} />
     <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
     <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
     <Banner text={failure} />

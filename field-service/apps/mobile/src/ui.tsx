@@ -79,12 +79,13 @@ export function Steps({ step, total }: { step: number; total: number }) {
   </View>;
 }
 
-export function Field({ label, error, hint, icon, big, ...input }: TextInputProps & { label: string; error?: string; hint?: string; icon?: IconName; big?: boolean }) {
+export function Field({ label, error, hint, icon, big, required, ...input }: TextInputProps & { label: string; error?: string; hint?: string; icon?: IconName; big?: boolean; required?: boolean }) {
+  const t = useT();
   return <View style={styles.field}>
-    <Text style={styles.label}>{label}</Text>
+    <Text style={styles.label}>{label}{required ? <Text style={{ color: colors.danger }}> *</Text> : null}</Text>
     <View style={[styles.inputBox, error ? styles.inputBoxError : null]}>
       {icon ? <Icon name={icon} size={20} color={colors.faint} /> : null}
-      <TextInput placeholderTextColor={colors.faint} {...input} accessibilityLabel={label} style={[styles.input, big && styles.inputBig]} />
+      <TextInput placeholderTextColor={colors.faint} {...input} accessibilityLabel={required ? `${label}, ${t('requiredField')}` : label} style={[styles.input, big && styles.inputBig]} />
     </View>
     {error ? <Text style={styles.fieldError} accessibilityLiveRegion="polite">{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
   </View>;
