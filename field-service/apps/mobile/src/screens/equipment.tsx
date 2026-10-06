@@ -21,10 +21,10 @@ export function useEquipmentTitle() {
 }
 
 type PhotoState = { state: 'empty' } | { state: 'uploading' } | { state: 'ready'; media: Media } | { state: 'error'; message: string };
-type Ocr = { state: 'none' } | { state: 'reading'; id: string } | { state: 'done'; id: string; fields: Record<string, string> } | { state: 'empty'; id: string } | { state: 'failed'; id?: string };
+type Ocr = { state: 'submitting' } | { state: 'none' } | { state: 'reading'; id: string } | { state: 'done'; id: string; fields: Record<string, string> } | { state: 'empty'; id: string } | { state: 'failed'; id?: string; message: string; terminal?: boolean } | { state: 'waiting'; id: string };
 
 /** Choose camera / library / skip for one photo slot. */
-function PhotoSlot({ title, hint, photo, onPick, onRetry }: { title: string; hint?: string; photo: PhotoState; onPick: (source: 'camera' | 'library') => void; onRetry?: () => void }) {
+function PhotoSlot({ title, hint, photo, onPick, onRetry, children }: { children?: React.ReactNode; title: string; hint?: string; photo: PhotoState; onPick: (source: 'camera' | 'library') => void; onRetry?: () => void }) {
   const t = useT();
   return <Card>
     <View style={styles.slotHead}>
@@ -32,6 +32,7 @@ function PhotoSlot({ title, hint, photo, onPick, onRetry }: { title: string; hin
         : <IconTile icon="camera" tone="sky" size={56} />}
       <View style={{ flex: 1 }}><Strong>{title}</Strong>{hint ? <Sub>{hint}</Sub> : null}</View>
     </View>
+    {children}
     {photo.state === 'uploading' ? <Sub>{t('uploading')}</Sub> : null}
     {photo.state === 'error' ? <Banner tone="info" text={photo.message} /> : null}
     {photo.state !== 'uploading' ? <View style={styles.row}>
@@ -61,41 +62,69 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
   const [duplicates, setDuplicates] = useState<ApiFailure['candidates']>([]);
   const [saved, setSaved] = useState<Equipment | null>(null);
   const [busy, setBusy] = useState(false);
-  const lastPick = useRef<{ slot: 'nameplate' | 'equipment'; source: 'camera' | 'library' } | null>(null);
+
+  const generation = useRef(0);
+  const ocrKey = useRef({ mediaId: '', key: '' });
+  useEffect(() => () => { generation.current++; }, []);
 
   useEffect(() => {
     if (ocr.state !== 'reading') return;
-    let tries = 0;
-    const timer = setInterval(async () => {
-      tries++;
+    const id = ocr.id;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const started = Date.now();
+    async function poll() {
       try {
-        const r = await api.ocr(org, ocr.id);
+        const r = await api.ocr(org, id);
+        if (cancelled) return;
         if (r.status === 'succeeded') {
-          const fields = Object.fromEntries(Object.entries(r.suggestions?.fields ?? {}).filter(([, v]) => typeof v === 'string' && v.trim())) as Record<string, string>;
-          setOcr(Object.keys(fields).length ? { state: 'done', id: ocr.id, fields } : { state: 'empty', id: ocr.id });
-        } else if (r.status === 'failed' || r.status === 'cancelled') setOcr({ state: 'failed', id: ocr.id });
-      } catch { /* keep polling a little longer */ }
-      if (tries >= 20) setOcr(current => current.state === 'reading' ? { state: 'failed', id: current.id } : current);
-    }, 1500);
-    return () => clearInterval(timer);
-  }, [ocr.state === 'reading' ? ocr.id : null]);
+          const fields = Object.fromEntries(Object.entries(r.suggestions?.fields ?? {}).filter(([k, v]) => ['brand', 'model', 'serial_number'].includes(k) && typeof v === 'string' && v.trim())) as Record<string, string>;
+          setOcr(Object.keys(fields).length ? { state: 'done', id, fields } : { state: 'empty', id });
+          return;
+        }
+        if (r.status === 'failed' || r.status === 'cancelled') {
+          setOcr({ state: 'failed', id, message: t('ocrFailed'), terminal: true });
+          return;
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setOcr({ state: 'failed', id, message: errorText(e) });
+        return;
+      }
+      if (Date.now() - started >= 180_000) { setOcr({ state: 'waiting', id }); return; }
+      timer = setTimeout(poll, 2000);
+    }
+    void poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [ocr.state === 'reading' ? ocr.id : null, org]);
+
+  async function startReading(media: Media, fresh = false) {
+    const token = generation.current;
+    if (fresh || ocrKey.current.mediaId !== media.id) ocrKey.current = { mediaId: media.id, key: uuid() };
+    setOcr({ state: 'submitting' });
+    try {
+      const request = await api.requestOcr(org, media.id, ocrKey.current.key);
+      if (token === generation.current) setOcr({ state: 'reading', id: request.id });
+    } catch (e) {
+      if (token === generation.current) setOcr({ state: 'failed', message: e instanceof ApiFailure && e.status === 503 ? t('ocrUnavailable') : errorText(e) });
+    }
+  }
 
   async function pick(slot: 'nameplate' | 'equipment', source: 'camera' | 'library') {
-    lastPick.current = { slot, source };
     const set = slot === 'nameplate' ? setNameplate : setUnitPhoto;
     let picked;
     try { picked = await pickPhoto(source); }
     catch (e) { set({ state: 'error', message: e instanceof CameraDeniedError ? t('cameraDenied') : t('uploadFailed') }); return; }
     if (!picked) return;
+    const token = slot === 'nameplate' ? ++generation.current : generation.current;
+    if (slot === 'nameplate') setOcr({ state: 'none' });
     set({ state: 'uploading' });
     try {
       const media = await uploadPhoto(org, picked, slot);
+      if (slot === 'nameplate' && token !== generation.current) return;
       set({ state: 'ready', media });
-      if (slot === 'nameplate') {
-        try { const request = await api.requestOcr(org, media.id, uuid()); setOcr({ state: 'reading', id: request.id }); }
-        catch { setOcr({ state: 'none' }); /* no OCR provider or quota: manual entry, no message needed */ }
-      }
-    } catch (e) { set({ state: 'error', message: e instanceof ApiFailure && e.message ? e.message : t('uploadFailed') }); }
+      if (slot === 'nameplate') await startReading(media);
+    } catch (e) { if (slot === 'nameplate' && token !== generation.current) return; set({ state: 'error', message: e instanceof ApiFailure && e.message ? e.message : t('uploadFailed') }); }
   }
 
   const suggestions = ocr.state === 'done' ? ocr.fields : {};
@@ -109,7 +138,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
         unitPhoto.state === 'ready' ? { media_asset_id: unitPhoto.media.id, photo_type: 'equipment' } : null].filter((p): p is { media_asset_id: string; photo_type: string } => !!p);
       const result = await api.createEquipment(org, locationId, {
         request_key: key.current, category, name: values.name.trim() || null, brand: values.brand.trim() || null, model: values.model.trim() || null,
-        serial_number: values.serial_number.trim() || null, photos, ocr_request_id: ocr.state !== 'none' ? ocr.id : undefined, confirm_duplicate: confirmDuplicate || undefined,
+        serial_number: values.serial_number.trim() || null, photos, ocr_request_id: 'id' in ocr ? ocr.id : undefined, confirm_duplicate: confirmDuplicate || undefined,
       });
       setSaved(result); setDuplicates([]);
     } catch (e) {
@@ -118,7 +147,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
     } finally { setBusy(false); }
   }
   function another() {
-    key.current = uuid(); setRound(round + 1); setSaved(null); setNameplate({ state: 'empty' }); setUnitPhoto({ state: 'empty' }); setOcr({ state: 'none' });
+    generation.current++; key.current = uuid(); setRound(round + 1); setSaved(null); setNameplate({ state: 'empty' }); setUnitPhoto({ state: 'empty' }); setOcr({ state: 'none' });
     setValues({ name: '', brand: '', model: '', serial_number: '' }); setDuplicates([]); setFailure(null);
   }
   const title = useEquipmentTitle();
@@ -139,14 +168,24 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
         <Text style={styles.suggestionUse}>{t('useSuggestion')}</Text>
       </Pressable> : null;
 
-  return <Screen key={round} onBack={onBack} footer={<Button title={t('saveEquipment')} icon="checkmark" busy={busy} onPress={() => save()} />}>
+  return <Screen key={round} onBack={onBack} footer={<Button title={t('saveEquipment')} icon="checkmark" busy={busy} disabled={nameplate.state === 'uploading' || unitPhoto.state === 'uploading'} onPress={() => save()} />}>
     <Title>{t('addEquipment')}</Title>
     <PhotoSlot title={t('nameplatePhoto')} hint={t('nameplateHint')} photo={nameplate} onPick={source => pick('nameplate', source)}
-      onRetry={lastPick.current ? () => pick(lastPick.current!.slot, lastPick.current!.source) : undefined} />
-    {ocr.state === 'reading' ? <Banner tone="info" text={t('ocrReading')} /> : null}
-    {ocr.state === 'done' ? <><Banner tone="success" text={t('ocrDone')} /><Button small kind="secondary" icon="sparkles" title={t('useAllSuggestions')} onPress={useAll} /></> : null}
-    {ocr.state === 'empty' ? <Banner tone="info" text={t('ocrEmpty')} /> : null}
-    {ocr.state === 'failed' ? <Banner tone="info" text={t('ocrFailed')} /> : null}
+      onRetry={() => pick('nameplate', 'camera')}>
+      {ocr.state === 'submitting' || ocr.state === 'reading' ? <Banner tone="info" text={t(ocr.state === 'submitting' ? 'ocrSubmitting' : 'ocrReading')} /> : null}
+      {ocr.state === 'done' ? <>
+        <Banner tone="success" text={t('ocrDone')} />
+        {(['brand', 'model', 'serial_number'] as const).map(field => <Sub key={field}>{t(field === 'serial_number' ? 'serial' : field)}: {ocr.fields[field] || t('ocrNotRead')}</Sub>)}
+        <Button small kind="secondary" icon="sparkles" title={t('useAllSuggestions')} onPress={useAll} />
+      </> : null}
+      {ocr.state === 'empty' ? <Banner tone="info" text={t('ocrEmpty')} /> : null}
+      {ocr.state === 'failed' ? <Banner tone="info" text={`${t('ocrFailed')} ${ocr.message}`} /> : null}
+      {ocr.state === 'waiting' ? <Banner tone="info" text={t('ocrWaiting')} /> : null}
+      {nameplate.state === 'ready' && ['failed', 'empty', 'waiting'].includes(ocr.state) ? <Button small kind="secondary" icon="refresh" title={t('ocrRetry')} onPress={() => {
+        if (ocr.state === 'waiting' || (ocr.state === 'failed' && ocr.id && !ocr.terminal)) setOcr({ state: 'reading', id: ocr.id! });
+        else void startReading(nameplate.media, ocr.state === 'empty' || (ocr.state === 'failed' && !!ocr.terminal));
+      }} /> : null}
+    </PhotoSlot>
     <PhotoSlot title={t('equipmentPhoto')} photo={unitPhoto} onPick={source => pick('equipment', source)} />
 
     <Section>{t('category')}</Section>

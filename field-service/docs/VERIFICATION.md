@@ -1,3 +1,10 @@
+# Mobile nameplate OCR feedback — 2026-10-06
+
+- Shared package compilation and mobile typecheck passed.
+- Existing Claude provider suite: 4 passed / 0 skipped / 0 failed, with mocked provider responses (`node --test --test-isolation=none tests/ocr-claude.test.mjs`; standard isolation blocked child-process spawn in sandbox). This does not exercise the new React Native UI.
+- UI now exposes submission errors, pending/result states, per-field readable/unreadable results, and retry on the same image; sequential polling ignores stale responses after replacement.
+- No live provider call, device/UI test, APK build or deployment performed for this change.
+
 # Customer creation required indicators and GPS — 2026-10-06
 
 - Follow-up requirement: phone is always required for new customers; name remains optional. Mobile and owner-web creation forms and API create validation now agree. Targeted customer suite remains **4 passed / 0 skipped / 0 failed**, including missing/blank/whitespace phone rejection even with a name, and phone-only creation. Mobile/web typechecks and API compilation passed after the correction.
