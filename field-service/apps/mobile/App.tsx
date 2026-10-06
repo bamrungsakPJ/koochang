@@ -1,3 +1,4 @@
+import { About, VersionLabel } from './src/screens/about';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ type Next =
   | { kind: 'signin' } | { kind: 'reset' }
   | { kind: 'join'; token: string; shopName: string; displayName: string };
 type Route =
+  | { screen: 'about'; back: 'welcome' | 'account' }
   | { screen: 'boot' } | { screen: 'welcome' } | { screen: 'register' } | { screen: 'signin'; join?: { token: string; shopName: string } } | { screen: 'reset' }
   | { screen: 'setPassword'; next: Next } | { screen: 'changePassword' }
   | { screen: 'joinEntry' } | { screen: 'joinPreview'; token: string }
@@ -160,13 +162,14 @@ export default function App() {
   }
   let content;
   switch (route.screen) {
+    case 'about': content = <About onBack={() => setRoute({ screen: route.back })} />; break;
     case 'boot': content = <Loading />; break;
     case 'offline': content = <Screen><Banner text={translate(language, 'networkError')} />
       <Button title={translate(language, 'retry')} icon="refresh" onPress={async () => {
         try { await loadMe(); setRoute({ screen: 'shop' }); } catch { if (!api.signedIn) setRoute({ screen: 'welcome' }); }
       }} /></Screen>; break;
     case 'welcome': content = <Welcome language={language} onLanguage={changeLanguage}
-      onCreate={() => setRoute({ screen: 'register' })} onSignIn={() => setRoute({ screen: 'signin' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />; break;
+      onAbout={() => setRoute({ screen: 'about', back: 'welcome' })} onCreate={() => setRoute({ screen: 'register' })} onSignIn={() => setRoute({ screen: 'signin' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />; break;
     case 'register': content = api.signedIn
       ? <CreateShopSignedIn onBack={() => setRoute({ screen: 'shop' })} onCreated={async (shopName, link, id) => { await loadMe(id); setRoute({ screen: 'shopReady', shopName, link }); }} />
       : <PhoneForm mode="register" onBack={() => setRoute({ screen: 'welcome' })}
@@ -286,7 +289,7 @@ export default function App() {
         onOpen={id => setRoute({ screen: 'job', id })} onCreate={() => setRoute({ screen: 'jobPick' })} />;
       else if (route.screen === 'customers' && membership && active) content = <CustomersScreen membership={membership}
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
-      else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
+      else if (route.screen === 'account') content = <Account onAbout={() => setRoute({ screen: 'about', back: 'account' })} me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onChangePassword={() => setRoute({ screen: 'changePassword' })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
@@ -307,7 +310,7 @@ export default function App() {
     }
   }
   // Native splash (emblem) → this start screen (emblem + KooChang / คู่ช่าง) → the app.
-  if (!fontsLoaded || route.screen === 'boot' || !shownLongEnough) return <BrandStart />;
+  if (!fontsLoaded || route.screen === 'boot' || !shownLongEnough) return <LanguageContext.Provider value={language}><BrandStart /></LanguageContext.Provider>;
   return <LanguageContext.Provider value={language}>
     <SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView></SafeAreaProvider>
   </LanguageContext.Provider>;
@@ -318,6 +321,7 @@ function BrandStart() {
   return <View style={startStyles.root} onLayout={() => { void SplashScreen.hideAsync().catch(() => {}); }}>
     <StatusBar barStyle="light-content" backgroundColor={brandNavy} />
     <Image source={require('./assets/splash-lockup.png')} style={startStyles.lockup} resizeMode="contain" accessibilityLabel="KooChang คู่ช่าง" />
+    <VersionLabel light />
   </View>;
 }
 const brandNavy = '#12243A';

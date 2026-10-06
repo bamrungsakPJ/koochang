@@ -1,6 +1,7 @@
 # KooChang Android 0.2.3
 
-- Status: uploaded to EAS; build queued.
+- Status: EAS FINISHED, confirmed 2026-10-06.
+- APK: https://expo.dev/artifacts/eas/iT18SI0ciAc79G87EiTblmTdsnYmWLFZvXgT8c8rfog.apk
 - Android versionCode: 5; package com.koochang.app; existing signing credentials retained.
 - Profile: staging-apk.
 - Build ID: 2d245f11-da77-40ff-a3a8-61d3d30530fb.

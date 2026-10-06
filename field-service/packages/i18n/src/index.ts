@@ -1,5 +1,6 @@
 export type Language = 'th' | 'en';
 const th = {
+  aboutApp: 'เกี่ยวกับแอป', appCompany: 'บริษัทผู้พัฒนา', appCompanyPending: 'รอระบุชื่อบริษัท', appDetails: 'รายละเอียดแอป', appVersion: 'เวอร์ชัน', appBuild: 'หมายเลขรุ่น', appPlatform: 'ระบบ', appVersionLabel: 'เวอร์ชัน {version} (Build {build})', aboutAppDescription: 'ระบบจัดการงานบริการสำหรับเจ้าของร้านและช่าง',
   'ownerWeb.pagination': 'หน้ารายการ', 'ownerWeb.previousPage': 'หน้าก่อน', 'ownerWeb.nextPage': 'หน้าถัดไป', 'ownerWeb.pageNumber': 'หน้า {n}',
   'ownerWeb.technicianAccount': 'บัญชีช่างใช้งานผ่านแอปมือถือได้ เว็บนี้สำหรับเจ้าของร้าน',
   'ownerWeb.workspace': 'พื้นที่จัดการร้าน', 'ownerWeb.navigation': 'เมนูร้าน', 'ownerWeb.groupWork': 'งานประจำวัน', 'ownerWeb.groupShop': 'ร้านของฉัน', 'ownerWeb.groupHelp': 'ช่วยเหลือและบัญชี', 'ownerWeb.openMenu': 'เปิดเมนู', 'ownerWeb.closeMenu': 'ปิดเมนู',
@@ -298,6 +299,7 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
+  aboutApp: 'About', appCompany: 'Developer company', appCompanyPending: 'Company name pending', appDetails: 'App details', appVersion: 'Version', appBuild: 'Build number', appPlatform: 'Platform', appVersionLabel: 'Version {version} (Build {build})', aboutAppDescription: 'Service management for shop owners and technicians.',
   'ownerWeb.pagination': 'List pages', 'ownerWeb.previousPage': 'Previous', 'ownerWeb.nextPage': 'Next', 'ownerWeb.pageNumber': 'Page {n}',
   'ownerWeb.technicianAccount': 'Technicians use the mobile app. This workspace is for shop owners.',
   'ownerWeb.workspace': 'Shop workspace', 'ownerWeb.navigation': 'Shop navigation', 'ownerWeb.groupWork': 'Daily work', 'ownerWeb.groupShop': 'My shop', 'ownerWeb.groupHelp': 'Help & account', 'ownerWeb.openMenu': 'Open menu', 'ownerWeb.closeMenu': 'Close menu',

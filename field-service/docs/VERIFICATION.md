@@ -1,3 +1,9 @@
+# App version and About — 2026-10-06
+
+- Shared package compilation and mobile typecheck passed. Version/build displayed from Expo manifest in startup, welcome, sign-in and About; About routes return to welcome/account.
+- Prepared app version 0.2.4 / Android versionCode 6. Company name awaits user confirmation and is read from expo.extra.company.th/en. No 0.2.4 APK, deployment or device verification yet.
+- Previously queued 0.2.3 EAS build is now FINISHED; APK URL recorded in its release note. Cannot determine the version installed on the user device.
+
 # Mobile nameplate OCR feedback — 2026-10-06
 
 - Shared package compilation and mobile typecheck passed.
