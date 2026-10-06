@@ -63,6 +63,10 @@
     },
     "scheme": "koochang",
     "extra": {
+      "company": {
+        "th": "บริษัท ไอ ที อีส มี จำกัด",
+        "en": "IT IS ME Co., Ltd."
+      },
       "eas": {
         "projectId": "b931694a-149d-4d2a-b1f6-cb89c7a03d8a"
       }
