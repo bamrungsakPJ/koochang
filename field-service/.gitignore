@@ -16,3 +16,9 @@ coverage/
 
 # Firebase Android config (FCM push), provided per environment
 google-services.json
+
+# Generated native Android project and private local signing credentials
+apps/mobile/android/
+apps/mobile/credentials.json
+*.jks
+*.keystore

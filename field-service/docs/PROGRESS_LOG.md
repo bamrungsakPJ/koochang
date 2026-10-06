@@ -9,6 +9,8 @@
 
 ## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-06 — เข้าสู่ระบบด้วยเบอร์ + รหัสผ่าน)
 
+- **Android build ในเครื่อง (2026-10-06)**: ตรวจแล้วขาด JDK, SDK 36, NDK และ SDK Manager; เตรียม doctor/environment scripts และ [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md) แล้ว ยังไม่พร้อม build จนติดตั้งเครื่องมือและเชื่อม signing เดิม
+
 - **เลขเวอร์ชันและ About (2026-10-06)**: เพิ่มเวอร์ชัน/Build จาก manifest ในหน้าเปิดแอป ต้อนรับ และเข้าสู่ระบบ; เปิด About จากหน้าต้อนรับและบัญชี พร้อมชื่อผลิตภัณฑ์ บริษัทผู้พัฒนา และรายละเอียดรุ่น รองรับไทย/อังกฤษ; โค้ดเตรียม 0.2.4 / Build 6 ตรวจ shared build/mobile typecheck ผ่าน; ใส่ชื่อบริษัท ไอ ที อีส มี จำกัด / IT IS ME Co., Ltd. ตามผู้ใช้แล้ว อัปโหลด EAS APK 0.2.4 แล้ว รอผล build (e2f12506-0b9c-43cc-9457-dfd5d459566c)
 
 - **สถานะอ่านป้ายเครื่อง (2026-10-06)**: แก้การซ่อนข้อผิดพลาด OCR; ส่งอ่านหลังอัปโหลด แสดงสถานะและยี่ห้อ/รุ่น/Serial ที่อ่านได้หรืออ่านไม่ได้ตรงรูป ตรวจซ้ำรูปเดิมได้ ป้องกันผลรูปเก่าทับรูปใหม่; mobile typecheck ผ่าน ยังไม่ได้ build/deploy รุ่นใหม่หรือทดสอบรูปจริงบนมือถือ
@@ -111,6 +113,13 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-06 — ตรวจเครื่องสำหรับ Android local build
+- ตรวจ Node/pnpm/Java/Android SDK และพื้นที่: Node 24/pnpm/Git/ADB/Build Tools 36 พร้อม; Java/Javac, SDK 36, NDK 27.1.12297006 และ SDK Manager ยังขาด
+- มีโฟลเดอร์ Android Studio แต่ไม่พบ java.exe ที่ใช้ได้; SDK มี Android 35 อยู่ ไม่ใช่รุ่นที่ RN 0.86.3 ใช้
+- เตรียม scripts/android-build-doctor.ps1, android-build-env.ps1 และ docs/ANDROID_LOCAL_BUILD.md พร้อมวิธี Expo prebuild/Gradle บน Windows ใช้ signing เดิมและแคช D; เพิ่ม ignore native/signing
+- ผลตรวจ doctor แสดง NOT READY ตามจริง; ยังไม่ได้ติดตั้งเครื่องมือ ยอมรับ SDK licenses ดาวน์โหลด keystore หรือ build ในเครื่อง
+
 
 ### 2026-10-06 — ชื่อบริษัทและ APK 0.2.4
 - ผู้ใช้ยืนยันบริษัท ไอ ที อีส มี จำกัด / IT IS ME Co., Ltd.; ใส่ expo.extra.company ให้ About แสดงตามภาษา
