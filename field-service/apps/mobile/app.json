@@ -2,7 +2,7 @@
   "expo": {
     "name": "คู่ช่าง",
     "slug": "koochang",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.koochang.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",
@@ -25,7 +25,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "ใช้ตำแหน่งเพื่อบันทึกพิกัดสถานที่ลูกค้าเมื่อคุณกดบันทึกเท่านั้น / Used only to save a customer location when you tap Save.",
+          "locationWhenInUsePermission": "ใช้ตำแหน่งเมื่อคุณกดใช้ตำแหน่งปัจจุบัน เพื่อบันทึกพิกัดสถานที่ลูกค้า / Used only when you tap Use current location to capture a customer's service location.",
           "isAndroidBackgroundLocationEnabled": false,
           "isIosBackgroundLocationEnabled": false
         }
