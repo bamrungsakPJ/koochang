@@ -117,7 +117,7 @@
 ## บันทึกรายวัน
 
 ### 2026-10-06 — แก้การส่งรูป/session และเพิ่ม AI settings
-- ตรวจ staging พบรูป 5 รายการค้าง pending_upload และไม่มี OCR request: ยังไม่ถึงขั้นอ่านรูป; เปลี่ยนมือถืออ่านไฟล์ native เป็น ArrayBuffer ส่ง bytes ตรง แสดงรูปทันที/สถานะ upload/ข้อความเฉพาะสาเหตุ และ retry รูปเดิมด้วย request key เดิม
+- ตรวจ staging พบรูป 5 รายการค้าง pending_upload และไม่มี OCR request: ยังไม่ถึงขั้นอ่านรูป; เปลี่ยนมือถืออ่านไฟล์ native เป็น ArrayBuffer ส่ง bytes ตรง แสดงรูปทันที/สถานะ upload/ข้อความเฉพาะสาเหตุ และ retry รูปเดิมด้วย request key เดิม; แยกข้อความเมื่อกุญแจหรือโมเดล AI มีปัญหาและลบข้อความล้มเหลวซ้ำ
 - พบ staging OCR_PROVIDER=development และไม่มี Anthropic key: ยังไม่ได้อ่านด้วย AI จริง ผู้ใช้มีบัญชีแล้วและขอเพิ่มหน้าตั้งค่าเพื่อใส่เอง
 - เพิ่ม /console > ตั้งค่าระบบ > อ่านป้ายเครื่องด้วย AI: key เข้ารหัส AES-GCM, ไม่คืน secret ไม่ใส่ audit, step-up และ settings.manage; migration 027; API/worker โหลดค่าที่บันทึกทันทีโดย worker อ่านได้เฉพาะ OCR settings
 - เก็บ access/refresh แบบ atomic ใน SecureStore พร้อมอ่าน legacy; เครือข่ายเสียไม่ล้าง session เพิ่มตัวเลือก biometric ในบัญชี (ปิดเป็นค่าเริ่มต้น) ใช้เมื่อเปิดแอปใหม่ มีใช้รหัสผ่านแทน ไม่เก็บรหัสผ่าน

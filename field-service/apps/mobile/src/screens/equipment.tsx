@@ -84,7 +84,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
           return;
         }
         if (r.status === 'failed' || r.status === 'cancelled') {
-          setOcr({ state: 'failed', id, message: t('ocrFailed'), terminal: true });
+          setOcr({ state: 'failed', id, message: ['CLAUDE_400', 'CLAUDE_401', 'CLAUDE_403', 'CLAUDE_404'].includes(r.error_code ?? '') ? t('ocrConfigurationError') : t('ocrFailed'), terminal: true });
           return;
         }
       } catch (e) {
@@ -195,7 +195,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
         <Button small kind="secondary" icon="sparkles" title={t('useAllSuggestions')} onPress={useAll} />
       </> : null}
       {ocr.state === 'empty' ? <Banner tone="info" text={t('ocrEmpty')} /> : null}
-      {ocr.state === 'failed' ? <Banner tone="info" text={`${t('ocrFailed')} ${ocr.message}`} /> : null}
+      {ocr.state === 'failed' ? <Banner tone="info" text={ocr.message} /> : null}
       {ocr.state === 'waiting' ? <Banner tone="info" text={t('ocrWaiting')} /> : null}
       {nameplate.state === 'ready' && ['failed', 'empty', 'waiting'].includes(ocr.state) ? <Button small kind="secondary" icon="refresh" title={t('ocrRetry')} onPress={() => {
         if (ocr.state === 'waiting' || (ocr.state === 'failed' && ocr.id && !ocr.terminal)) setOcr({ state: 'reading', id: ocr.id! });
