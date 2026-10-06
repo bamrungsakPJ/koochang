@@ -1,5 +1,21 @@
 # Build Android APK locally on Windows
 
+## Verified local APK build — 2026-10-06
+
+Built 0.2.4 / Build 6 successfully on Windows. APK is output/builds/apk/KooChang-0.2.4-build6.apk. Original EAS certificate SHA-256 matches; package/version, staging API in JS and Thai/English company configuration verified. No device run yet.
+
+Important Windows workaround: the first build in the long pnpm isolated workspace failed in Expo CMake/Ninja (`build.ninja still dirty after 100 tries`). Use a dedicated short-path source snapshot D:\kc with `nodeLinker: hoisted` added only to the scratch pnpm-workspace.yaml. Install using the unchanged lockfile and D:\Android\pnpm-store. This preserves the main workspace dependency layout. Source snapshot is b40b210; synchronize a reviewed current source snapshot before a future release instead of assuming this scratch copy is current.
+
+For this tested snapshot, after dot-sourcing the environment script, set `$env:NODE_ENV='production'` and run the generated wrapper under D:\kc\apps\mobile\android:
+
+```powershell
+./gradlew.bat app:assembleRelease --console=plain --max-workers=2
+```
+
+Signing is configured in the generated app/build.gradle to read the original downloaded EAS credentials.json (ignored) and keystore. Do not print credential values. After any new prebuild, verify release signing still uses the original EAS key, because the stock template uses the debug key. Do not share a debug-signed APK as an upgrade.
+
+First successful build took 21m43s / 291 tasks. Log: D:\Android\downloads\koochang-local-build.log. Dependencies additionally installed Build Tools 35.0.0 and CMake 3.22.1 on D. Later builds can reuse caches, but their duration has not been measured.
+
 ## Installed on D — 2026-10-06
 
 User requested installation on D. Installed and verified:
@@ -11,7 +27,7 @@ User requested installation on D. Installed and verified:
 - User JAVA_HOME, ANDROID_HOME, ANDROID_SDK_ROOT, GRADLE_USER_HOME and PATH configured for D paths, preserving prior PATH. Open a new terminal/app to inherit them; for the existing Codex session dot-source the environment script below.
 - Gradle cache: D:\Android\gradle-cache. Installer temporary files were placed in D:\Android\temp. Downloads retained in D:\Android\downloads.
 - Doctor checks all pass; java/javac/adb/cmake/clang execute successfully. No emulator needed for producing APKs.
-- No original signing key downloaded yet, no native project generated, and no local APK built. The first build still downloads Gradle/Maven dependencies. Signing with the original EAS certificate is necessary for installation over existing APKs.
+- Follow-up: original EAS signing credentials downloaded privately, native project generated, and local Release APK built successfully. See verified build above.
 
 ## Original readiness audit — 2026-10-06
 

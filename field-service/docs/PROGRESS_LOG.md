@@ -9,7 +9,7 @@
 
 ## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-06 — เข้าสู่ระบบด้วยเบอร์ + รหัสผ่าน)
 
-- **Android build ในเครื่อง (2026-10-06)**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.30.5 และ SDK Manager บน D แล้ว; doctor ทุกตัวผ่านและเรียก java/javac/adb/cmake/clang สำเร็จ ตั้งค่า user environment/cache D; ยังไม่ได้ดาวน์โหลด signing เดิมหรือ build APK ในเครื่อง ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Android build ในเครื่อง (2026-10-06)**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.30.5 และ SDK Manager บน D แล้ว; doctor ทุกตัวผ่านและเรียก java/javac/adb/cmake/clang สำเร็จ ตั้งค่า user environment/cache D; ดาวน์โหลด signing เดิมและ build Release APK 0.2.4 / Build 6 สำเร็จแล้วบน D:\kc (pnpm hoisted แก้ Ninja/พาธยาว) ตรวจ certificate/version/API/ชื่อบริษัทผ่าน; ยังไม่ได้ทดสอบบนอุปกรณ์ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 
 - **เลขเวอร์ชันและ About (2026-10-06)**: เพิ่มเวอร์ชัน/Build จาก manifest ในหน้าเปิดแอป ต้อนรับ และเข้าสู่ระบบ; เปิด About จากหน้าต้อนรับและบัญชี พร้อมชื่อผลิตภัณฑ์ บริษัทผู้พัฒนา และรายละเอียดรุ่น รองรับไทย/อังกฤษ; โค้ดเตรียม 0.2.4 / Build 6 ตรวจ shared build/mobile typecheck ผ่าน; ใส่ชื่อบริษัท ไอ ที อีส มี จำกัด / IT IS ME Co., Ltd. ตามผู้ใช้แล้ว อัปโหลด EAS APK 0.2.4 แล้ว รอผล build (e2f12506-0b9c-43cc-9457-dfd5d459566c)
 
@@ -113,6 +113,15 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-06 — ทดลอง local Android build สำเร็จ
+- ดาวน์โหลด credentials Android เดิมจาก EAS ไว้ในไฟล์ ignored; ไม่สร้าง key ใหม่ ไม่เผย passwords
+- รอบแรก main workspace ล้มเหลว Expo CMake/Ninja พร้อมคำเตือนพาธยาว; แก้ด้วย source snapshot b40b210 ใน D:\kc และ pnpm hoisted เฉพาะ scratch ใช้ lockfile เดิม
+- รอบสอง BUILD SUCCESSFUL 21m43s / 291 tasks; Release APK output/builds/apk/KooChang-0.2.4-build6.apk 75,553,519 bytes
+- ตรวจ apksigner ผ่าน certificate SHA256 ตรง key เดิม; package com.koochang.app / 0.2.4 / Build 6; API staging ใน bundle และ company ไทย/อังกฤษตรง source
+- บันทึกขั้นตอนและ workaround ใน ANDROID_LOCAL_BUILD.md พร้อม release record output/builds/koochang-0.2.4-local-release.md; APK และความลับไม่ commit
+- สถานะ: build ในเครื่องสำเร็จ ไม่ได้ติดตั้ง/รันบนมือถือหรือทดสอบ AI รูปจริง; ไม่ยกเลิก EAS build
+
 
 ### 2026-10-06 — ติดตั้ง Android toolchain บน D
 - ผู้ใช้สั่งติดตั้งบน D; ดาวน์โหลด Temurin JDK 17 และ Android command-line tools ทางการ ตรวจ SHA-256 ก่อนแตกไฟล์

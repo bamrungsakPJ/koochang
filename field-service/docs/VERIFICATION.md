@@ -1,3 +1,11 @@
+# Local Android APK build — 2026-10-06
+
+- Windows local Release APK build SUCCESSFUL: 0.2.4 / versionCode 6, 291 tasks, 21m43s. Source snapshot b40b210 under D:\kc with pnpm hoisted and unchanged lockfile.
+- Main isolated workspace native build failed with long-path warnings and Ninja dirty-manifest failure; short-path hoisted snapshot resolved it without changing main dependency installation.
+- APK signature verifies and certificate SHA256 matches original EAS key. aapt verified package/version/all four ABIs. JS bundle includes staging API. assets/app.config version and company Thai/English exactly match source.
+- Artifact output/builds/apk/KooChang-0.2.4-build6.apk (Git-ignored). SHA256 a3917c388edd7b7e8e9e07d6d74848bd68f589deb55c43559508da51ab7913cf.
+- No device run, live AI request or server changes. No credentials committed.
+
 # Windows Android toolchain installation — 2026-10-06
 
 - Installed JDK 17.0.20.1+1 and Android command-line tools with verified SHA-256 downloads on D.

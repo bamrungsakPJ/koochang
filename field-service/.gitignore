@@ -22,3 +22,6 @@ apps/mobile/android/
 apps/mobile/credentials.json
 *.jks
 *.keystore
+
+# Generated APK/AAB build artifacts
+output/builds/apk/
