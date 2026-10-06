@@ -108,6 +108,13 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-06 — เริ่ม EAS build APK 0.2.2 หลังผู้ใช้อนุญาต
+
+- ผู้ใช้ตอบ "ทำเลย" หลังคำถามอนุญาตส่งซอร์สไป Expo/EAS จึงเริ่ม profile staging-apk Android ด้วย signing เดิม (freeze credentials)
+- อัปโหลด 297 MB สำเร็จ; build id `3ae38c64-e9ad-4f2c-803f-ab65244fa199`, version 0.2.2 / versionCode 4, commit source e20495357d5d41216a89773e2b3a55f5f4f1becc, API https://api-staging.koochang.com
+- สถานะเริ่มต้น NEW; กำลังติดตามจนได้ผล ยังไม่มี APK ในเวลาที่เขียนรายการนี้; การบล็อก approval review รอบก่อนคลี่คลายด้วย authorization ผู้ใช้แล้ว
+
+
 ### 2026-10-06 — อัปเดต staging และเตรียม APK 0.2.2 (ยังไม่เริ่ม EAS build)
 
 - ผู้ใช้สั่งอัปเดตแอปและ build; เตรียม version 0.2.2 / Android versionCode 4 และข้อความสิทธิ์ตำแหน่งให้ตรงกับปุ่มใช้ตำแหน่งปัจจุบัน (commit 1e240fcf)
