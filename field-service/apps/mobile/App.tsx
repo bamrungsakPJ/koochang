@@ -5,7 +5,7 @@ import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai
 import { getLocales } from 'expo-localization';
 import * as SplashScreen from 'expo-splash-screen';
 import { Language, normalizeLanguage } from '@field-service/core';
-import { api, tokenFromLink, type Challenge, type CustomerLocation, type Job, type JoinLink, type MaintenanceItem, type Me, type ServiceResult } from './src/api';
+import { api, tokenFromLink, type Challenge, type Customer, type CustomerLocation, type Job, type JoinLink, type MaintenanceItem, type Me, type ServiceResult } from './src/api';
 import { ServiceDone, ServiceForm } from './src/screens/service';
 import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './src/screens/customers';
 import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
@@ -33,7 +33,7 @@ type Route =
   | { screen: 'otp'; phone: string; challenge: Challenge; next: Next; back: Route }
   | { screen: 'shopReady'; shopName: string; link: JoinLink | null }
   | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' }
-  | { screen: 'customers' } | { screen: 'customer'; id: string } | { screen: 'customerNew'; search: string }
+  | { screen: 'customers' } | { screen: 'customer'; id: string } | { screen: 'customerNew'; search: string; then?: 'jobNew' | 'serviceAdhoc' }
   | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
   | { screen: 'equipmentNew'; customerId: string; locationId: string; returnTo?: Route } | { screen: 'equipment'; customerId: string; id: string }
   | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
@@ -152,6 +152,12 @@ export default function App() {
 
   const membership = me?.memberships.find(m => m.organization_id === organizationId);
   const several = (me?.memberships.length ?? 0) > 1;
+  /** After adding (or picking an existing) customer from a job/ad-hoc picker: continue that flow
+   * when there is one place, otherwise open the customer to choose a place there. */
+  function continueWithCustomer(then: 'jobNew' | 'serviceAdhoc' | undefined, customer: Customer) {
+    const only = customer.locations.length === 1 ? customer.locations[0]! : null;
+    setRoute(then && only ? { screen: then, customerId: customer.id, locationId: only.id } : { screen: 'customer', id: customer.id });
+  }
   let content;
   switch (route.screen) {
     case 'boot': content = <Loading />; break;
@@ -216,7 +222,8 @@ export default function App() {
         onOpenEquipment={id => setRoute({ screen: 'equipment', customerId: route.id, id })}
         onCreateJob={locationId => setRoute({ screen: 'jobNew', customerId: route.id, locationId })} /> : <Loading />; break;
     case 'jobPick': content = membership?.status === 'active'
-      ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'jobs' })} onPicked={(customerId, locationId) => setRoute({ screen: 'jobNew', customerId, locationId })} /> : <Loading />; break;
+      ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'jobs' })} onPicked={(customerId, locationId) => setRoute({ screen: 'jobNew', customerId, locationId })}
+        onCreate={search => setRoute({ screen: 'customerNew', search, then: 'jobNew' })} /> : <Loading />; break;
     case 'jobNew': content = membership?.status === 'active'
       ? <JobForm membership={membership} me={{ memberId: membership.member_id }} customerId={route.customerId} locationId={route.locationId}
         onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onCreated={(id, conflicts) => setRoute({ screen: 'job', id, conflicts })} /> : <Loading />; break;
@@ -246,12 +253,15 @@ export default function App() {
       ? <SupportScreen membership={membership} onBack={() => setRoute({ screen: membership.organization_status === 'active' ? 'account' : 'shop' })} /> : <Loading />; break;
     case 'serviceDone': content = <ServiceDone result={route.result} onDone={() => setRoute(route.back)} />; break;
     case 'adhocPick': content = membership?.status === 'active'
-      ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'shop' })} onPicked={(customerId, locationId) => setRoute({ screen: 'serviceAdhoc', customerId, locationId })} /> : <Loading />; break;
+      ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'shop' })} onPicked={(customerId, locationId) => setRoute({ screen: 'serviceAdhoc', customerId, locationId })}
+        onCreate={search => setRoute({ screen: 'customerNew', search, then: 'serviceAdhoc' })} /> : <Loading />; break;
     case 'equipment': content = membership?.status === 'active'
       ? <EquipmentDetail key={route.id} membership={membership} equipmentId={route.id} onBack={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;
     case 'customerNew': content = membership?.status === 'active'
-      ? <CustomerForm membership={membership} initialSearch={route.search} onBack={() => setRoute({ screen: 'customers' })}
-        onSaved={id => setRoute({ screen: 'customer', id })} onOpenExisting={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
+      ? <CustomerForm membership={membership} initialSearch={route.search}
+        onBack={() => setRoute(route.then === 'jobNew' ? { screen: 'jobPick' } : route.then === 'serviceAdhoc' ? { screen: 'adhocPick' } : { screen: 'customers' })}
+        onSaved={c => continueWithCustomer(route.then, c)}
+        onOpenExisting={id => { if (route.then) void api.customer(membership.organization_id, id).then(c => continueWithCustomer(route.then, c), () => setRoute({ screen: 'customer', id })); else setRoute({ screen: 'customer', id }); }} /> : <Loading />; break;
     case 'locationNew': case 'locationEdit': content = membership?.status === 'active'
       ? <LocationForm membership={membership} customerId={route.customerId} location={route.screen === 'locationEdit' ? route.location : undefined}
         onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onSaved={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;

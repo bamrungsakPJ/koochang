@@ -98,16 +98,21 @@ export function MyJobs({ membership, onOpen }: { membership: Membership; onOpen:
     : <Card padded={false}>{items.map((j, i) => <JobRow key={j.id} job={j} last={i === items.length - 1} onPress={() => onOpen(j.id)} />)}</Card>;
 }
 
-/** Pick the customer (search) and, when there are several, the location. */
-export function JobCustomerPicker({ membership, onBack, onPicked }: { membership: Membership; onBack: () => void; onPicked: (customerId: string, locationId: string) => void }) {
+/** Pick the customer (search) and, when there are several, the location. A number that is
+ * not found yet goes straight to "add customer", carrying the search over. */
+export function JobCustomerPicker({ membership, onBack, onPicked, onCreate }: {
+  membership: Membership; onBack: () => void; onPicked: (customerId: string, locationId: string) => void; onCreate: (search: string) => void;
+}) {
   const t = useT();
   const [q, setQ] = useState('');
-  const [items, setItems] = useState<CustomerSummary[]>([]);
+  const [items, setItems] = useState<CustomerSummary[] | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const seq = useRef(0);
   useEffect(() => {
-    const timer = setTimeout(() => { api.customers(membership.organization_id, q.trim()).then(r => setItems(r.items), () => {}); }, 250);
+    const mine = ++seq.current;
+    const timer = setTimeout(() => { api.customers(membership.organization_id, q.trim()).then(r => { if (mine === seq.current) setItems(r.items); }, () => {}); }, 250);
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [q, membership.organization_id]);
   async function choose(id: string) {
     const full = await api.customer(membership.organization_id, id);
     if (full.locations.length === 1) onPicked(full.id, full.locations[0]!.id); else setCustomer(full);
@@ -117,11 +122,15 @@ export function JobCustomerPicker({ membership, onBack, onPicked }: { membership
     <Card padded={false}>{customer.locations.map((l, i) => <Row key={l.id} icon="home" tone="sky" title={l.label} subtitle={l.address ?? undefined}
       last={i === customer.locations.length - 1} onPress={() => onPicked(customer.id, l.id)} />)}</Card>
   </Screen>;
+  const found = items?.filter(c => c.location_count > 0) ?? [];
   return <Screen onBack={onBack}>
-    <Title>{t('chooseCustomer')}</Title>
-    <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} placeholder="08x-xxx-xxxx" />
-    <Card padded={false}>{items.filter(c => c.location_count > 0).map((c, i, all) => <Row key={c.id} icon="person" tone="violet" title={customerTitle(c)}
-      subtitle={t('locationCount', { count: c.location_count })} last={i === all.length - 1} onPress={() => { void choose(c.id); }} />)}</Card>
+    <View style={styles.header}><Title>{t('chooseCustomer')}</Title><Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></View>
+    <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder="08x-xxx-xxxx" />
+    {!items ? <Loading /> : found.length === 0
+      ? <Card><Sub>{q.trim() ? t('noResults') : t('noCustomers')}</Sub>
+          <Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></Card>
+      : <Card padded={false}>{found.map((c, i) => <Row key={c.id} icon="person" tone="violet" title={customerTitle(c)}
+        subtitle={t('locationCount', { count: c.location_count })} last={i === found.length - 1} onPress={() => { void choose(c.id); }} />)}</Card>}
   </Screen>;
 }
 

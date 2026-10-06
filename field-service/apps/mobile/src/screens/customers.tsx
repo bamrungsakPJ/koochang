@@ -61,7 +61,7 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
 /** Phone first, name optional, first place in the same step. Retry-safe via a request key
  * kept for the whole form; a known phone shows the existing customers to pick from. */
 export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpenExisting }: {
-  membership: Membership; initialSearch: string; onBack: () => void; onSaved: (id: string) => void; onOpenExisting: (id: string) => void;
+  membership: Membership; initialSearch: string; onBack: () => void; onSaved: (customer: Customer) => void; onOpenExisting: (id: string) => void;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -91,7 +91,7 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
         request_key: key, name: name.trim() || undefined, phone: phone.trim() || undefined, customer_type: business ? 'business' : 'individual',
         confirm_duplicate: confirmDuplicate || undefined, location: { label: label.trim(), address: address.trim() || undefined, travel_note: travel.trim() || undefined },
       });
-      onSaved(saved.id);
+      onSaved(saved);
     } catch (e) {
       if (e instanceof ApiFailure && e.code === 'DUPLICATE_WARNING') setDuplicates(e.candidates);
       else if (e instanceof ApiFailure && Object.keys(e.fieldErrors).length) setErrors(Object.fromEntries(Object.entries(e.fieldErrors).map(([k, v]) => [k.replace(/^location\./, ''), t(v as TranslationKey)])));
