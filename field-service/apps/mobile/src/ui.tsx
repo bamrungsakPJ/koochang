@@ -1,4 +1,4 @@
-import { createContext, useContext, type ComponentProps, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ComponentProps, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Language } from '@field-service/core';
@@ -54,8 +54,25 @@ export function useErrorText() {
   };
 }
 
+/** Android hardware back: the newest mounted Screen that shows a back arrow handles it exactly like the arrow. */
+const backStack: { current?: () => void }[] = [];
+export function handleScreenBack(): boolean {
+  const top = backStack[backStack.length - 1];
+  if (!top?.current) return false;
+  top.current();
+  return true;
+}
+
 export function Screen({ children, onBack, footer }: { children: ReactNode; onBack?: () => void; footer?: ReactNode }) {
   const t = useT();
+  const back = useRef(onBack);
+  back.current = onBack;
+  const hasBack = !!onBack;
+  useEffect(() => {
+    if (!hasBack) return;
+    backStack.push(back);
+    return () => { const i = backStack.lastIndexOf(back); if (i >= 0) backStack.splice(i, 1); };
+  }, [hasBack]);
   return <View style={styles.screen}>
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {onBack ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.back} hitSlop={12}>

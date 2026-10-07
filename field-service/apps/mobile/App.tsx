@@ -1,7 +1,7 @@
 import { Unlock } from './src/biometrics';
 import { About } from './src/screens/about';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Linking, StatusBar, StyleSheet, View } from 'react-native';
+import { BackHandler, Image, Linking, StatusBar, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
@@ -13,7 +13,7 @@ import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './s
 import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
 import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens/jobs';
 import { keys, storage } from './src/storage';
-import { Banner, Button, colors, Field, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
+import { Banner, Button, colors, Field, handleScreenBack, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
 import { translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PasswordSetup, PasswordSignIn, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
@@ -54,6 +54,22 @@ export default function App() {
   const [fontsLoaded] = useFonts({ NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold });
   const [language, setLanguage] = useState<Language>('th');
   const [route, setRoute] = useState<Route>({ screen: 'boot' });
+  const routeNow = useRef(route); routeNow.current = route;
+  const languageNow = useRef(language); languageNow.current = language;
+  const lastBack = useRef(0);
+  // Android back: same as the on-screen arrow; other tabs go to Home; Home/start screens need a second press to exit.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (handleScreenBack()) return true;
+      const screen = routeNow.current.screen;
+      if (screen === 'jobs' || screen === 'customers' || screen === 'team' || screen === 'account') { setRoute({ screen: 'shop' }); return true; }
+      if (Date.now() - lastBack.current < 2000) return false;
+      lastBack.current = Date.now();
+      ToastAndroid.show(translate(languageNow.current, 'pressBackAgain'), ToastAndroid.SHORT);
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
   // The start screen stays at least this long so the brand is seen, not flashed.
   const [shownLongEnough, setShownLongEnough] = useState(false);
   useEffect(() => { const timer = setTimeout(() => setShownLongEnough(true), 1200); return () => clearTimeout(timer); }, []);
