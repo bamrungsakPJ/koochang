@@ -20,7 +20,7 @@ decision or a person. This is not a deployment script and grants no credentials.
 | Final prices | Seed values are pilot proposals (Starter 590, Team 1,290 THB/month) and labelled as such | Business |
 | Two different people for refunds (requester ≠ approver) | Enforced by code; needs two staff accounts | Team |
 | HTTPS domain for API, console and join links (`JOIN_LINK_BASE_URL`, `ADMIN_ORIGIN`) | Not set up | Team |
-| Off-host backup target (`OFFSITE_TARGET`) | Not chosen | Team |
+| Off-host backup target | Cloudflare R2, encrypted with rclone crypt (`OFFSITE_RCLONE=r2crypt:`, chosen 2026-10-07) | Team |
 | Physical Android/iOS test: camera, gallery, GPS button, offline draft, push | **Not done** (only Expo web/Go so far) | Team |
 
 ## 2. Platform accounts
@@ -75,6 +75,20 @@ the erasure registry kept outside the database backup, then start the worker so 
 deleted shops are removed again. Without the registry only tombstones inside the restored dump are
 replayed. Record the run in Operations tools → evidence (kind `restore`). Proven on server2 (PostgreSQL 16) on 2026-10-04: dump 960 KB, restore 2 s,
 53 tables, row counts and migration checksums matched. Retention 35 days.
+
+### Off-site copy (Cloudflare R2, encrypted)
+
+One-time, on the backup host as root: `apt-get install -y rclone`, then
+`R2_ACCOUNT_ID=<id> R2_BUCKET=koochang-backups R2_PREFIX=<env> infra/backup/setup-offsite-r2.sh`.
+It asks for an R2 API token (Object Read & Write, this bucket only), creates the `r2` and `r2crypt`
+remotes, checks a round trip and that R2 sees only encrypted names, and prints the two crypt
+passwords once. **Keep those passwords outside the server** (password manager): they are the only
+way to read the copies. Then add `OFFSITE_RCLONE=r2crypt:` to the backup cron line. Copies older than
+`OFFSITE_RETENTION_DAYS` (90) are deleted from R2.
+
+Restore on another machine: install rclone, recreate the same two remotes (`rclone config create r2 s3 ...`
+with a token, `rclone config create r2crypt crypt remote r2:koochang-backups/<env> password <p1> password2 <p2> --obscure`),
+`rclone copy r2crypt: ./restore --include "*-<stamp>.*"`, check `sha256sum -c sums-<stamp>.sha256`, then restore as above.
 
 ## 6. Incidents
 

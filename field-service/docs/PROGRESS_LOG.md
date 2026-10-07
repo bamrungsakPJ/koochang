@@ -63,6 +63,13 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — Backup นอกเครื่องไป Cloudflare R2 (เข้ารหัส)
+- ตรวจของเดิมบน server2: dump DB ทุกวัน 02:30 + สำเนา /data3 ทำงาน (มีครบ 4 รอบ), restore check ทุกอาทิตย์; ไฟล์ media 107 ไบต์ไม่ใช่บั๊ก — รูปแรกบน staging อัปโหลด 07:22 วันนี้ หลังรอบ backup; ทั้งหมดยังอยู่เครื่องเดียว
+- ผู้ใช้เลือก Cloudflare R2
+- ทำ: backup.sh เพิ่ม OFFSITE_RCLONE (rclone copy ไฟล์รอบนั้น + ลบบน R2 ที่เก่ากว่า OFFSITE_RETENTION_DAYS=90); infra/backup/setup-offsite-r2.sh สร้าง remote r2 + r2crypt (เข้ารหัสชื่อและเนื้อหา) รับ key แบบซ่อน ไม่ผ่าน argv, ทดสอบ round trip และตรวจว่า R2 เห็นแต่ชื่อที่เข้ารหัส, สุ่ม crypt password แสดงครั้งเดียว; PILOT_RUNBOOK เพิ่มวิธีตั้งค่าและกู้คืนจาก R2
+- ตรวจ: bash -n ผ่าน; server2 มี rclone 1.60.1 ใน apt (รองรับ provider Cloudflare และ --obscure) ยังไม่ได้รันจริง
+- รอผู้ใช้: สร้าง bucket + API token ใน Cloudflare, ติดตั้ง rclone, รัน setup, เพิ่ม OFFSITE_RCLONE ใน cron (Claude เขียนบนเซิร์ฟเวอร์ไม่ได้)
+
 ### 2026-10-07 — git remote
 - ผู้ใช้สร้าง repo private https://github.com/bamrungsakPJ/koochang (API สาธารณะตอบ 404 = private) และตั้ง remote origin แล้ว
 - ก่อน push สแกนประวัติทั้งหมด 124 commit: ไม่มี .env / keystore / private key / API key

@@ -6,6 +6,10 @@
 #   BACKUP_DIR=/var/backups/field-service DB_NAME=field_service MEDIA_DIR=/srv/field-service/media \
 #   OFFSITE_TARGET=backup@nas:/backups/field-service ./backup.sh
 #
+# Off-site object storage: OFFSITE_RCLONE names an rclone remote path, normally a crypt remote
+# over Cloudflare R2 (see setup-offsite-r2.sh), so files are encrypted before they leave the host.
+# Copies older than OFFSITE_RETENTION_DAYS (default 90) are deleted from that remote.
+#
 # Nothing here prints secrets. Restore is proven with restore-check.sh before taking money.
 set -euo pipefail
 
@@ -15,6 +19,8 @@ DB_PORT="${DB_PORT:-5432}"
 RETENTION_DAYS="${RETENTION_DAYS:-35}"
 MEDIA_DIR="${MEDIA_DIR:-}"
 OFFSITE_TARGET="${OFFSITE_TARGET:-}"
+OFFSITE_RCLONE="${OFFSITE_RCLONE:-}"
+OFFSITE_RETENTION_DAYS="${OFFSITE_RETENTION_DAYS:-90}"
 PG_AS="${PG_AS:-postgres}"
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -43,6 +49,12 @@ find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'db-*.dump' -o -name 'media-*.ta
 
 if [ -n "$OFFSITE_TARGET" ]; then
   rsync -a --chmod=F600 "$BACKUP_DIR"/*-"$stamp".* "$OFFSITE_TARGET"/
+fi
+
+if [ -n "$OFFSITE_RCLONE" ]; then
+  rclone copy --no-traverse --include "*-$stamp.*" "$BACKUP_DIR" "$OFFSITE_RCLONE"
+  rclone delete --min-age "${OFFSITE_RETENTION_DAYS}d" "$OFFSITE_RCLONE"
+  echo "offsite $stamp: copied to $OFFSITE_RCLONE"
 fi
 
 echo "backup $stamp: ${files[*]} ($(du -ch "${files[@]/#/$BACKUP_DIR/}" | tail -1 | cut -f1))"
