@@ -25,3 +25,5 @@ apps/mobile/credentials.json
 
 # Generated APK/AAB build artifacts
 output/builds/apk/
+# server2 deploy archives (copies of committed source)
+output/*.tar

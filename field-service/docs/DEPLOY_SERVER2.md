@@ -1,5 +1,13 @@
 # Staging/pilot on server2 — plan (2026-10-04)
 
+### 2026-10-07 — public product website
+
+Installed the public landing page at https://app-staging.koochang.com/ on server2.
+Includes product features, workflow illustration (explicit sample data), monthly/yearly pricing, trial, FAQ and links to /shop and /console.
+GET /v1/catalog reads the latest effective published active plans through padmin.public_catalog(); migration 028 adds a restricted public projection, with no direct billing table access granted.
+Validated admin typecheck, API build, server production build, isolated catalog test (future versions/prices and archived plans excluded), API readiness, HTTPS browser prices and annual toggle. Desktop and 390px mobile layout inspected; no horizontal overflow observed.
+Source deployed as a targeted archive because this local workspace has no accessible Git metadata. Server backups: /data/field-service/staging/backups/landing-20261007/{source.tar,next,api-dist}. Only fs-staging-api and fs-staging-web restarted; pm2 saved. Existing staging service/provider configuration remains applicable.
+
 Decisions (user, 2026-10-04): install on **server2**; **staging/pilot first** (not production yet);
 public HTTPS through **subdomains on the existing Cloudflare Tunnel**; database in a **new, separate
 PostgreSQL 16 cluster**.

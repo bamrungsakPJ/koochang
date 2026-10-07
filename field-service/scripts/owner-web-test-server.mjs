@@ -42,7 +42,7 @@ const api = spawn(process.execPath, [fileURLToPath(new URL('../apps/api/dist/mai
   env: { ...safeEnv, NODE_ENV: 'test', HOST: '127.0.0.1', PORT: '4101', DATABASE_URL: url.toString(),
     SMS_PROVIDER: 'development', OCR_PROVIDER: 'development', PUSH_PROVIDER: 'development',
     OTP_SECRET: randomBytes(32).toString('base64'), JOIN_LINK_KEY: randomBytes(32).toString('base64'), MEDIA_URL_SECRET: randomBytes(32).toString('base64'),
-    MEDIA_DIR: mediaDir, ADMIN_ORIGIN: 'http://127.0.0.1:3101,http://localhost:3101', JOIN_LINK_BASE_URL: 'http://127.0.0.1:3101/join', OTP_CLIENT_HOURLY_LIMIT: '1000',
+    MEDIA_DIR: mediaDir, ADMIN_ORIGIN: 'http://127.0.0.1:3101,http://localhost:3101,http://localhost:3102,http://127.0.0.1:3102', JOIN_LINK_BASE_URL: 'http://127.0.0.1:3101/join', OTP_CLIENT_HOURLY_LIMIT: '1000',
     PAYMENT_BANK_NAME: 'QA Test Bank', PAYMENT_ACCOUNT_NAME: 'QA Synthetic Platform', PAYMENT_ACCOUNT_NUMBER: '000-0-00000-0',PAYMENT_BANK_CODE:'004',PAYMENT_PROMPTPAY_ID:'',...consoleEnv },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

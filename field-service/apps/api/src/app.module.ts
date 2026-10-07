@@ -31,6 +31,7 @@ import { PlatformAuthController } from './platform/platform-auth.controller.js';
 import { PlatformBillingController } from './platform/platform-billing.controller.js';
 import { PlatformAdminController } from './platform/platform-admin.controller.js';
 import { BrandingController, BrandingSettingsController } from './platform/branding.controller.js';
+import { PublicCatalogController } from './platform/public-catalog.controller.js';
 import { SupportController } from './support/support.controller.js';
 import { AUTH_SETTINGS, loadAuthSettings, loadMediaSettings, loadPlatformSettings, MEDIA_SETTINGS, PLATFORM_SETTINGS } from './config.js';
 import { SMS_SENDER } from './sms/sms.sender.js';
@@ -39,7 +40,7 @@ import { RuntimeOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
 @Module({
   controllers: [HealthController, AuthController, MeController, OrganizationsController, JoinController, CustomersController,
     MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController, MaintenanceController,
-    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController, ConsoleSettingsController, AccountSettingsController, ManagementController, StaffEnrollmentController, OperationsController, PrivacyController, ExportDownloadController, BrandingController, BrandingSettingsController],
+    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController, ConsoleSettingsController, AccountSettingsController, ManagementController, StaffEnrollmentController, OperationsController, PrivacyController, ExportDownloadController, BrandingController, BrandingSettingsController, PublicCatalogController],
   providers: [
     DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard, SlipVerificationService, StripeService, RuntimeSettingsService,
     { provide: PLATFORM_SETTINGS, useFactory: () => loadPlatformSettings() },
