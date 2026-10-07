@@ -79,7 +79,7 @@ replayed. Record the run in Operations tools → evidence (kind `restore`). Prov
 ### Off-site copy (Cloudflare R2, encrypted)
 
 One-time, on the backup host as root: `apt-get install -y rclone`, then
-`R2_ACCOUNT_ID=<id> R2_BUCKET=koochang-backups R2_PREFIX=<env> infra/backup/setup-offsite-r2.sh`.
+`R2_ACCOUNT_ID=<id> R2_BUCKET=koochang R2_PREFIX=<env> infra/backup/setup-offsite-r2.sh`.
 It asks for an R2 API token (Object Read & Write, this bucket only), creates the `r2` and `r2crypt`
 remotes, checks a round trip and that R2 sees only encrypted names, and prints the two crypt
 passwords once. **Keep those passwords outside the server** (password manager): they are the only
@@ -87,7 +87,7 @@ way to read the copies. Then add `OFFSITE_RCLONE=r2crypt:` to the backup cron li
 `OFFSITE_RETENTION_DAYS` (90) are deleted from R2.
 
 Restore on another machine: install rclone, recreate the same two remotes (`rclone config create r2 s3 ...`
-with a token, `rclone config create r2crypt crypt remote r2:koochang-backups/<env> password <p1> password2 <p2> --obscure`),
+with a token, `rclone config create r2crypt crypt remote r2:koochang/<env> password <p1> password2 <p2> --obscure`),
 `rclone copy r2crypt: ./restore --include "*-<stamp>.*"`, check `sha256sum -c sums-<stamp>.sha256`, then restore as above.
 
 ## 6. Incidents

@@ -69,6 +69,8 @@
 - ทำ: backup.sh เพิ่ม OFFSITE_RCLONE (rclone copy ไฟล์รอบนั้น + ลบบน R2 ที่เก่ากว่า OFFSITE_RETENTION_DAYS=90); infra/backup/setup-offsite-r2.sh สร้าง remote r2 + r2crypt (เข้ารหัสชื่อและเนื้อหา) รับ key แบบซ่อน ไม่ผ่าน argv, ทดสอบ round trip และตรวจว่า R2 เห็นแต่ชื่อที่เข้ารหัส, สุ่ม crypt password แสดงครั้งเดียว; PILOT_RUNBOOK เพิ่มวิธีตั้งค่าและกู้คืนจาก R2
 - ตรวจ: bash -n ผ่าน; server2 มี rclone 1.60.1 ใน apt (รองรับ provider Cloudflare และ --obscure) ยังไม่ได้รันจริง
 - รอผู้ใช้: สร้าง bucket + API token ใน Cloudflare, ติดตั้ง rclone, รัน setup, เพิ่ม OFFSITE_RCLONE ใน cron (Claude เขียนบนเซิร์ฟเวอร์ไม่ได้)
+- รันจริงรอบแรก: (1) 403 AccessDenied — bucket จริงชื่อ koochang ไม่ใช่ koochang-backups (token ผูก bucket เดียว) (2) 501 NotImplemented — PUT สำเร็จ แต่ rclone 1.60 ตามด้วย HEAD ?versionId= ที่ R2 ไม่รองรับ → ตั้ง no_head true (R2 ยังตรวจ Content-MD5 ตอน PUT); สคริปต์ล้มหลังสร้าง remote แล้ว crypt password ไม่ได้แสดง จึงต้องลบ remote แล้วรันใหม่ → เพิ่ม trap ลบ remote เมื่อขั้นใดล้ม; ค่า default bucket เปลี่ยนเป็น koochang
+- ตรวจด้วย remote ชั่วคราว + --s3-no-head: rcat/cat ผ่าน crypt ตรงกัน, copy --include "*-<stamp>.*" ส่งเฉพาะไฟล์รอบนั้น, R2 เห็นแต่ชื่อเข้ารหัส; ลบไฟล์ทดสอบทั้งหมด bucket ว่าง
 
 ### 2026-10-07 — git remote
 - ผู้ใช้สร้าง repo private https://github.com/bamrungsakPJ/koochang (API สาธารณะตอบ 404 = private) และตั้ง remote origin แล้ว

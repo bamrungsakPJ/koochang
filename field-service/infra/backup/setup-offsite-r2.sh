@@ -6,13 +6,13 @@
 # The crypt passwords are generated here and printed ONCE. Store them in a password manager:
 # without them the off-site copies cannot be decrypted if this server is lost.
 #
-#   sudo R2_ACCOUNT_ID=<account id> R2_BUCKET=koochang-backups R2_PREFIX=staging ./setup-offsite-r2.sh
+#   sudo R2_ACCOUNT_ID=<account id> R2_BUCKET=koochang R2_PREFIX=staging ./setup-offsite-r2.sh
 set -euo pipefail
 
 [ "$(id -u)" = 0 ] || { echo "run as root (cron runs backup.sh as root)"; exit 1; }
 command -v rclone >/dev/null || { echo "install rclone first: apt-get install -y rclone"; exit 1; }
 : "${R2_ACCOUNT_ID:?set R2_ACCOUNT_ID (Cloudflare account id)}"
-R2_BUCKET="${R2_BUCKET:-koochang-backups}"
+R2_BUCKET="${R2_BUCKET:-koochang}"
 R2_PREFIX="${R2_PREFIX:-staging}"
 
 if rclone listremotes | grep -qx 'r2crypt:'; then
@@ -27,10 +27,14 @@ read -r -s -p "R2 Secret Access Key: " secret; echo
 RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
 RCLONE_CONFIG_R2_ACCESS_KEY_ID="$key_id" RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$secret" \
 RCLONE_CONFIG_R2_ENDPOINT="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" \
-  rclone lsd "r2:$R2_BUCKET" >/dev/null || { echo "cannot reach bucket $R2_BUCKET: check keys, account id and bucket name"; exit 1; }
+  rclone lsf "r2:$R2_BUCKET" >/dev/null || { echo "cannot reach bucket $R2_BUCKET: check keys, account id and bucket name"; exit 1; }
 
+# From here on a failed step removes both remotes, so the script can simply be run again.
+trap 'rc=$?; [ "$rc" = 0 ] || { rclone config delete r2crypt 2>/dev/null; rclone config delete r2 2>/dev/null; echo "setup failed; remotes removed, fix the cause and run again"; }' EXIT
+# no_head: rclone 1.60 re-checks each upload with HEAD ?versionId=, which R2 answers 501 Not Implemented.
+# Uploads are still verified: R2 checks the Content-MD5 that rclone sends with every PUT.
 rclone config create r2 s3 provider Cloudflare access_key_id "$key_id" secret_access_key "$secret" \
-  endpoint "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" acl private no_check_bucket true >/dev/null
+  endpoint "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" acl private no_check_bucket true no_head true >/dev/null
 unset secret
 
 pass1="$(openssl rand -base64 32)"; pass2="$(openssl rand -base64 32)"
