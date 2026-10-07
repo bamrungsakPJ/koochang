@@ -67,6 +67,8 @@
 - ไม่ใส่ลิงก์ข้อตกลง/นโยบายความเป็นส่วนตัว เพราะยังไม่มีหน้าเผยแพร่ (ต้องมีก่อนขึ้น Play Store)
 - ตรวจ: mobile typecheck ผ่าน, i18n test 4/4 ผ่าน; เปิดบนเว็บ (Expo web) หน้าเข้าสู่ระบบมีลิงก์ About และหน้า About แสดงเวอร์ชัน/ป้ายทดสอบ/บริษัทถูกต้อง (บนเว็บไม่มีเลข Build เป็นปกติ); ยังไม่ได้ตรวจแท็บบัญชีหลังเข้าระบบและบนมือถือจริง
 - เวอร์ชัน 0.2.6 / Build 8; build APK ในเครื่องที่ D:\kc (คัดลอกไฟล์ที่เปลี่ยน + แก้ versionCode/versionName ใน android/app/build.gradle)
+- Build สำเร็จ: `output/builds/apk/KooChang-0.2.6-build8.apk` (75.7 MB) ตรวจใน APK แล้ว: app.config version 0.2.6 / versionCode 8, bundle มีข้อความใหม่และ API staging, certificate SHA-256 ตรงกับ 0.2.5 (ติดตั้งทับได้); ยังไม่ได้ติดตั้งบนมือถือจริง
+- ปัญหา build: (1) env script ตั้ง `$ErrorActionPreference='Stop'` ทำให้คำเตือน SDK XML v4 บน stderr หยุด gradle ตั้งแต่ต้น (2) `cmd /c` หา gradlew.bat ไม่เจอหลัง env script; แก้โดยใช้ `Start-Process -FilePath <path เต็ม>\gradlew.bat -RedirectStandardOutput/-RedirectStandardError -Wait` รอบนี้ใช้เวลา 9 วินาทีเพราะ native cache ครบ
 
 ### 2026-10-07 — รวบรวมงานที่ทำและแก้ไขแล้วในสถานะปัจจุบัน
 
