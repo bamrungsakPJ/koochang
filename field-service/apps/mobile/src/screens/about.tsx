@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useContext, useState } from 'react';
-import { Image, Platform, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { apiBaseUrl } from '../api';
 import { Badge, Card, colors, fonts, LanguageContext, Row, Screen, Sub, useT } from '../ui';
 
@@ -14,6 +14,9 @@ const testSystem = /staging|localhost|127\.0\.0\.1|192\.168\./.test(apiBaseUrl);
 // Android reports the API level as Platform.Version; the user-facing release ("14") is in constants.
 const platformName = Platform.OS === 'android' ? `Android ${(Platform.constants as { Release?: string }).Release ?? Platform.Version}`
   : Platform.OS === 'ios' ? `iOS ${Platform.Version}` : 'Web';
+
+// Public legal pages on the website (Thai); the same pages linked from the landing page footer.
+const legalBase = 'https://koochang.com';
 
 /** Version lives here (Account → About, or the link under sign-in), never on working screens. */
 export function About({ onBack }: { onBack: () => void }) {
@@ -41,6 +44,11 @@ export function About({ onBack }: { onBack: () => void }) {
     </Card>
     <Card padded={false}>
       <Row icon="share-outline" tone="blue" title={t('appShareInfo')} subtitle={shared ? t('appShared') : t('appShareInfoHint')} onPress={() => { void share(); }} last />
+    </Card>
+    <Text style={styles.section}>{t('legalLinks')}</Text>
+    <Card padded={false}>
+      <Row icon="shield-checkmark-outline" tone="blue" title={t('privacyPolicy')} onPress={() => { void Linking.openURL(`${legalBase}/privacy`); }} />
+      <Row icon="document-text-outline" tone="blue" title={t('termsOfUse')} onPress={() => { void Linking.openURL(`${legalBase}/terms`); }} last />
     </Card>
     {companyName ? <Text style={styles.footer}>© {new Date().getFullYear()} {companyName}</Text> : null}
   </Screen>;
