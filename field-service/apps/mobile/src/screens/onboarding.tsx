@@ -153,8 +153,8 @@ export function OtpForm({ phone, challenge: initial, onBack, onVerify, step }: {
 }
 
 /** Everyday sign-in with phone + password (no SMS). */
-export function PasswordSignIn({ onBack, onSignedIn, onForgot, subtitle }: {
-  onBack: () => void; onSignedIn: () => Promise<void>; onForgot: () => void; subtitle?: string;
+export function PasswordSignIn({ onBack, onSignedIn, onForgot, onAbout, subtitle }: {
+  onBack: () => void; onSignedIn: () => Promise<void>; onForgot: () => void; onAbout: () => void; subtitle?: string;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -185,6 +185,8 @@ export function PasswordSignIn({ onBack, onSignedIn, onForgot, subtitle }: {
       autoComplete="current-password" textContentType="password" maxLength={200} returnKeyType="go" onSubmitEditing={submit} />
     <Banner text={failure} />
     <Pressable accessibilityRole="button" onPress={onForgot} style={styles.forgotRow}><Text style={styles.link}>{t('forgotPassword')}</Text></Pressable>
+    {/* For support when the user cannot sign in; quiet so it never competes with the form. */}
+    <Pressable accessibilityRole="button" onPress={onAbout} style={styles.aboutRow}><Text style={styles.aboutLink}>{t('aboutApp')}</Text></Pressable>
   </Screen>;
 }
 
@@ -329,6 +331,8 @@ const styles = StyleSheet.create({
   otpIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   forgotRow: { alignSelf: 'flex-end', paddingVertical: 8 },
+  aboutRow: { alignSelf: 'center', paddingVertical: 12, marginTop: 24 },
+  aboutLink: { fontFamily: fonts.regular, fontSize: 13, color: colors.faint },
   resendWait: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
   link: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.primary },
   shopRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

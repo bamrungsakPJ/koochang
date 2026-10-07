@@ -9,6 +9,7 @@ import { LanguageSwitch } from './onboarding';
 import { useUnread } from './notifications';
 import { MaintenanceCard } from './maintenance';
 import { MyJobs } from './jobs';
+import { appVersion } from './about';
 
 const memberTone = (status: string): Tone => status === 'active' ? 'green' : status === 'pending' ? 'amber' : status === 'suspended' ? 'rose' : 'sky';
 const statusTone = (status: string) => status === 'active' ? 'ok' : status === 'pending' ? 'warn' : status === 'suspended' ? 'danger' : 'neutral';
@@ -217,8 +218,8 @@ export function ShopPicker({ me, onPick, onCreate, onJoin, onBack }: { me: Me; o
   </Screen>;
 }
 
-export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack, onSupport, onChangePassword }: {
-  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void; onChangePassword: () => void;
+export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack, onSupport, onChangePassword, onAbout }: {
+  me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void; onChangePassword: () => void; onAbout: () => void;
 }) {
   const t = useT();
   return <Screen onBack={onBack}>
@@ -232,8 +233,12 @@ export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack,
       <Row icon="key" tone="amber" title={t('changePassword')} onPress={onChangePassword} last={!onSwitch} />
       {onSwitch ? <Row icon="swap-horizontal" tone="sky" title={t('myShops')} onPress={onSwitch} last /> : null}
     </Card>
-    {onSupport ? <Card padded={false}><Row icon="help-buoy" tone="teal" title={t('support')} subtitle={t('supportHint')} onPress={onSupport} last /></Card> : null}
     <BiometricSetting />
+    <Card padded={false}>
+      {onSupport ? <Row icon="help-buoy" tone="teal" title={t('support')} subtitle={t('supportHint')} onPress={onSupport} /> : null}
+      <Row icon="information-circle-outline" tone="blue" title={t('aboutApp')} onPress={onAbout} last
+        trailing={<Text style={styles.versionHint}>{appVersion}</Text>} />
+    </Card>
     <Button title={t('signOut')} kind="danger" icon="log-out-outline" onPress={onSignOut} />
   </Screen>;
 }
@@ -327,6 +332,7 @@ export function TeamScreen({ membership }: { membership: Membership }) {
 }
 
 const styles = StyleSheet.create({
+  versionHint: { fontFamily: fonts.regular, fontSize: 13, color: colors.faint },
   linkHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   linkBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, backgroundColor: colors.bg, borderRadius: 12, padding: 8, paddingLeft: 12 },
   linkText: { flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },

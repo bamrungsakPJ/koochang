@@ -1,4 +1,5 @@
 import { Unlock } from './src/biometrics';
+import { About } from './src/screens/about';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +28,7 @@ type Next =
   | { kind: 'signin' } | { kind: 'reset' }
   | { kind: 'join'; token: string; shopName: string; displayName: string };
 type Route =
+  | { screen: 'about'; back: Route }
   | { screen: 'unlock' } | { screen: 'boot' } | { screen: 'welcome' } | { screen: 'register' } | { screen: 'signin'; join?: { token: string; shopName: string } } | { screen: 'reset' }
   | { screen: 'setPassword'; next: Next } | { screen: 'changePassword' }
   | { screen: 'joinEntry' } | { screen: 'joinPreview'; token: string }
@@ -167,6 +169,7 @@ export default function App() {
         setRoute(token ? { screen: 'joinPreview', token } : loaded.user.password_set ? { screen: 'shop' } : { screen: 'setPassword', next: { kind: 'signin' } });
       } catch (e) { if (api.signedIn) setRoute({ screen: 'offline' }); else setRoute({ screen: 'welcome' }); }
     }} onPassword={async () => { await signOut(); setRoute({ screen: 'signin' }); }} />; break;
+    case 'about': content = <About onBack={() => setRoute(route.back)} />; break;
     case 'boot': content = <Loading />; break;
     case 'offline': content = <Screen><Banner text={translate(language, 'networkError')} />
       <Button title={translate(language, 'retry')} icon="refresh" onPress={async () => {
@@ -182,7 +185,7 @@ export default function App() {
     case 'signin': {
       const join = route.join;
       content = <PasswordSignIn subtitle={join?.shopName} onBack={() => setRoute(join ? { screen: 'joinPreview', token: join.token } : { screen: 'welcome' })}
-        onForgot={() => setRoute({ screen: 'reset' })}
+        onForgot={() => setRoute({ screen: 'reset' })} onAbout={() => setRoute({ screen: 'about', back: route })}
         onSignedIn={async () => {
           const loaded = await loadMe();
           if (!loaded.user.password_set) setRoute({ screen: 'setPassword', next: { kind: 'signin' } });
@@ -294,7 +297,7 @@ export default function App() {
       else if (route.screen === 'customers' && membership && active) content = <CustomersScreen membership={membership}
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
-        onChangePassword={() => setRoute({ screen: 'changePassword' })}
+        onChangePassword={() => setRoute({ screen: 'changePassword' })} onAbout={() => setRoute({ screen: 'about', back: { screen: 'account' } })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
       else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })} />;
