@@ -47,7 +47,7 @@ export function OwnerApp() {
       ? error.status === 0 ? translate(api.language, 'networkError') : error.message || errorMessage(api.language, error.code) : '');
     const hash = () => setRoute(readRoute()); hash(); window.addEventListener('popstate', hash);
     void (async () => {
-      const lang = normalizeLanguage(await storage.get(keys.language) ?? navigator.language); if (!live) return;
+      const lang = normalizeLanguage(await storage.get(keys.language) ?? new URLSearchParams(window.location.search).get('lang') ?? navigator.language); if (!live) return;
       setLanguage(lang); api.language = lang;
       if (await api.restore()) { try { await loadMe(); } catch { if (live) setOffline(api.signedIn); } }
       if (live) setBoot(false);
