@@ -62,6 +62,11 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — commit งานเว็บไซต์สาธารณะทั้งชุด
+- commit 72394a5: landing, product showcase + screenshots, /privacy /terms, robots/sitemap, og-image, PublicCatalogController + migration 028 + test, เอกสาร LEGAL_REVIEW/WEBSITE_SCREENSHOTS, ภาพหลักฐานใน output/
+- ไม่ commit ไฟล์ deploy output/*.tar (สำเนาของซอร์ส) เพิ่มใน .gitignore
+- working tree สะอาด; ยังไม่มี git remote
+
 ### 2026-10-07 — ตรวจหน้าทดลองฟรีบนเว็บจริง และแก้ภาษาหน้าสมัคร
 - ตรวจ https://koochang.com หลังผู้ใช้ deploy website-trial: title ใหม่, lowPrice 0, badge/ปุ่มเมนู, แถบทดลอง 14 วัน (ช่าง 3 คน 5 GB), ปุ่มแพ็กเกจ 3 ใบ → /shop?signup=1, FAQ ข้อแรก, og-image 200 ✅
 - ปัญหา: /shop?signup=1 เปิดหน้าสร้างร้านถูก แต่เป็นภาษาอังกฤษ — สาเหตุ owner web เลือกภาษาตาม navigator.language (เบราว์เซอร์ en-US) ทั้งที่มาจากหน้าแรกภาษาไทย; คนไทยจำนวนมากตั้งมือถือเป็นอังกฤษ
