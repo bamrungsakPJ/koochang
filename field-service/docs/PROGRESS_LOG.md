@@ -71,6 +71,9 @@
 - รอผู้ใช้: สร้าง bucket + API token ใน Cloudflare, ติดตั้ง rclone, รัน setup, เพิ่ม OFFSITE_RCLONE ใน cron (Claude เขียนบนเซิร์ฟเวอร์ไม่ได้)
 - รันจริงรอบแรก: (1) 403 AccessDenied — bucket จริงชื่อ koochang ไม่ใช่ koochang-backups (token ผูก bucket เดียว) (2) 501 NotImplemented — PUT สำเร็จ แต่ rclone 1.60 ตามด้วย HEAD ?versionId= ที่ R2 ไม่รองรับ → ตั้ง no_head true (R2 ยังตรวจ Content-MD5 ตอน PUT); สคริปต์ล้มหลังสร้าง remote แล้ว crypt password ไม่ได้แสดง จึงต้องลบ remote แล้วรันใหม่ → เพิ่ม trap ลบ remote เมื่อขั้นใดล้ม; ค่า default bucket เปลี่ยนเป็น koochang
 - ตรวจด้วย remote ชั่วคราว + --s3-no-head: rcat/cat ผ่าน crypt ตรงกัน, copy --include "*-<stamp>.*" ส่งเฉพาะไฟล์รอบนั้น, R2 เห็นแต่ชื่อเข้ารหัส; ลบไฟล์ทดสอบทั้งหมด bucket ว่าง
+- ✅ ผู้ใช้รัน setup ใหม่ผ่าน (r2 no_head, r2crypt → r2:koochang/staging, conf 600 root), เพิ่ม OFFSITE_RCLONE=r2crypt: ใน /etc/cron.d/field-service-staging (สำรอง /root/field-service-staging.cron.bak-20261007) และสั่ง backup ทดสอบ 20261007T095639Z
+- ตรวจ: บน R2 มี db 1.35 MB / media 2.17 MB / sums ชื่อดิบเข้ารหัส; ดาวน์โหลดผ่าน r2crypt แล้ว sha256sum -c ผ่านทั้งสองไฟล์, db ตรงกับสำเนาในเครื่องทุกไบต์, media 14 รายการ, pg_restore -l อ่านได้ 72 TABLE DATA
+- เก็บ crypt password ไว้นอกเซิร์ฟเวอร์ (ผู้ใช้เก็บเอง) — ไม่มีในแชท/repo
 
 ### 2026-10-07 — git remote
 - ผู้ใช้สร้าง repo private https://github.com/bamrungsakPJ/koochang (API สาธารณะตอบ 404 = private) และตั้ง remote origin แล้ว
