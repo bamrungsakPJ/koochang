@@ -15,10 +15,9 @@ export function passwordProblem(value: unknown): string | null {
   return typeof value !== 'string' || [...value].length < 8 || value.length > 200 ? 'field.password' : null;
 }
 
-const smsText: Record<Language, (code: string, minutes: number) => string> = {
-  th: (code, minutes) => `คู่ช่าง: รหัสยืนยัน ${code} ใช้ได้ ${minutes} นาที ห้ามบอกรหัสนี้กับผู้อื่น`,
-  en: (code, minutes) => `KooChang: Your verification code is ${code}. It expires in ${minutes} minutes. Do not share it.`,
-};
+/** ASCII SMS in either UI language; reference identifies this request, never the OTP. */
+export const otpReference = (challengeId: string) => challengeId.replaceAll('-', '').slice(0, 6).toUpperCase();
+export const otpSmsText = (code: string, reference: string) => `Your OTP For KooChang is ${code}, Ref: ${reference}`;
 
 @Injectable()
 export class AuthService {
@@ -45,9 +44,10 @@ export class AuthService {
       [challengeId, phone, hmacHex(s.otpSecret!, `${challengeId}:${code}`), clientAddress ? sha256Hex(`client:${clientAddress}`) : null,
         s.otpTtlSeconds, s.otpMaxAttempts, s.otpCooldownSeconds, s.otpPhoneHourlyLimit, s.otpClientHourlyLimit])).rows[0]);
     if (!row?.challenge_id) throw apiError(429, 'RATE_LIMITED', { retry_after: row?.retry_after_seconds ?? s.otpCooldownSeconds });
-    try { await sms.send(phone!, smsText[language](code, Math.round(s.otpTtlSeconds / 60))); }
+    const reference = otpReference(challengeId);
+    try { await sms.send(phone!, otpSmsText(code, reference)); }
     catch { throw apiError(503, 'TEMPORARILY_UNAVAILABLE'); }
-    return { challenge_id: challengeId, expires_at: row.expires_at, resend_after: s.otpCooldownSeconds, delivery: sms.delivery };
+    return { challenge_id: challengeId, reference, expires_at: row.expires_at, resend_after: s.otpCooldownSeconds, delivery: sms.delivery };
   }
 
   async verifyOtp(body: { challenge_id?: unknown; code?: unknown; display_name?: unknown; preferred_language?: unknown }) {

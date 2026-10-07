@@ -63,6 +63,11 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — ข้อความ SMS OTP แบบมี Ref
+- ทำอะไร: เปลี่ยนข้อความ OTP เป็นภาษาอังกฤษ ASCII รูปแบบเดียว `Your OTP For KooChang is 123456, Ref: ABC123` (ไม่ขึ้นกับภาษาแอป ใช้ 1 segment และตรงแบบที่ผู้ให้บริการ SMS อนุมัติง่าย); Ref = 6 ตัวแรกของ challenge id (ไม่เกี่ยวกับรหัส OTP) API ส่ง `reference` กลับมาด้วย และแอปมือถือ/เว็บร้านแสดง "ตรวจว่า SMS มี Ref: …" ใต้ข้อความส่งรหัส ให้ผู้ใช้รู้ว่า SMS ไหนเป็นของคำขอล่าสุดเมื่อกดส่งใหม่
+- ตรวจ: typecheck ทุก workspace ผ่าน; tests sms/auth 15 ผ่าน / 22 skipped (ต้องใช้ PostgreSQL) / 0 failed
+- สถานะ: โค้ดพร้อม ยังไม่ deploy staging และยังไม่ทดสอบ SMS จริง; แอปมือถือจะแสดง Ref เมื่อ build APK ถัดไป (APK เดิมยังใช้ได้ แค่ไม่แสดง Ref)
+
 ### 2026-10-07 — APK 0.2.8 / Build 10
 - ทำอะไร: build Release APK รวมลิงก์นโยบาย/ข้อตกลงในหน้าเกี่ยวกับแอป; app.json 0.2.8 / versionCode 10; D:kc ตรงกับซอร์ส 0.2.7 ก่อนคัดลอก (about.tsx, i18n, app.json) แล้ว build i18n และแก้ build.gradle
 - Build สำเร็จ 3m17s (42 tasks executed, 249 up-to-date); ไฟล์ output/builds/apk/KooChang-0.2.8-build10.apk (75.7 MB, SHA-256 fab1de663fe43287…)

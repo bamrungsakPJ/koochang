@@ -140,6 +140,7 @@ export function OtpForm({ phone, challenge: initial, onBack, onVerify, step }: {
     <Title>{t('otpTitle')}</Title>
     {step ? <Steps step={step} total={3} /> : null}
     <Sub>{t('otpSentTo', { phone: formatPhone(phone) })}</Sub>
+    {challenge.reference ? <Sub>{t('otpReference', { reference: challenge.reference })}</Sub> : null}
     <Field label={t('otpCode')} big value={code} error={error ?? undefined} keyboardType="number-pad" autoComplete="one-time-code"
       textContentType="oneTimeCode" maxLength={6} autoFocus placeholder="••••••"
       onChangeText={value => { const digits = value.replace(/\D/g, '').slice(0, 6); setCode(digits); if (digits.length === 6 && !busy) void verify(digits); }} />

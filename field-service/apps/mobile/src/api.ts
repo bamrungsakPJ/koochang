@@ -15,7 +15,7 @@ export interface Membership {
   role: 'owner' | 'technician'; status: MemberStatus; display_name: string; version: number;
 }
 export interface Me { user: { id: string; display_name: string; phone_e164: string; preferred_language: Language; version: number; password_set: boolean }; memberships: Membership[]; }
-export interface Challenge { challenge_id: string; expires_at: string; resend_after: number; delivery: 'development' | 'sms'; }
+export interface Challenge { challenge_id: string; reference?: string; expires_at: string; resend_after: number; delivery: 'development' | 'sms'; }
 export interface JoinLink { id: string; status: 'active' | 'closed'; generation: number; version: number; url: string; qr_png: string; }
 export interface TeamMember {
   member_id: string; user_id: string; role: 'owner' | 'technician'; status: MemberStatus; display_name: string;
