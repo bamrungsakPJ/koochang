@@ -145,6 +145,8 @@ function Auth({ onDone, language }: { onDone: (org?: string) => Promise<void>; l
   const t = useText(), a = useAction();
   const [mode, setMode] = useState<AuthMode>('signin'), [name, setName] = useState(''), [phone, setPhone] = useState(''), [password, setPassword] = useState(''), [code, setCode] = useState(''), [challenge, setChallenge] = useState<Challenge | null>(null), [wait, setWait] = useState(0), [needPassword, setNeedPassword] = useState(false);
   const request = useRef<string | null>(null);
+  // Landing-page trial buttons link to /shop?signup=1 so visitors land on create-shop, not sign-in.
+  useEffect(() => { if (new URLSearchParams(window.location.search).has('signup')) setMode('register'); }, []);
   useEffect(() => { if (wait > 0) { const timer = setTimeout(() => setWait(x => x - 1), 1000); return () => clearTimeout(timer); } }, [wait]);
   const checkedPhone = () => {
     const normalized = normalizePhone(phone); if (!normalized || normalized.startsWith('+66') && !isThaiMobile(normalized)) throw new ApiFailure(400, 'VALIDATION_ERROR', '', { phone: 'field.phone' });
