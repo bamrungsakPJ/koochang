@@ -22,7 +22,7 @@
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
 - **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.9 / Build 11** (Firebase push + OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.9-build11.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02 (2026-10-07); Claude push เองไม่ได้ ผู้ใช้เป็นคนรัน git push
-- **Staging**: server2 อัปเดต API/worker ถึง `8349bae`, migration 027, มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว ยังไม่มีงานเว็บไซต์สาธารณะชุดล่าสุดและ OTP Ref
+- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `9eaffdb` (2026-10-07), migration 028, มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
 - **ผลตรวจ**: มีผล typecheck/build และชุดทดสอบที่เกี่ยวข้องบันทึกในรายวันและ [VERIFICATION.md](VERIFICATION.md) ตัวเลขทดสอบแต่ละรอบเป็นผล ณ เวลานั้น ไม่ใช่การรันทดสอบทั้งหมดใหม่ในวันที่ 2026-10-07
 
@@ -62,6 +62,12 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-07 — Deploy staging `9eaffdb`
+- ก่อน reset: server มีไฟล์เว็บที่ผู้ใช้คัดลอกขึ้นเอง (ไม่ผ่าน git) เทียบกับ HEAD แล้วเป็นเวอร์ชันเก่ากว่า/ต่างแค่ line ending; สำรองไว้ /tmp/fs-staging-prev-202610072317.tgz
+- ทำ: git bundle → fetch/reset `9eaffdb` (working tree สะอาด) → pnpm install → build (NEXT_PUBLIC_API_URL=https://api-staging.koochang.com) → migrate (ครบแล้ว ไม่มีรายการค้าง) → pm2 restart api/worker/web
+- ตรวจ: ทั้ง 3 process online, worker `push=fcm`, ไม่มี error ใน API log; HTTPS 200: api /v1/health /v1/ready, หน้าแรก, /privacy, /terms, /sitemap.xml, /shop, /console, koochang.com; bundle เว็บร้านมีข้อความ otpReference
+- ยังไม่ได้ทดสอบ OTP จริง (รอ DeeSMSx อนุมัติ sender)
 
 ### 2026-10-07 — Push FCM: Firebase จริง + APK 0.2.9 / Build 11
 - ผู้ใช้สร้าง Firebase project `koochang-e55ff` (Android app `com.koochang.app`) วาง `apps/mobile/google-services.json` (git-ignored) และตั้ง worker บน server2: service account ที่ /etc/field-service/fcm-service-account.json, `PUSH_PROVIDER=fcm` → log worker ขึ้น `push=fcm` ✅
