@@ -162,7 +162,7 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRecordAdhoc, onMaintenance, onBilling }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void;
+export function Home({ me, membership, onTeam, onNotifications, onAccount, onOpenJob, onRecordAdhoc, onMaintenance, onBilling }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void; onAccount: () => void;
   onOpenJob: (id: string) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onBilling: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
@@ -186,7 +186,8 @@ export function Home({ me, membership, onTeam, onNotifications, onOpenJob, onRec
         <Icon name="notifications" size={22} color="#FFFFFF" />
         {unread ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View> : null}
       </Pressable>
-      <View style={styles.heroAvatar}><Avatar name={me.user.display_name} /></View>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('account')} onPress={onAccount} hitSlop={8}
+        style={({ pressed }) => [styles.heroAvatar, pressed && { opacity: 0.7 }]}><Avatar name={me.user.display_name} /></Pressable>
     </View>
     {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
     <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
