@@ -62,6 +62,11 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — git remote
+- ผู้ใช้สร้าง repo private https://github.com/bamrungsakPJ/koochang (API สาธารณะตอบ 404 = private) และตั้ง remote origin แล้ว
+- ก่อน push สแกนประวัติทั้งหมด 124 commit: ไม่มี .env / keystore / private key / API key
+- ปัญหา: Claude push เองไม่ได้ (auto mode classifier บล็อก) → ผู้ใช้รัน git push -u origin main field-service-a02 เอง
+
 ### 2026-10-07 — commit งานเว็บไซต์สาธารณะทั้งชุด
 - commit 72394a5: landing, product showcase + screenshots, /privacy /terms, robots/sitemap, og-image, PublicCatalogController + migration 028 + test, เอกสาร LEGAL_REVIEW/WEBSITE_SCREENSHOTS, ภาพหลักฐานใน output/
 - ไม่ commit ไฟล์ deploy output/*.tar (สำเนาของซอร์ส) เพิ่มใน .gitignore
