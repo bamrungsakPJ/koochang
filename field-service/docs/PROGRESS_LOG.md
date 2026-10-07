@@ -20,7 +20,7 @@
 - **ส่งรูปและ OCR**: แก้การส่งรูปป้าย/รูปงานเป็น native bytes เพิ่มภาพตัวอย่าง สถานะอัปโหลด/อ่านรูป ผลยี่ห้อ/รุ่น/Serial ข้อผิดพลาดและลองใหม่ ป้องกันผลรูปเก่าทับรูปใหม่ และอธิบายกรณีเซิร์ฟเวอร์ยังไม่ตั้งค่า AI; ยังต้องยืนยันบนโทรศัพท์จริง
 - **ลดค่าใช้จ่าย AI**: ใช้ `claude-haiku-4-5-20251001`, จำกัด 512 tokens, ปิด thinking และไม่มี fallback ไปโมเดลแพง Prompt อ่านเฉพาะ brand/model/serial_number คงตัวอักษรและเลขศูนย์ ไม่เดาข้อมูลที่อ่านไม่ได้ และไม่ทำตามคำสั่งในภาพ ทดสอบ Anthropic จริงด้วยภาพสังเคราะห์อ่านตรงครบ 3 ช่องประมาณ 4 วินาที ยังไม่ใช่ผลทดสอบรูปถ่ายจริง
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
-- **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.9 / Build 11** (Firebase push + OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.9-build11.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.10 / Build 12** (ไม่มีปุ่มเริ่มงาน, Firebase push, OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.10-build12.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02 (2026-10-07); Claude push เองไม่ได้ ผู้ใช้เป็นคนรัน git push
 - **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `9eaffdb` (2026-10-07), migration 028, มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
@@ -62,6 +62,13 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-07 — เอาปุ่ม "เริ่มงาน" ออก บันทึกผลบริการได้เลย (APK 0.2.10 / Build 12)
+- ผู้ใช้ขอ: หน้ารับงานไม่ต้องมีปุ่มเริ่มงาน ช่างบันทึกจบงานได้เลย
+- ทำ: มือถือและเว็บร้าน แสดงปุ่ม "บันทึกผลบริการ" ให้ผู้รับงานตั้งแต่สถานะ scheduled; กดแล้วถ้างานยัง scheduled แอปเรียก action `start` ให้เองเบื้องหลัง แล้วเปิดฟอร์มบันทึกด้วย job version ใหม่; ถ้าเริ่มไม่สำเร็จ (เช่น version ชน) แสดง error และโหลดงานใหม่ ไม่เปิดฟอร์ม
+- เหตุผลที่ไม่แก้ฝั่งเซิร์ฟเวอร์: สถานะ in_progress ยังใช้บันทึก started_at และเป็นเงื่อนไขสิทธิ์อัปโหลดรูปของช่าง (migration 008) จึงคงไว้และให้ client เริ่มงานอัตโนมัติแทน
+- ตรวจ: typecheck mobile/admin ผ่าน; ไม่ได้ทดสอบใน browser/เครื่อง; deploy เว็บ staging `8531a3d` (web build + restart, /shop 200); APK 0.2.10 / Build 12 build 1m58s, package/version ถูก, cert 4eed9485… เดิม → output/builds/apk/KooChang-0.2.10-build12.apk (SHA-256 a9d9526b02fc0778…)
+- รอผู้ใช้ทดสอบบนมือถือ
 
 ### 2026-10-07 — Deploy staging `9eaffdb`
 - ก่อน reset: server มีไฟล์เว็บที่ผู้ใช้คัดลอกขึ้นเอง (ไม่ผ่าน git) เทียบกับ HEAD แล้วเป็นเวอร์ชันเก่ากว่า/ต่างแค่ line ending; สำรองไว้ /tmp/fs-staging-prev-202610072317.tgz
