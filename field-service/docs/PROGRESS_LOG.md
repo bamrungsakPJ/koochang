@@ -20,7 +20,7 @@
 - **ส่งรูปและ OCR**: แก้การส่งรูปป้าย/รูปงานเป็น native bytes เพิ่มภาพตัวอย่าง สถานะอัปโหลด/อ่านรูป ผลยี่ห้อ/รุ่น/Serial ข้อผิดพลาดและลองใหม่ ป้องกันผลรูปเก่าทับรูปใหม่ และอธิบายกรณีเซิร์ฟเวอร์ยังไม่ตั้งค่า AI; ยังต้องยืนยันบนโทรศัพท์จริง
 - **ลดค่าใช้จ่าย AI**: ใช้ `claude-haiku-4-5-20251001`, จำกัด 512 tokens, ปิด thinking และไม่มี fallback ไปโมเดลแพง Prompt อ่านเฉพาะ brand/model/serial_number คงตัวอักษรและเลขศูนย์ ไม่เดาข้อมูลที่อ่านไม่ได้ และไม่ทำตามคำสั่งในภาพ ทดสอบ Anthropic จริงด้วยภาพสังเคราะห์อ่านตรงครบ 3 ช่องประมาณ 4 วินาที ยังไม่ใช่ผลทดสอบรูปถ่ายจริง
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
-- **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.7 / Build 9** พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.7-build9.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.8 / Build 10** (ลิงก์นโยบาย/ข้อตกลง) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.8-build10.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02 (2026-10-07); Claude push เองไม่ได้ ผู้ใช้เป็นคนรัน git push
 - **Staging**: server2 อัปเดต API/worker ถึง `8349bae`, migration 027, มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว โค้ดอยู่ branch `field-service-a02` ยังไม่มี git remote
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07, APK 0.2.7)**: ผ่าน — ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
@@ -62,6 +62,13 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-07 — APK 0.2.8 / Build 10
+- ทำอะไร: build Release APK รวมลิงก์นโยบาย/ข้อตกลงในหน้าเกี่ยวกับแอป; app.json 0.2.8 / versionCode 10; D:kc ตรงกับซอร์ส 0.2.7 ก่อนคัดลอก (about.tsx, i18n, app.json) แล้ว build i18n และแก้ build.gradle
+- Build สำเร็จ 3m17s (42 tasks executed, 249 up-to-date); ไฟล์ output/builds/apk/KooChang-0.2.8-build10.apk (75.7 MB, SHA-256 fab1de663fe43287…)
+- ตรวจ: package com.koochang.app, versionCode 10, versionName 0.2.8, certificate SHA-256 4eed9485… ตรงเดิม (ติดตั้งทับได้); bundle มี privacyPolicy/termsOfUse/legalLinks, https://koochang.com, /privacy, /terms, ข้อความไทย (Hermes เก็บ UTF-16), API staging
+- ปัญหา: Start-Process -Wait ค้างหลัง BUILD SUCCESSFUL เพราะรอ Gradle daemon ที่ยังทำงานอยู่ → อ่านผลจาก log แล้วหยุดงานเอง; build ไม่ได้รับผลกระทบ
+- ยังไม่ได้ทดสอบบนมือถือ
 
 ### 2026-10-07 — ลิงก์นโยบาย/ข้อตกลงในหน้าเกี่ยวกับแอป (มือถือ)
 - ทำอะไร: หน้า บัญชี → เกี่ยวกับแอป (และลิงก์ใต้หน้าเข้าสู่ระบบ) เพิ่มหัวข้อ "กฎหมายและความเป็นส่วนตัว" มี นโยบายความเป็นส่วนตัว / ข้อตกลงการใช้งาน เปิด https://koochang.com/privacy และ /terms ด้วย Linking; คำแปล th/en (privacyPolicy, termsOfUse, legalLinks)

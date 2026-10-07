@@ -2,7 +2,7 @@
   "expo": {
     "name": "คู่ช่าง",
     "slug": "koochang",
-    "version": "0.2.7",
+    "version": "0.2.8",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.koochang.app",
-      "versionCode": 9,
+      "versionCode": 10,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",
