@@ -67,7 +67,7 @@
 - ปัญหา: ฐาน dev ไม่มี migration 027–028 ทำให้ /v1/catalog ใน dev ล้ม (padmin.public_catalog ไม่มี) → รัน pnpm db:migrate บนฐาน dev; ฐาน dev มีแพ็กเกจคนละรหัสกับ staging จึงเปลี่ยนป้ายเป็นอิงจำนวนที่นั่ง; H1 บนมือถือตัดคำเหลือ "ช่าง" บรรทัดเดียว → ห่อวลีด้วย inline-block
 - ตรวจ: admin typecheck และ next build ผ่าน; dev 375px ไม่มี horizontal overflow; รายปียังไม่ได้ตรวจใน dev (ฐาน dev ไม่มีแพ็กเกจรายปี) ต้องตรวจหลัง deploy
 - ราคาใน description/JSON-LD เป็นค่าคงที่ ต้องแก้ตามเมื่อเปลี่ยนราคาใน console
-- Deploy: output/website-seo-20261007.tar รอผู้ใช้รันบน server2 (Claude เขียนบนเซิร์ฟเวอร์ไม่ได้)
+- Deploy: ผู้ใช้รัน output/website-seo-20261007.tar บน server2 แล้ว (backup ไฟล์เดิม /data/field-service/staging/backups/website-before-seo-20261007.tar) ✅ ตรวจ https://koochang.com: title/og:image/twitter large/JSON-LD ใหม่, og-image.png 200, ไม่มีลิงก์ /console; แพ็กเกจรายเดือน 3 ใบป้ายถูก; รายปี ฿2,900/5,900/12,900 เฉลี่ย ฿242/492/1,075 ต่อเดือน ประหยัด ฿580/1,180/2,580 ถูกต้อง; มี trial 14 วัน
 
 ### 2026-10-07 — โดเมน koochang.com: www และราคาแพ็กเกจบนหน้าแรก
 - ปัญหา 1: เครื่อง dev เปิด koochang.com ไม่ได้ — สาเหตุ เราเตอร์ 192.168.1.1 จำคำตอบเก่า (SOA serial เก่า) ก่อนเพิ่ม record root; DNS สาธารณะถูกต้อง หายเองตาม TTL ✅
