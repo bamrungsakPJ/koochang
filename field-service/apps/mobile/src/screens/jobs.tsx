@@ -227,15 +227,25 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
   useEffect(load, [load]);
   useEffect(() => { if (owner) api.team(org).then(r => setTeam(r.members.filter(m => m.status === 'active')), () => {}); }, []);
 
-  async function act(action: 'assign' | 'unassign' | 'reschedule' | 'cancel' | 'start', body: Record<string, unknown> = {}) {
-    if (!job) return;
-    if (action === 'cancel' && !await confirm(t('cancelJob'), t('cancelJob'), t('cancel'))) return;
+  async function act(action: 'assign' | 'unassign' | 'reschedule' | 'cancel' | 'start', body: Record<string, unknown> = {}): Promise<Job | null> {
+    if (!job) return null;
+    if (action === 'cancel' && !await confirm(t('cancelJob'), t('cancelJob'), t('cancel'))) return null;
     setBusy(true); setError(null); setNotice(null);
     try {
       const result = await api.jobAction(org, job.id, action, { expected_version: job.version, ...body });
-      if ('job' in result) { setJob(result.job); if (result.conflicts.length) setNotice(t('conflictWarning', { count: result.conflicts.length })); } else setJob(result);
+      const next = 'job' in result ? result.job : result;
+      setJob(next); if ('job' in result && result.conflicts.length) setNotice(t('conflictWarning', { count: result.conflicts.length }));
       setPanel('none'); setReason('');
-    } catch (e) { setError(errorText(e)); if (e instanceof ApiFailure && e.code === 'VERSION_CONFLICT') load(); } finally { setBusy(false); }
+      return next;
+    } catch (e) { setError(errorText(e)); if (e instanceof ApiFailure && e.code === 'VERSION_CONFLICT') load(); return null; } finally { setBusy(false); }
+  }
+
+  // No separate Start button: recording the service starts a scheduled job first (the server still
+  // needs in_progress for started_at and photo uploads), then opens the service form.
+  async function recordService() {
+    if (!job) return;
+    const ready = job.status === 'scheduled' ? await act('start') : job;
+    if (ready?.status === 'in_progress') onRecordService(ready);
   }
 
   if (!job) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
@@ -271,8 +281,7 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
       {!job.equipment.length && !job.estimated_equipment_count ? <Row icon="help-circle" tone="sky" title={t('unknown')} last /> : null}
     </Card>
 
-    {!owner && mine && job.status === 'scheduled' ? <Button icon="play" title={t('startJob')} busy={busy} onPress={() => act('start')} /> : null}
-    {mine && job.status === 'in_progress' ? <Button icon="clipboard" title={t('recordService')} onPress={() => onRecordService(job)} /> : null}
+    {mine && (job.status === 'scheduled' || job.status === 'in_progress') ? <Button icon="clipboard" title={t('recordService')} busy={busy} onPress={() => { void recordService(); }} /> : null}
     {job.status === 'cancelled' && job.cancellation_reason ? <Banner text={`${t('cancelReason')}: ${job.cancellation_reason}`} /> : null}
 
     {owner && openJob ? <>
@@ -280,7 +289,6 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
         <View style={{ flex: 1 }}><Button small kind="secondary" icon="person-add" title={job.current_assignee_id ? t('reassign') : t('assign')} onPress={() => setPanel(panel === 'assign' ? 'none' : 'assign')} /></View>
         <View style={{ flex: 1 }}><Button small kind="secondary" icon="calendar" title={t('reschedule')} onPress={() => setPanel(panel === 'reschedule' ? 'none' : 'reschedule')} /></View>
       </View>
-      {mine && job.status === 'scheduled' ? <Button small icon="play" title={t('startJob')} busy={busy} onPress={() => act('start')} /> : null}
       {panel === 'assign' ? <Card>
         <View style={styles.chips}>{team.map(m => <Chip key={m.member_id} label={m.member_id === membership.member_id ? t('doItMyself') : m.display_name}
           on={job.current_assignee_id === m.member_id} onPress={() => act('assign', { assignee_member_id: m.member_id, reason: reason.trim() || undefined })} />)}</View>

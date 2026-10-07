@@ -46,11 +46,21 @@ export function JobView({ membership: m, id, go }: { membership: Membership; id:
       catch (e) { await r.reload(); throw e; }
     }, t('saved'));
   }
+  // No separate Start button: recording starts a scheduled job first (the server needs in_progress
+  // for started_at and photo uploads), then opens the service form.
+  async function recordService() {
+    if (!j) return;
+    let ready = j.status === 'in_progress';
+    if (!ready) await a.run(async () => {
+      try { const result = await api.jobAction(org, id, 'start', { expected_version: j.version }); r.setData('job' in result ? result.job : result); ready = true; }
+      catch (e) { await r.reload(); throw e; }
+    });
+    if (ready) go({ section: 'service', id });
+  }
   return <><Button onClick={() => go({ section: 'jobs' })}>← {t('jobs')}</Button><ResourceState resource={r} /><ResourceState resource={team} /><ActionState action={a} />{j ? <><PageTitle>{statusText(lang, 'jobType', j.job_type)} · {j.customer_name || j.customer_phone}</PageTitle><Panel><p><span className="pill">{statusText(lang, 'status', j.status)}</span> · {dateTime(j.scheduled_start, lang)}</p><p>{j.description}</p><p>{j.location_label} · {j.location_address}</p><p>{j.travel_note}</p><p>{j.assignee_name || t('unassignedOption')}</p><Button onClick={() => go({ section: 'customer', id: j.customer_id })}>{t('customers')}</Button>
     {j.latitude !== null && j.longitude !== null ? <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${j.latitude},${j.longitude}`}>{t('ownerWeb.navigate')}</a> : null}
     <h3>{t('plannedEquipment')}</h3>{j.equipment.map(e => <p key={e.id}><Button kind="link" onClick={() => go({ section: 'equipment', id: e.id })}>{e.name || [statusText(lang, 'category', e.category), e.brand, e.model].filter(Boolean).join(' ')} · {e.serial_number}</Button></p>)}
-    {j.current_assignee_id === m.member_id && j.status === 'scheduled' ? <Button kind="primary" busy={a.busy} onClick={() => act('start')}>{t('startJob')}</Button> : null}
-    {j.current_assignee_id === m.member_id && j.status === 'in_progress' ? <Button kind="primary" onClick={() => go({ section: 'service', id })}>{t('recordService')}</Button> : null}</Panel>
+    {j.current_assignee_id === m.member_id && (j.status === 'scheduled' || j.status === 'in_progress') ? <Button kind="primary" busy={a.busy} onClick={() => { void recordService(); }}>{t('recordService')}</Button> : null}</Panel>
     {['unassigned', 'scheduled', 'in_progress'].includes(j.status) ? <div className="grid2"><Panel title={t('assignee')}><Select label={t('assignee')} value={assignee} onChange={e => setAssignee(e.target.value)}><option value="">{t('unassignedOption')}</option>{team.data?.members.filter(m => m.status === 'active').map(m => <option key={m.member_id} value={m.member_id}>{m.display_name}</option>)}</Select><Note label={t('reasonLabel')} value={reason} onChange={e => setReason(e.target.value)} maxLength={500} /><div className="actions"><Button kind="primary" busy={a.busy} disabled={!assignee || j.status === 'in_progress' && !reason.trim()} onClick={() => act('assign', { assignee_member_id: assignee, reason: reason.trim() || undefined })}>{t('assign')}</Button>{j.status === 'scheduled' ? <Button busy={a.busy} onClick={() => act('unassign')}>{t('unassign')}</Button> : null}</div></Panel>
     <Panel title={t('reschedule')}><form onSubmit={e => { e.preventDefault(); void act('reschedule', { scheduled_start: toInstant(start), scheduled_end: toInstant(end) }); }}><Field label={t('ownerWeb.start_bangkok_time')} type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /><Field label={t('ownerWeb.end_bangkok_time')} type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} /><Button kind="primary" type="submit" busy={a.busy}>{t('save')}</Button></form><h3>{t('cancelJob')}</h3><p>{t('cancelReason')}</p><Button kind="danger" disabled={!reason.trim()} busy={a.busy} onClick={() => { if (window.confirm(t('cancelJob'))) void act('cancel', { reason: reason.trim() }); }}>{t('cancelJob')}</Button></Panel></div> : null}
     {['unassigned', 'scheduled', 'in_progress'].includes(j.status) ? <JobPlanEditor key={j.version} org={org} job={j} onDone={saved => r.setData(saved)} /> : null}
