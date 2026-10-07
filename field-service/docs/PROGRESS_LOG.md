@@ -62,6 +62,11 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — โดเมน koochang.com: www และราคาแพ็กเกจบนหน้าแรก
+- ปัญหา 1: เครื่อง dev เปิด koochang.com ไม่ได้ — สาเหตุ เราเตอร์ 192.168.1.1 จำคำตอบเก่า (SOA serial เก่า) ก่อนเพิ่ม record root; DNS สาธารณะถูกต้อง หายเองตาม TTL ✅
+- ปัญหา 2: www.koochang.com ไม่มี record — ผู้ใช้เพิ่ม CNAME www → koochang.com (Proxied) และ Redirect Rule ใน Cloudflare (Claude แก้ DNS เองไม่ได้ ถูกบล็อก) รอบแรก rule ไม่มี /* และปลายทางเป็นข้อความ concat(...) ตรงตัว จึงได้ 530/1016 → แก้เป็น https://www.koochang.com/* → https://koochang.com/${1} 301 + preserve query ✅ ตรวจ / และ /privacy?x=1 ได้ 301 ถูกต้อง
+- ปัญหา 3: หน้าแรกโหลดแพ็กเกจไม่ได้ — สาเหตุ CORS: ADMIN_ORIGIN ใน /etc/field-service/staging.env มีแค่ app-staging → ผู้ใช้รันเอง (Claude เขียนไฟล์บนเซิร์ฟเวอร์ไม่ได้) เพิ่ม https://koochang.com, backup staging.env.bak-20261007, pm2 restart fs-staging-api --update-env ✅ ตรวจ header ให้ koochang.com และ app-staging, origin อื่นไม่ได้ header; หน้าแรกแสดง ฿290/฿590/฿1,290
+
 ### 2026-10-07 — ตัดสินใจปล่อย closed beta บน server2
 - ทำอะไร: ผู้ใช้ถามว่าปล่อย beta ก่อนได้ไหม สรุปว่าได้ เป็น closed beta Android กับร้านจำนวนน้อย แจก APK เอง (ไม่รอ Play/D-U-N-S) และผู้ใช้เลือกใช้ server2 ชุด staging เดิมเป็นเซิร์ฟเวอร์ beta ไม่แยกเครื่อง
 - อัปเดตจากผู้ใช้ (2026-10-07): SMS จะใช้ DeeSMSx — รอผู้ใช้สมัคร/ส่งข้อมูลก่อน ไม่ทดสอบ THSMS ต่อ; หน้า /privacy และ /terms ขึ้นบน staging แล้ว (ตรวจ HTTPS ตอบ 200)
