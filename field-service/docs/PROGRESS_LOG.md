@@ -63,6 +63,12 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — ตรวจ Google Search Console
+- ผู้ใช้ตั้ง Search Console แบบ Domain property: TXT google-site-verification อยู่ใน DNS แล้ว ✅; ส่ง sitemap แล้ว สถานะ "Couldn't fetch" (ค่าที่ GSC แสดงบ่อยทันทีหลังส่ง)
+- ตรวจฝั่งเว็บ: /sitemap.xml 200 application/xml, ดึงด้วย UA Googlebot ได้ 200 (Cloudflare ไม่บล็อก), robots.txt ชี้ sitemap และกัน /shop /console /join/
+- แก้ความเข้าใจเดิม: /privacy /terms เป็น index อยู่แล้ว (legalReady=true มีชื่อ/ที่อยู่บริษัทครบ) ข้อความเรื่อง noindex ในบันทึกก่อนหน้าล้าสมัย
+- sitemap.ts: ใส่หน้ากฎหมายเฉพาะเมื่อ legalReady และเพิ่ม changefreq/priority หน้าแรก (ผลลัพธ์ตอนนี้เท่าเดิม ยังไม่ต้อง deploy)
+
 ### 2026-10-07 — Backup นอกเครื่องไป Cloudflare R2 (เข้ารหัส)
 - ตรวจของเดิมบน server2: dump DB ทุกวัน 02:30 + สำเนา /data3 ทำงาน (มีครบ 4 รอบ), restore check ทุกอาทิตย์; ไฟล์ media 107 ไบต์ไม่ใช่บั๊ก — รูปแรกบน staging อัปโหลด 07:22 วันนี้ หลังรอบ backup; ทั้งหมดยังอยู่เครื่องเดียว
 - ผู้ใช้เลือก Cloudflare R2
