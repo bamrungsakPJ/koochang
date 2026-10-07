@@ -76,6 +76,55 @@
         "3001"
       ],
       "port": 3001
+    },
+    {
+      "name": "fs-api-alt",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file=field-service/.env",
+        "field-service/apps/api/dist/main.js"
+      ],
+      "port": 4002,
+      "env": {
+        "PORT": "4002",
+        "ADMIN_ORIGIN": "http://localhost:3002"
+      }
+    },
+    {
+      "name": "fs-admin-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "field-service/apps/admin",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3002"
+      ],
+      "port": 3002,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://localhost:4002",
+        "NEXT_DIST_DIR": ".next-alt"
+      }
+    },
+    {
+      "name": "fs-mobile-web-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "field-service/apps/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8082"
+      ],
+      "port": 8082,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-staging.koochang.com"
+      }
     }
   ]
 }
