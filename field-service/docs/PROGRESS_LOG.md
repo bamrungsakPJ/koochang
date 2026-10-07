@@ -62,6 +62,13 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-07 — ปรับข้อความหน้าแรกด้าน UX/SEO
+- ทำอะไร: แพ็กเกจที่ไม่มีที่นั่งช่างแสดง "เจ้าของรับงานเอง ไม่มีช่างในทีม" แทน "ช่าง 0 คน"; ป้ายแพ็กเกจตัดสินจากจำนวนที่นั่ง (เดิมป้ายซ้ำกัน); รายปีแสดงราคาเฉลี่ยต่อเดือนและยอดประหยัด แทนบรรทัดที่ซ้ำราคา; H1/title/description ใส่คีย์เวิร์ด โปรแกรมจัดการงานช่าง, ร้านแอร์, ล้างแอร์, งานซ่อม, งานติดตั้ง; แถบกลุ่มลูกค้าและ FAQ ร้านแอร์/ช่างคนเดียว/อุปกรณ์ (Android 7.0+); ตัดลิงก์ /console จาก footer สาธารณะ; เพิ่ม og-image 1200x630, twitter summary_large_image, JSON-LD (legalName, logo, Web+Android, AggregateOffer 290–1,290)
+- ปัญหา: ฐาน dev ไม่มี migration 027–028 ทำให้ /v1/catalog ใน dev ล้ม (padmin.public_catalog ไม่มี) → รัน pnpm db:migrate บนฐาน dev; ฐาน dev มีแพ็กเกจคนละรหัสกับ staging จึงเปลี่ยนป้ายเป็นอิงจำนวนที่นั่ง; H1 บนมือถือตัดคำเหลือ "ช่าง" บรรทัดเดียว → ห่อวลีด้วย inline-block
+- ตรวจ: admin typecheck และ next build ผ่าน; dev 375px ไม่มี horizontal overflow; รายปียังไม่ได้ตรวจใน dev (ฐาน dev ไม่มีแพ็กเกจรายปี) ต้องตรวจหลัง deploy
+- ราคาใน description/JSON-LD เป็นค่าคงที่ ต้องแก้ตามเมื่อเปลี่ยนราคาใน console
+- Deploy: output/website-seo-20261007.tar รอผู้ใช้รันบน server2 (Claude เขียนบนเซิร์ฟเวอร์ไม่ได้)
+
 ### 2026-10-07 — โดเมน koochang.com: www และราคาแพ็กเกจบนหน้าแรก
 - ปัญหา 1: เครื่อง dev เปิด koochang.com ไม่ได้ — สาเหตุ เราเตอร์ 192.168.1.1 จำคำตอบเก่า (SOA serial เก่า) ก่อนเพิ่ม record root; DNS สาธารณะถูกต้อง หายเองตาม TTL ✅
 - ปัญหา 2: www.koochang.com ไม่มี record — ผู้ใช้เพิ่ม CNAME www → koochang.com (Proxied) และ Redirect Rule ใน Cloudflare (Claude แก้ DNS เองไม่ได้ ถูกบล็อก) รอบแรก rule ไม่มี /* และปลายทางเป็นข้อความ concat(...) ตรงตัว จึงได้ 530/1016 → แก้เป็น https://www.koochang.com/* → https://koochang.com/${1} 301 + preserve query ✅ ตรวจ / และ /privacy?x=1 ได้ 301 ถูกต้อง
