@@ -20,7 +20,7 @@
 - **ส่งรูปและ OCR**: แก้การส่งรูปป้าย/รูปงานเป็น native bytes เพิ่มภาพตัวอย่าง สถานะอัปโหลด/อ่านรูป ผลยี่ห้อ/รุ่น/Serial ข้อผิดพลาดและลองใหม่ ป้องกันผลรูปเก่าทับรูปใหม่ และอธิบายกรณีเซิร์ฟเวอร์ยังไม่ตั้งค่า AI; ยังต้องยืนยันบนโทรศัพท์จริง
 - **ลดค่าใช้จ่าย AI**: ใช้ `claude-haiku-4-5-20251001`, จำกัด 512 tokens, ปิด thinking และไม่มี fallback ไปโมเดลแพง Prompt อ่านเฉพาะ brand/model/serial_number คงตัวอักษรและเลขศูนย์ ไม่เดาข้อมูลที่อ่านไม่ได้ และไม่ทำตามคำสั่งในภาพ ทดสอบ Anthropic จริงด้วยภาพสังเคราะห์อ่านตรงครบ 3 ช่องประมาณ 4 วินาที ยังไม่ใช่ผลทดสอบรูปถ่ายจริง
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
-- **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.8 / Build 10** (ลิงก์นโยบาย/ข้อตกลง) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.8-build10.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.9 / Build 11** (Firebase push + OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.9-build11.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02 (2026-10-07); Claude push เองไม่ได้ ผู้ใช้เป็นคนรัน git push
 - **Staging**: server2 อัปเดต API/worker ถึง `8349bae`, migration 027, มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว ยังไม่มีงานเว็บไซต์สาธารณะชุดล่าสุดและ OTP Ref
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
@@ -31,7 +31,7 @@
 1. มือถือยังไม่มีโหลดหน้าถัดไป ลูกค้าเริ่มต้น 30 รายการ งาน 200 รายการต่อคำค้น/ตัวกรอง; วันนัดเลือกได้วันนี้และอีก 6 วัน เวลาเป็นชุดตายตัว
 2. แยกร่างผลบริการตามผู้ใช้สำหรับโทรศัพท์ที่ใช้ร่วมกัน; offline ปัจจุบันมีเฉพาะร่าง ยังไม่มี cache ข้อมูลเครื่อง/คิวรูปส่งเมื่อกลับออนไลน์
 3. ตรวจหรือปรับการส่งสลิปบนมือถือที่ยังใช้ Blob ให้สอดคล้องกับรูปป้าย ยังไม่มีหลักฐานยืนยันว่าการส่งสลิปนี้เสียจริง
-4. ตั้งค่า Firebase สำหรับ Android APK และ worker เพื่อรับ Push จริง; iOS Push ยังไม่รองรับ
+4. Push: ตั้ง Firebase + worker `push=fcm` แล้ว และ APK 0.2.9 มี google-services แล้ว — เหลือทดสอบรับ push จริงบนมือถือ; iOS Push ยังไม่รองรับ
 5. SMS ใช้ DeeSMSx — **รอ DeeSMSx อนุมัติ sender name** (2026-10-07); เมื่ออนุมัติแล้วตั้ง sender/keys ใน console, เอา `SMS_PROVIDER=thsms` ออกจาก env staging (env ชนะค่าใน console) แล้วทดสอบ OTP จริงพร้อม Ref
 6. ทดสอบ Android APK บนโทรศัพท์จริงต่อ — ผ่านแล้ว: ปุ่มย้อนกลับ, เปิดงาน, อ่านป้ายเครื่อง (OCR), GPS, สแกนนิ้ว; ยังเหลือ: ชำระเงิน/กลับเข้าแอป (ยังไปไม่ถึง), APK 0.2.8 หน้าเกี่ยวกับแอป (Build 10 + ลิงก์นโยบาย/ข้อตกลง), session หลังเปิดใหม่/อัปเดต, ร่าง/เน็ตหลุด, keyboard/ขนาดตัวอักษร
 7. ทดสอบ EasySlip/Stripe จริงตามโหมดที่พร้อม รวมทั้งเปิดสิทธิ์ทันทีและกรณีผิดพลาด; ทำ UAT เว็บร้าน/console และวัดความแม่น OCR ด้วยรูปถ่ายจริง
@@ -62,6 +62,12 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-07 — Push FCM: Firebase จริง + APK 0.2.9 / Build 11
+- ผู้ใช้สร้าง Firebase project `koochang-e55ff` (Android app `com.koochang.app`) วาง `apps/mobile/google-services.json` (git-ignored) และตั้ง worker บน server2: service account ที่ /etc/field-service/fcm-service-account.json, `PUSH_PROVIDER=fcm` → log worker ขึ้น `push=fcm` ✅
+- ทำ: app.json 0.2.9 / versionCode 11 + `android.googleServicesFile`; D:\kc เพิ่ม classpath `com.google.gms:google-services:4.4.1` ใน android/build.gradle, `apply plugin: "com.google.gms.google-services"` ใน app/build.gradle และคัดลอก google-services.json ไป android/app (แก้มือ ไม่ prebuild เพื่อไม่ให้ signing ถูกรีเซ็ต); คัดลอกโค้ด OTP Ref (api.ts, onboarding.tsx, i18n) ไป D:\kc
+- Build สำเร็จ 27m59s (คอมไพล์ native ใหม่เพราะเพิ่ม plugin); ตรวจ package com.koochang.app, versionCode 11, versionName 0.2.9, certificate SHA-256 4eed9485… ตรงเดิม, มี resource google_app_id/gcm_defaultSenderId; ไฟล์ output/builds/apk/KooChang-0.2.9-build11.apk (SHA-256 ce17cf90cca19ab3…)
+- ยังไม่ได้ทดสอบ push จริงบนมือถือ; staging API ยังไม่ได้ deploy OTP Ref (แอปจะแสดง Ref เมื่อ API ส่ง `reference` กลับมา)
 
 ### 2026-10-07 — ผลทดสอบเปิดงานบนมือถือ และสถานะ DeeSMSx
 - ผู้ใช้ทดสอบเปิดงานบนมือถือจริง: ใช้งานได้ ✅ ยังไม่ได้ทดสอบถึงขั้นชำระเงิน
