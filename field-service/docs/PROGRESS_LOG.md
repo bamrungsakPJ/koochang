@@ -22,7 +22,7 @@
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
 - **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.10 / Build 12** (ไม่มีปุ่มเริ่มงาน, Firebase push, OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.10-build12.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02 (2026-10-07); Claude push เองไม่ได้ ผู้ใช้เป็นคนรัน git push
-- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `9eaffdb` (2026-10-07), migration 028, มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
+- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `28420b2` (2026-10-08), migration 031 (ตัดบัตรอัตโนมัติ, กติกาการระงับ, ปรับแพ็กเกจ, คู่มือ console), มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — บันทึกผลบริการ/จบงานโดยไม่ต้องกดเริ่มงาน (APK 0.2.10), push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
 - **ผลตรวจ**: มีผล typecheck/build และชุดทดสอบที่เกี่ยวข้องบันทึกในรายวันและ [VERIFICATION.md](VERIFICATION.md) ตัวเลขทดสอบแต่ละรอบเป็นผล ณ เวลานั้น ไม่ใช่การรันทดสอบทั้งหมดใหม่ในวันที่ 2026-10-07
 
@@ -34,7 +34,7 @@
 4. Push: ตั้ง Firebase + worker `push=fcm` แล้ว และ APK 0.2.9 มี google-services แล้ว — ทดสอบรับ push จริงบนมือถือผ่านแล้ว (2026-10-07); iOS Push ยังไม่รองรับ
 5. SMS ใช้ DeeSMSx — **รอ DeeSMSx อนุมัติ sender name** (2026-10-07); เมื่ออนุมัติแล้วตั้ง sender/keys ใน console, เอา `SMS_PROVIDER=thsms` ออกจาก env staging (env ชนะค่าใน console) แล้วทดสอบ OTP จริงพร้อม Ref
 6. ทดสอบ Android APK บนโทรศัพท์จริงต่อ — ผ่านแล้ว: ปุ่มย้อนกลับ, เปิดงาน, บันทึกผลบริการ/จบงาน (ไม่มีปุ่มเริ่มงาน), push, อ่านป้ายเครื่อง (OCR), GPS, สแกนนิ้ว; ยังเหลือ: ชำระเงิน/กลับเข้าแอป (ยังไปไม่ถึง), APK 0.2.8 หน้าเกี่ยวกับแอป (Build 10 + ลิงก์นโยบาย/ข้อตกลง), session หลังเปิดใหม่/อัปเดต, ร่าง/เน็ตหลุด, keyboard/ขนาดตัวอักษร
-7. Deploy migration 029–031 + API/worker/web ขึ้น staging, ทดสอบปรับราคาแพ็กเกจกับร้านเดิม (แจ้ง 30 วัน + Stripe เปลี่ยนราคา), ตั้ง Stripe Dashboard (เพิ่ม webhook events 4 ตัว, retry แล้วยกเลิก subscription, เปิด customer portal) แล้วทดสอบ subscription ด้วย test mode (บัตร 4242, test clock เลื่อนรอบ, บัตรถูกปฏิเสธ 4000000000000341); ทดสอบกติกาการระงับร้าน (ชั่วคราว 14 วัน → ถาวรอัตโนมัติ) บน staging; ทดสอบ EasySlip/Stripe จริงตามโหมดที่พร้อม รวมทั้งเปิดสิทธิ์ทันทีและกรณีผิดพลาด; ทำ UAT เว็บร้าน/console และวัดความแม่น OCR ด้วยรูปถ่ายจริง
+7. (deploy 029–031 ขึ้น staging แล้ว 2026-10-08) ทดสอบปรับราคาแพ็กเกจกับร้านเดิม (แจ้ง 30 วัน + Stripe เปลี่ยนราคา), ตั้ง Stripe Dashboard (เพิ่ม webhook events 4 ตัว, retry แล้วยกเลิก subscription, เปิด customer portal) แล้วทดสอบ subscription ด้วย test mode (บัตร 4242, test clock เลื่อนรอบ, บัตรถูกปฏิเสธ 4000000000000341); ทดสอบกติกาการระงับร้าน (ชั่วคราว 14 วัน → ถาวรอัตโนมัติ) บน staging; ทดสอบ EasySlip/Stripe จริงตามโหมดที่พร้อม รวมทั้งเปิดสิทธิ์ทันทีและกรณีผิดพลาด; ทำ UAT เว็บร้าน/console และวัดความแม่น OCR ด้วยรูปถ่ายจริง
 8. Build/ทดสอบ iOS และเตรียมปล่อยร้านแอป; เตรียม production, backup นอกเครื่อง, นโยบายความเป็นส่วนตัว/ข้อตกลงการใช้งานขึ้นเว็บแล้วและมีลิงก์ในหน้าเกี่ยวกับแอปแล้ว (รอ APK) และ git remote/CI ตามความพร้อม
 
 ผลตรวจรายละเอียดอยู่ใน [MOBILE_STATUS_2026-10-07.md](MOBILE_STATUS_2026-10-07.md) รายการค้างข้อ 1–5, 7–8 ยังไม่ได้แก้ รายวันด้านล่างเก็บประวัติตามเวลา จึงอาจมีสถานะเก่าที่ถูกแก้แล้ว
@@ -62,6 +62,12 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-08 — Deploy staging ถึง 28420b2 (migration 029–031)
+- ผู้ใช้สั่ง deploy: git bundle → server2 fetch/reset → pnpm install → build (NEXT_PUBLIC_API_URL=https://api-staging.koochang.com) → migrate → pm2 restart fs-staging-api/worker/web
+- ก่อน migrate ตรวจว่ามีสำรองฐานข้อมูลคืนนี้ (db-20261007T193001Z.dump, 02:30) และคัดลอก offsite แล้ว
+- ผล: Applied 029_stripe_subscription, 030_suspension_rules, 031_plan_changes; ทั้ง 3 แอป online, worker เริ่มปกติ (ocr=runtime push=fcm) ไม่มี error log; https://api-staging.koochang.com/v1/health = ok, /console และ /terms = 200, หน้า terms แสดงฉบับ 1.2
+- ยังต้องทำบน Stripe Dashboard ก่อนทดสอบตัดบัตรอัตโนมัติ: เพิ่ม webhook events 4 ตัว (invoice.paid, invoice.payment_failed, customer.subscription.updated, customer.subscription.deleted), ตั้ง retry แล้วยกเลิก subscription, เปิด customer portal; แล้วทดสอบด้วย test mode
 
 ### 2026-10-08 — คู่มือการปรับแพ็กเกจในหน้า console
 - ผู้ใช้ขอ: บันทึกกติกาปรับแพ็กเกจ (แบบ C) เป็นคู่มือฝั่ง console และแสดงในหน้าปรับแพ็กเกจ
