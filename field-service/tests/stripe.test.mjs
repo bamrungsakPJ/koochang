@@ -183,3 +183,44 @@ test('Stripe credentials rotate without losing existing sessions or exposing sec
  const bad=service();bad.client=()=>({accounts:{retrieve:async()=>({id:'acct_foreign',country:'US',charges_enabled:true})}});
  await assert.rejects(new PaymentSettingsController(platform,bad,settings).save(account,randomUUID(),{version:saved.version,credential_id:randomUUID(),secret_key:'sk_test_foreign1234',webhook_secret:'whsec_foreign1234',card_enabled:true,qr_enabled:true}),e=>e.getStatus()===400);
 });
+test('approving a refund of a Stripe payment refunds through Stripe once; refused marks failed; bank payments stay manual',async()=>{
+ const {PlatformBillingController}=await import('../apps/api/dist/platform/platform-billing.controller.js');
+ const f=await fixture(),provider=service(),paid=session(f);paid.metadata.credential_id=f.attempt.credential_id; // the test before rotated the credential
+ mockClient(provider,paid);await provider.refresh(f.attempt.id);
+ const payment=(await db.query('SELECT id FROM billing.payments WHERE invoice_id=$1',[f.invoice])).rows[0].id;
+ const approver=(await db.query("INSERT INTO platform.accounts(display_name,email) VALUES('Refund approver',$1) RETURNING id",[`${randomUUID()}@test.invalid`])).rows[0].id;
+ await db.query("INSERT INTO platform.account_roles(account_id,role_id) SELECT $1,id FROM platform.roles WHERE code='billing_approver'",[approver]);
+ const calls=[],refunds=[];let refuse=false;
+ provider.client=()=>({refunds:{list:async p=>({data:refunds.filter(r=>r.payment_intent===p.payment_intent)}),
+  create:async(p,o)=>{calls.push({p,o});if(refuse)throw new Stripe.errors.StripeInvalidRequestError({message:'synthetic',code:'charge_already_refunded'});
+   const r={id:`re_${randomUUID().replaceAll('-','')}`,status:'succeeded',payment_intent:p.payment_intent,metadata:p.metadata};refunds.push(r);return r;}}});
+ const platform={run:operation=>role('fs_platform',operation)},controller=new PlatformBillingController(platform,null,provider);
+ const op={accountId:operator},ap={accountId:approver};
+ const one=await controller.requestRefund(op,randomUUID(),payment,{amount_minor:20000,reason:'ทดสอบคืนผ่าน Stripe'});
+ assert.ok((await controller.refunds(ap)).items.find(r=>r.refund_id===one.refund_id).via_stripe);
+ assert.deepEqual(await controller.approve(ap,randomUUID(),one.refund_id,{}),{ok:true,stripe:'succeeded'});
+ assert.equal(calls.length,1);assert.equal(calls[0].p.amount,20000);assert.equal(calls[0].p.payment_intent,`pi_${f.attempt.id.replaceAll('-','')}`);assert.equal(calls[0].o.idempotencyKey,`refund:${one.refund_id}`);
+ const row=(await db.query('SELECT status,bank_reference FROM billing.refunds WHERE id=$1',[one.refund_id])).rows[0];
+ assert.equal(row.status,'succeeded');assert.equal(row.bank_reference,`STRIPE:${refunds[0].id}`);
+ await assert.rejects(controller.stripeRetry(ap,randomUUID(),one.refund_id),e=>e.getStatus()===422,'a finished refund is not refunded again');
+ // Approved earlier while Stripe was unreachable: the retry finds the Stripe refund already carrying our id.
+ const two=await controller.requestRefund(op,randomUUID(),payment,{amount_minor:10000,reason:'ส่วนที่สอง'});
+ provider.client=(()=>{const c=provider.client();return()=>({refunds:{list:async()=>{throw new Stripe.errors.StripeConnectionError({message:'down'});},create:c.refunds.create}});})();
+ assert.deepEqual(await controller.approve(ap,randomUUID(),two.refund_id,{}),{ok:true,stripe:'retry'});
+ assert.equal((await db.query('SELECT status FROM billing.refunds WHERE id=$1',[two.refund_id])).rows[0].status,'approved');
+ refunds.push({id:'re_lostresponse1',status:'succeeded',payment_intent:calls[0].p.payment_intent,metadata:{refund_id:two.refund_id}});
+ provider.client=()=>({refunds:{list:async p=>({data:refunds.filter(r=>r.payment_intent===p.payment_intent)}),create:async()=>{throw Error('must not create twice');}}});
+ assert.deepEqual(await controller.stripeRetry(ap,randomUUID(),two.refund_id),{ok:true,stripe:'succeeded'});
+ assert.equal((await db.query('SELECT bank_reference FROM billing.refunds WHERE id=$1',[two.refund_id])).rows[0].bank_reference,'STRIPE:re_lostresponse1');
+ await assert.rejects(controller.requestRefund(op,randomUUID(),payment,{amount_minor:59000-30000+1,reason:'เกิน'}),e=>e.getStatus()===422);
+ // Stripe refuses: the refund is marked failed and its amount can be requested again.
+ const three=await controller.requestRefund(op,randomUUID(),payment,{amount_minor:29000,reason:'ส่วนที่สาม'});refuse=true;
+ provider.client=()=>({refunds:{list:async()=>({data:[]}),create:async()=>{throw new Stripe.errors.StripeInvalidRequestError({message:'synthetic',code:'charge_already_refunded'});}}});
+ assert.deepEqual(await controller.approve(ap,randomUUID(),three.refund_id,{}),{ok:true,stripe:'refused'});
+ assert.equal((await db.query('SELECT status FROM billing.refunds WHERE id=$1',[three.refund_id])).rows[0].status,'failed');
+ assert.ok((await controller.requestRefund(op,randomUUID(),payment,{amount_minor:29000,reason:'ขอใหม่'})).refund_id);
+ const audit=(await db.query("SELECT details FROM platform.audit_logs WHERE target_id=$1 AND action='refund.failed'",[three.refund_id])).rows[0].details;
+ assert.equal(audit.via,'stripe');assert.equal(audit.error,'charge_already_refunded');
+ // Only refund.approve triggers Stripe.
+ await assert.rejects(role('fs_platform',c=>c.query('SELECT padmin.stripe_refund_target($1,$2)',[operator,one.refund_id])),/permission/);
+});

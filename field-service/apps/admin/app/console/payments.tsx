@@ -16,7 +16,7 @@ interface Detail {
   period: { start_at: string; end_at: string } | null;
 }
 interface RefundRow { refund_id: string; invoice_id: string; number: string; organization_name: string; amount_minor: string; paid_minor: string; status: string; reason: string;
-  requested_by: string; requested_by_name: string; created_at: string }
+  requested_by: string; requested_by_name: string; created_at: string; via_stripe?: boolean }
 
 const message = (e: unknown) => e instanceof ConsoleError ? e.message : String(e);
 const bahtToMinor = (v: string) => { const n = Number(v.replace(/,/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : NaN; };
@@ -153,7 +153,7 @@ export function InvoiceView({ id, me, onBack }: { id: string; me: Me; onBack: ()
       {detail.refunds.length ? <div className="table-scroll"><table><thead><tr><th className="num">{t('amount')}</th><th>{t('status')}</th><th>{t('reason')}</th><th>{t('created')}</th><th /></tr></thead>
         <tbody>{detail.refunds.map(r => <tr key={r.id}><td className="num">{money(r.amount_minor, lang)}</td><td><Pill kind="refund" value={r.status} /></td>
           <td>{r.reason}<div className="muted">{t('requestedBy', { name: r.requested_by })}</div></td><td>{dateTime(r.created_at, lang)}</td>
-          <td><RefundActions refund={{ id: r.id, status: r.status, requested_by: r.requested_by_id }} me={me} onDone={() => void load()} /></td></tr>)}</tbody></table></div> : null}
+          <td><RefundActions refund={{ id: r.id, status: r.status, requested_by: r.requested_by_id, via_stripe: /^STRIPE:(pi|in)_/.test(detail.payment?.bank_reference ?? '') }} me={me} onDone={() => void load()} /></td></tr>)}</tbody></table></div> : null}
       {can('refund.request') ? <form onSubmit={requestRefund} className="inline">
         <label>{t('refundAmount')}<input inputMode="decimal" required value={refundAmount} onChange={e => setRefundAmount(e.target.value)} /></label>
         <label className="grow">{t('reason')}<input required maxLength={500} value={refundReason} onChange={e => setRefundReason(e.target.value)} /></label>
@@ -163,7 +163,7 @@ export function InvoiceView({ id, me, onBack }: { id: string; me: Me; onBack: ()
   </section>;
 }
 
-function RefundActions({ refund, me, onDone }: { refund: { id: string; status: string; requested_by: string }; me: Me; onDone: () => void }) {
+function RefundActions({ refund, me, onDone }: { refund: { id: string; status: string; requested_by: string; via_stripe?: boolean }; me: Me; onDone: () => void }) {
   const t = useText(), ask = useAsk();
   const stepUp = useStepUp();
   const [error, setError] = useState<string | null>(null);
@@ -171,16 +171,23 @@ function RefundActions({ refund, me, onDone }: { refund: { id: string; status: s
   const [busy, setBusy] = useState(false);
   async function act(path: string, body: unknown) {
     setBusy(true); setError(null);
-    try { await stepUp(() => call('POST', `/platform/billing/refunds/${refund.id}/${path}`, body)); onDone(); }
+    try {
+      const result = await stepUp(() => call<{ stripe?: string }>('POST', `/platform/billing/refunds/${refund.id}/${path}`, body));
+      if (result?.stripe === 'retry') setError(t('stripeRefundRetry'));
+      else if (result?.stripe === 'refused') setError(t('stripeRefundRefused'));
+      onDone();
+    }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   const approver = me.permissions.includes('refund.approve') && (refund.requested_by !== me.id || isSuperAdmin(me));
   return <div className="actions">
     {refund.status === 'pending' && approver ? <>
-      <button className="primary small" disabled={busy} onClick={() => act('approve', {})}>{t('approve')}</button>
+      <button className="primary small" disabled={busy} onClick={() => act('approve', {})} title={refund.via_stripe ? t('stripeRefundHint') : undefined}>{t('approve')}</button>
       <button className="danger small" disabled={busy} onClick={async () => { const reason = await ask({ title: t('reject'), input: { label: t('reason'), required: true }, danger: true }); if (reason) void act('reject', { reason }); }}>{t('reject')}</button>
     </> : null}
-    {refund.status === 'approved' && me.permissions.includes('refund.request') ? <>
+    {refund.status === 'approved' && refund.via_stripe && me.permissions.includes('refund.approve') ?
+      <button className="primary small" disabled={busy} onClick={() => act('stripe', {})}>{t('stripeRefund')}</button> : null}
+    {refund.status === 'approved' && !refund.via_stripe && me.permissions.includes('refund.request') ? <>
       <input placeholder={t('bankReference')} value={reference} onChange={e => setReference(e.target.value)} />
       <button className="primary small" disabled={busy || !reference} onClick={() => act('complete', { succeeded: true, bank_reference: reference })}>{t('complete')}</button>
       <button className="ghost small" disabled={busy} onClick={() => act('complete', { succeeded: false })}>{t('failed')}</button>
@@ -206,7 +213,7 @@ export function RefundsView({ me, onOpen }: { me: Me; onOpen: (invoiceId: string
         <td><button className="link" onClick={() => onOpen(r.invoice_id)}>{r.number}</button></td><td>{r.organization_name}</td>
         <td className="num">{money(r.amount_minor, lang)} <span className="muted">/ {money(r.paid_minor, lang)}</span></td><td><Pill kind="refund" value={r.status} /></td>
         <td>{r.reason}<div className="muted">{t('requestedBy', { name: r.requested_by_name })} · {dateTime(r.created_at, lang)}</div></td>
-        <td><RefundActions refund={{ id: r.refund_id, status: r.status, requested_by: r.requested_by }} me={me} onDone={() => void load()} /></td>
+        <td><RefundActions refund={{ id: r.refund_id, status: r.status, requested_by: r.requested_by, via_stripe: r.via_stripe }} me={me} onDone={() => void load()} /></td>
       </tr>) : <tr><td colSpan={6} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
     </table></div>
   </section>;

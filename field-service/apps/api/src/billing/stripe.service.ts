@@ -234,6 +234,32 @@ export class StripeService implements OnModuleDestroy {
     }
     return rows.length;
   }
+  /** Approved refund of a Stripe payment: Stripe returns the money to the card. One Stripe refund per refund row —
+   * an earlier one carrying our refund id is reused, so a retry after a lost response never refunds twice.
+   * `refused` = Stripe declined it (e.g. already refunded or disputed); other errors are left to retry. */
+  async refund(target:{refund_id:string;amount_minor:number|string;credential_id:string;payment_intent?:string;stripe_invoice?:string}):
+    Promise<{stripe_refund:string;succeeded:true}|{refused:string}> {
+    const config=await this.config(target.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
+    if(this.settings.production&&config.mode!=='live')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
+    const stripe=this.client(this.credentials(config).key);
+    try {
+      let intent=target.payment_intent;
+      if(!intent&&target.stripe_invoice){
+        const paid=(await stripe.invoicePayments.list({invoice:target.stripe_invoice,limit:10})).data.find(p=>p.status==='paid');
+        const pi=paid?.payment?.payment_intent;intent=typeof pi==='string'?pi:pi?.id;
+      }
+      if(!intent)return {refused:'payment_not_found'};
+      const earlier=(await stripe.refunds.list({payment_intent:intent,limit:100})).data.find(r=>r.metadata?.refund_id===target.refund_id&&r.status!=='failed'&&r.status!=='canceled');
+      const refund=earlier??await stripe.refunds.create({payment_intent:intent,amount:Number(target.amount_minor),metadata:{refund_id:target.refund_id}},
+        {idempotencyKey:`refund:${target.refund_id}`});
+      if(refund.status==='failed'||refund.status==='canceled')return {refused:refund.failure_reason??refund.status};
+      return {stripe_refund:refund.id,succeeded:true};
+    }catch(e){
+      const error=e as {type?:string;code?:string};
+      if(error.type==='StripeInvalidRequestError')return {refused:error.code??'invalid_request'};
+      throw apiError(503,'TEMPORARILY_UNAVAILABLE');
+    }
+  }
   async webhook(credentialId:string,body:Buffer,signature:string) {
     const config=await this.config(credentialId);if(!config)throw apiError(400,'VALIDATION_ERROR');
     if(this.settings.production&&config.mode!=='live')throw apiError(400,'VALIDATION_ERROR');

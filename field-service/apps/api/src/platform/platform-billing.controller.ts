@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Optional, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { StripeService } from '../billing/stripe.service.js';
 import { OBJECT_STORAGE, type ObjectStorage } from '../media/object-storage.js';
 import { RequestId } from '../auth/session.guard.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
@@ -16,7 +17,8 @@ const confirmErrors: Record<string, [number, Parameters<typeof apiError>[1]]> = 
 @Controller('platform/billing')
 @UseGuards(PlatformGuard)
 export class PlatformBillingController {
-  constructor(private readonly database: PlatformDatabaseService, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null) {}
+  constructor(private readonly database: PlatformDatabaseService, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null,
+    @Optional() private readonly stripe?: StripeService) {}
 
   @Get('invoices') @Permission('billing.read')
   invoices(@Account() account: PlatformAccount, @Query('status') status?: string, @Query('offset') offset?: string, @Query('organization_id') organizationId?: string) {
@@ -94,7 +96,7 @@ export class PlatformBillingController {
 
   @Get('refunds') @Permission('billing.read')
   refunds(@Account() account: PlatformAccount) {
-    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.refund_queue($1)', [account.accountId])).rows }));
+    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.refund_list($1)', [account.accountId])).rows }));
   }
 
   @Post('payments/:id/refunds') @Permission('refund.request') @StepUp()
@@ -112,8 +114,20 @@ export class PlatformBillingController {
   }
 
   @Post('refunds/:id/approve') @HttpCode(200) @Permission('refund.approve') @StepUp()
-  approve(@Account() account: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Body() body: Record<string, unknown> = {}) {
-    return this.decide(account, requestId, id, true, body);
+  async approve(@Account() account: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Body() body: Record<string, unknown> = {}) {
+    await this.decide(account, requestId, id, true, body);
+    // A Stripe payment is refunded through Stripe right away; a failed call leaves it approved for /stripe to retry.
+    try { return { ok: true, ...await this.stripeRefund(account, requestId, id) }; }
+    catch { return { ok: true, stripe: 'retry' }; }
+  }
+
+  /** Retry the Stripe refund of an approved refund (after a timeout, or one approved before refunds went through Stripe). */
+  @Post('refunds/:id/stripe') @HttpCode(200) @Permission('refund.approve') @StepUp()
+  async stripeRetry(@Account() account: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string) {
+    this.id(id);
+    const result = await this.stripeRefund(account, requestId, id);
+    if (!result.stripe) throw apiError(422, 'INVALID_STATE_TRANSITION');
+    return { ok: true, ...result };
   }
 
   @Post('refunds/:id/reject') @HttpCode(200) @Permission('refund.approve') @StepUp()
@@ -162,6 +176,19 @@ export class PlatformBillingController {
     if (outcome === 'self_approval') throw apiError(403, 'SELF_APPROVAL_FORBIDDEN');
     if (outcome !== 'ok') throw apiError(422, 'INVALID_STATE_TRANSITION');
     return { ok: true };
+  }
+
+  /** stripe: undefined = not a Stripe payment (manual bank refund), 'succeeded', or 'refused' (marked failed). */
+  private async stripeRefund(account: PlatformAccount, requestId: string, id: string): Promise<{ stripe?: 'succeeded' | 'refused' }> {
+    const target = await this.database.run(async c => (await c.query('SELECT padmin.stripe_refund_target($1,$2) AS t', [account.accountId, id])).rows[0].t);
+    if (!target) return {};
+    if (!this.stripe) throw apiError(503, 'TEMPORARILY_UNAVAILABLE');
+    const result = await this.stripe.refund(target);
+    const succeeded = 'stripe_refund' in result;
+    const outcome = await this.database.run(async c => (await c.query('SELECT padmin.finish_stripe_refund($1,$2,$3,$4,$5,$6) AS o',
+      [account.accountId, id, succeeded ? result.stripe_refund : null, succeeded, succeeded ? null : result.refused, requestId])).rows[0].o);
+    if (outcome !== 'ok') throw apiError(422, 'INVALID_STATE_TRANSITION');
+    return { stripe: succeeded ? 'succeeded' : 'refused' };
   }
 
   private id(value: string) { if (!uuidPattern.test(value)) throw apiError(404, 'RESOURCE_NOT_FOUND'); }
