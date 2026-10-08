@@ -65,6 +65,8 @@ pm2 restart fs-staging-api fs-staging-worker
 **B7. เปิด Customer portal** Settings → Billing → **Customer portal**
 - เปิด: อัปเดตวิธีชำระเงิน (Payment methods) และ ดูประวัติใบแจ้งหนี้ (Invoice history)
 - **ปิด** การยกเลิก subscription ในพอร์ทัล — ให้เจ้าของร้านยกเลิกผ่านปุ่มในแอปของเรา ระบบจะได้รู้ว่าเป็นการยกเลิกเอง
+- **ปิด** การเปลี่ยนแพ็กเกจ (Switch plans / Subscription updates) และการเปลี่ยนจำนวน (Update quantities) — ราคากำหนดจากคอนโซลเท่านั้น ถ้าเปิดไว้ ลูกค้าจะเปลี่ยนยอดตัดบัตรเองได้ ระบบจะกันการต่ออายุ (PAYMENT_MISMATCH) แต่ต้องตามแก้ด้วยมือ
+- ไม่ต้องสร้าง Product / Price ใน Stripe Dashboard — ระบบส่งราคาจากแพ็กเกจในคอนโซลให้ Stripe เองตอนชำระเงิน
 - กด Save / Activate test link
 
 ---

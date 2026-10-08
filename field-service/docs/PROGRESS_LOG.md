@@ -66,6 +66,10 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-08 — เอกสาร Stripe: ราคามาจากคอนโซลเท่านั้น + ปิดเปลี่ยนแพ็กเกจใน customer portal
+- ผู้ใช้ถามว่าตั้งค่า Stripe รายแพ็กเกจที่ไหน และลูกค้าแก้ราคาที่จ่ายเองได้ไหม → ตรวจโค้ด: ไม่มีการตั้งค่ารายแพ็กเกจใน Stripe (ส่ง price_data จากใบแจ้งหนี้), client ส่งแค่ invoice id + วิธีจ่าย, ยอดตรวจซ้ำตอนยืนยัน (015 finish_stripe, 029 PAYMENT_MISMATCH, EasySlip AMOUNT_MISMATCH)
+- ช่องโหว่ทางเดียวคือ customer portal ถ้าเปิด Switch plans/Update quantities → เพิ่มหัวข้อ "Prices" ใน docs/STRIPE.md และขั้นตั้ง portal ใน STRIPE.md + STRIPE_TEST_RUNBOOK.md B7 ให้ปิดสองตัวนี้ และไม่ต้องสร้าง Product/Price ใน Dashboard
+
 ### 2026-10-08 — Push + deploy staging ถึง d81f87e (หน้าแพ็กเกจแบบตาราง)
 - push field-service-a02 ไป origin แล้ว; git bundle → server2 fetch/reset → pnpm install → build (NEXT_PUBLIC_API_URL=https://api-staging.koochang.com) → pm2 restart (ไม่มี migration ใหม่); 3 แอป online, /v1/health ok, /console 200 ทั้ง app-staging และ koochang.com, build มีโค้ดตารางแพ็กเกจ
 - ปัญหา: รัน pnpm install/build ผิดโฟลเดอร์ (รากของ repo แทน field-service/) ทำให้ build ล้มและเกิดไฟล์ `/opt/field-service/staging/pnpm-workspace.yaml` ที่ git ไม่ติดตาม; การลบไฟล์ถูกระบบอัตโนมัติบล็อก → ไม่กระทบ build (field-service มี workspace ของตัวเอง) ผู้ใช้ลบเองได้; ขั้นตอนที่ถูก: ต้อง cd `/opt/field-service/staging/field-service` ก่อน install/build

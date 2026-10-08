@@ -13,6 +13,25 @@ period. PromptPay uses Checkout **payment** mode;
 Checkout subscription/setup mode for this method. Cards can additionally renew automatically — see
 **Automatic card renewal** below.
 
+## Prices: set per plan in the console, never in Stripe
+
+There is **no per-plan Stripe setup**: do not create Products or Prices in the Stripe Dashboard (they
+would not be used). Plan prices are set only in console → **Plans and prices**. At checkout the API
+sends the invoice amount as inline `price_data` (THB, month/year for subscriptions); price changes reach
+existing card subscriptions through `StripeService.pushPrices` (see **Plan changes** below).
+
+Owners cannot change what they pay:
+- The owner clients send only the invoice id and payment method. The amount comes from the invoice in
+  the database (`worker.prepare_stripe`), and the invoice is created server-side from the plan's price
+  version. Checkout runs on Stripe's hosted page with the platform's secret key, which stays on the API.
+- Confirmation re-checks the amount. A one-time payment whose amount or currency differs from the
+  invoice is not applied (`015_stripe.sql`, `finish_stripe`). A subscription invoice that differs is
+  stored as `manual_review` / `PAYMENT_MISMATCH` and does not extend the shop (`029_stripe_subscription.sql`).
+  EasySlip slips are compared the same way (`AMOUNT_MISMATCH`).
+- The one way an owner could change a subscription's price is the Stripe customer portal, so plan
+  switching and quantity changes must stay **off** there (setup step 3 below). If they were on, the
+  mismatch check still blocks the renewal, but staff would have to sort it out by hand.
+
 ## Platform setup
 
 1. Apply migrations through **016_console_settings.sql** with fs_migrator; never seed production. There are now 53
@@ -151,7 +170,9 @@ Stripe Dashboard setup (same account/mode as the saved key):
    (recommended), so the shop is released to pay another way. "Mark unpaid" keeps it blocked until the
    owner cancels.
 3. Customer portal: enable payment-method update and invoice history; turning off cancellation in the
-   portal is recommended, since the app has its own cancel button.
+   portal is recommended, since the app has its own cancel button. **Keep "Switch plans" (subscription
+   updates / products) and "Update quantities" off**: prices come from the console only, and a change
+   made in the portal would not match the invoice (see **Prices** above).
 
 Reminders: renewal reminders go 7, 3 and **1** day before the end and are skipped when the next period
 is already paid. A shop with a live subscription that is not stopping gets `autopay_upcoming` instead
