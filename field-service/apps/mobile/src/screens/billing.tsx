@@ -59,7 +59,6 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
           seats: p.change.technician_seats, storage: Math.round(Number(p.change.storage_bytes) / 1e9) })} /> : null}
         <Feature text={p.technician_seats ? t('seatsN', { n: p.technician_seats }) : t('ownerOnly')} />
         <Feature text={t('storageN', { n: Math.round(Number(p.storage_bytes) / 1e9) })} />
-        <Feature text={t('ocrUnlimited')} />
         <View style={{ marginTop: 12 }}>
           <Button title={t('choosePlan')} icon="card-outline" busy={busy === p.price_version_id} disabled={!plans.payment_available || Boolean(busy)} onPress={() => choose(p)} />
         </View>
