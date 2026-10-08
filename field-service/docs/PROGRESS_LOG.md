@@ -63,6 +63,12 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-08 — คู่มือตั้งค่า Stripe ทีละขั้น + แผนทดสอบการชำระเงิน
+- ผู้ใช้ขอ: ขั้นตอนตั้งค่า Stripe ทีละขั้นและสร้างตัวทดสอบราคาต่ำ เพื่อทดสอบการชำระเงินและฝั่ง console; ตัดสินใจ: test mode ก่อนแล้วค่อย live, แพ็กเกจทดสอบ 20 บาท/เดือน, archive ทันทีหลังทดสอบ
+- ทำ: `docs/STRIPE_TEST_RUNBOOK.md` (เตรียม server, Stripe Dashboard: payment methods / API key / webhook 8 events / ยกเลิกเมื่อ retry ไม่สำเร็จ / customer portal ปิดการยกเลิกในพอร์ทัล, คอนโซล: บันทึกกุญแจ + สร้างแพ็กเกจ test20, ตารางทดสอบ D1–D11 พร้อมผลที่ควรเห็นทั้งร้านและคอนโซล, ขั้นตอน live และหลังทดสอบ); แก้ข้อความแนะนำในหน้าตั้งค่าการชำระเงินให้บอก 8 events (เดิมบอกแค่ 4 ตัวของ checkout)
+- ปัญหาที่พบ: staging `OWNER_WEB_URL` = https://app-staging.koochang.com ไม่มี /shop → หลังชำระ Stripe พากลับหน้าเว็บหลัก; ต้องให้เจ้าของ server แก้ (sudo) ตามคู่มือข้อ A1
+- ยังไม่ได้ทำ: ตั้งค่า Stripe จริงและทดสอบตามคู่มือ (ผู้ใช้ทำ)
+
 ### 2026-10-08 — Deploy staging ถึง 28420b2 (migration 029–031)
 - ผู้ใช้สั่ง deploy: git bundle → server2 fetch/reset → pnpm install → build (NEXT_PUBLIC_API_URL=https://api-staging.koochang.com) → migrate → pm2 restart fs-staging-api/worker/web
 - ก่อน migrate ตรวจว่ามีสำรองฐานข้อมูลคืนนี้ (db-20261007T193001Z.dump, 02:30) และคัดลอก offsite แล้ว

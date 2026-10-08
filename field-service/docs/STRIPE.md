@@ -26,7 +26,9 @@ Checkout subscription/setup mode for this method. Cards can additionally renew a
 4. In `/console` → **Payment settings**, copy the displayed webhook path and prefix the API's HTTPS
    origin. Register that endpoint in the same Stripe account/mode as the secret key. Subscribe to
    `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
-   `checkout.session.async_payment_failed` and `checkout.session.expired`.
+   `checkout.session.async_payment_failed` and `checkout.session.expired`; for automatic card renewal also
+   `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated` and `customer.subscription.deleted`.
+   Step-by-step Thai runbook for staging (test mode then live): [STRIPE_TEST_RUNBOOK.md](STRIPE_TEST_RUNBOOK.md).
 5. Enter both the Stripe secret key (`sk_test_...` or `sk_live_...`) and endpoint signing secret
    (`whsec_...`). The API checks the Stripe account and shows its account ID and mode. Enable card
    and/or QR both here and in Stripe Dashboard. PromptPay requires a Thai account and THB. Live
