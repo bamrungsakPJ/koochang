@@ -22,7 +22,7 @@
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
 - **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.10 / Build 12** (ไม่มีปุ่มเริ่มงาน, Firebase push, OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.10-build12.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02; field-service-a02 push ล่าสุด 2026-10-08 ถึง `51e56d7` (Claude push เองได้เมื่อผู้ใช้สั่ง)
-- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `fd1f8de` (2026-10-08, ไม่มี migration ใหม่หลัง 031; เว็บ build ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com`), migration 031 (ตัดบัตรอัตโนมัติ, กติกาการระงับ, ปรับแพ็กเกจ, คู่มือ console), มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
+- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `18ae795` (2026-10-08, ไม่มี migration ใหม่หลัง 031; เว็บ build ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com`), migration 031 (ตัดบัตรอัตโนมัติ, กติกาการระงับ, ปรับแพ็กเกจ, คู่มือ console), มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — บันทึกผลบริการ/จบงานโดยไม่ต้องกดเริ่มงาน (APK 0.2.10), push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
 - **ผลตรวจ**: มีผล typecheck/build และชุดทดสอบที่เกี่ยวข้องบันทึกในรายวันและ [VERIFICATION.md](VERIFICATION.md) ตัวเลขทดสอบแต่ละรอบเป็นผล ณ เวลานั้น ไม่ใช่การรันทดสอบทั้งหมดใหม่ในวันที่ 2026-10-07
 
@@ -67,6 +67,14 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-08 — จ่ายจากแอปแล้วกลับเข้าแอป + ตัดคำบรรยายยาว (APK 0.2.13 build 15, deploy 18ae795)
+
+- **ผู้ใช้แจ้ง**: (1) คำบรรยายใต้ตัวเลือกบัตรยาวเกิน ให้เอาออก (2) จ่ายจากแอปแล้วไปโผล่หน้า Sign in ของ koochang.com/shop ในเบราว์เซอร์โทรศัพท์
+- **สาเหตุ (2)**: แอปเปิด Stripe ในเบราว์เซอร์ จ่ายเสร็จ Stripe ส่งกลับ OWNER_WEB_URL (koochang.com/shop) ในเบราว์เซอร์ซึ่งไม่ได้ล็อกอิน (ล็อกอินอยู่ในแอป) — การจ่ายเงินไม่มีปัญหา
+- **แก้**: แอปส่ง `return_to: 'app'` ตอนสร้าง checkout และ customer portal → API ใช้ `https://koochang.com/pay-return?to=app&kind=payment|card` เป็น success/cancel/return URL (Stripe รับเฉพาะ https) → หน้า `/pay-return` ใหม่ (ไม่ index ใน robots) เปิดแอปเองหลัง 0.4 วินาที และมีปุ่ม "กลับไปที่แอปคู่ช่าง" (Android ใช้ `intent://billing#Intent;scheme=koochang;package=com.koochang.app;end` อื่น ๆ ใช้ `koochang://billing`); แอปไม่รู้จัก path billing จึงแค่กลับมาหน้าเดิม และหน้าใบแจ้งหนี้รีเฟรชสถานะเองเมื่อแอปกลับมาด้านหน้า; เว็บร้านยังกลับ /shop บน origin เดิมเหมือนเดิม; APK เก่า (ไม่ส่ง return_to) ทำงานแบบเดิม
+- **แก้ (1)**: ลบบรรทัด "ชำระผ่าน Stripe…" และคำอธิบายใต้ "จ่ายครั้งเดียว"; ใต้ Subscription เหลือบรรทัดเดียว "ตัดบัตรทุกรอบอัตโนมัติ ยกเลิกได้ทุกเมื่อ" (คีย์ใหม่ pay.cardAutoShort) ทั้งแอปและเว็บร้าน
+- **ตรวจ**: typecheck admin/mobile ผ่าน; stripe/subscription/plan-changes/i18n 28 ผ่าน; APK `output/builds/apk/KooChang-0.2.13-build15.apk` (com.koochang.app 15/0.2.13, cert 4eed9485… เดิม, bundle มี api.koochang.com และ return_to); deploy staging `18ae795` 3 แอป online; เปิด https://koochang.com/pay-return?to=app&kind=payment แสดงข้อความถูกต้อง; ยังไม่ได้ทดสอบบนโทรศัพท์ว่าปุ่มเปิดแอปได้จริง
 
 ### 2026-10-08 — เพิ่มแพ็กเกจทดสอบ test20 บน staging
 
