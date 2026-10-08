@@ -28,7 +28,7 @@
 
 ### งานที่ยังค้างและลำดับทำต่อ
 
-- (ใหม่ 2026-10-08) **ย้ายไป koochang.com / api.koochang.com (ทำตามลำดับ)**: ผู้ใช้เพิ่ม Cloudflare hostname `api.koochang.com` → `http://localhost:4100` และแก้ env OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น koochang.com → Claude build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` → แล้วจึงตั้ง Stripe webhook; APK 0.2.12 (build 14) ชี้ api.koochang.com แล้ว ใช้ได้หลังเพิ่ม hostname (รายละเอียดในบันทึกรายวัน)
+- (2026-10-08 **ย้ายชื่อเสร็จแล้ว** — เหลือ: ลบ hostname app-staging + เอาออกจาก ADMIN_ORIGIN เมื่อพร้อม) ~~ย้ายไป koochang.com / api.koochang.com (ทำตามลำดับ)~~: ผู้ใช้เพิ่ม Cloudflare hostname `api.koochang.com` → `http://localhost:4100` และแก้ env OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น koochang.com → Claude build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` → แล้วจึงตั้ง Stripe webhook; APK 0.2.12 (build 14) ชี้ api.koochang.com แล้ว ใช้ได้หลังเพิ่ม hostname (รายละเอียดในบันทึกรายวัน)
 - (ใหม่ 2026-10-08) **ตั้งค่าการชำระเงินบน staging (ผู้ใช้ทำในคอนโซล)**: กรอก PromptPay ID ใน ตั้งค่าแพลตฟอร์ม → บัญชีรับเงิน (ตอนนี้ว่าง QR จึงไม่แสดง) และบันทึก Stripe keys + เปิดรับบัตรใน ตั้งค่าการชำระเงิน (ยังไม่ได้ตั้ง บัตร/Subscription จึงไม่แสดง) — **ผู้ใช้เลือกใช้ Stripe โหมดจริง (live) เลย**; รอบแรกบันทึกไม่ผ่านเพราะใช้ restricted key `rk_live_` ต้องสร้าง Secret key สิทธิ์เต็ม `sk_live_` (ขั้นตอนในบันทึกรายวัน 2026-10-08 "ตั้งค่า Stripe"); ถ้า Stripe ไม่ให้สร้างสิทธิ์เต็ม ต้องแก้ API ให้รับ `rk_`; ควรทำข้อความ error หน้าตั้งค่าการชำระเงินให้บอกสาเหตุ (รอผู้ใช้ยืนยัน) — ตอนนี้ร้านเห็นเฉพาะ "โอนเข้าบัญชี"; จากนั้นทดสอบจ่ายจริงทั้ง 3 แบบ; หน้าชำระเงินแบบใหม่บนมือถือต้องรอ APK ถัดไป (ยังไม่ได้ build); ลบไฟล์เกิน `/opt/field-service/staging/pnpm-workspace.yaml` บน server2 (ระบบบล็อกไม่ให้ Claude ลบ)
 - (ใหม่ 2026-10-08) Console UI/UX: ตัวเลือกร้านแบบพิมพ์ค้นหาในประกาศ + ตัวกรองร้าน, ห่อตารางทุกหน้าให้เลื่อนบนมือถือ, เปลี่ยน prompt() เป็น dialog, แปลรหัสดิบ, ใส่ URL ประจำหน้า (รอผู้ใช้ยืนยันก่อนทำ) — หน้าแพ็กเกจเป็นตารางแล้ว
 
@@ -67,6 +67,14 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-08 — ย้ายชื่อเสร็จ: เว็บ koochang.com + API api.koochang.com ใช้งานบน staging แล้ว
+
+- **ผู้ใช้ทำ**: (1) Cloudflare: เพิ่ม/เปลี่ยน hostname เป็น `api.koochang.com` (`api-staging` ไม่อยู่ใน DNS แล้ว) (2) รันคำสั่งแก้ `/etc/field-service/staging.env`: `OWNER_WEB_URL=https://koochang.com/shop`, `JOIN_LINK_BASE_URL=https://koochang.com/join` (สำรองไว้ที่ `staging.env.bak-20261008`) — Claude ลองแก้ env เองแล้วถูกระบบบล็อก ("Modify Shared Resources")
+- **Claude ทำ**: ตรวจค่า env ใหม่; pm2 restart api + worker; build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` แล้ว restart web (static 5 ไฟล์มี api.koochang.com, ไม่มี api-staging); ทั้ง 3 แอป online
+- **ตรวจ**: ผ่าน Cloudflare IP โดยตรง `https://api.koochang.com/v1/health` = 200 และ CORS preflight จาก `https://koochang.com` = 204; ที่ API ในเครื่องเซิร์ฟเวอร์ 200
+- **ปัญหาที่เจอ**: (1) ระหว่างที่ `api-staging` ถูกลบแต่เว็บยังไม่ build ใหม่ เว็บ/console เรียก API ไม่ได้ช่วงสั้น ๆ → แก้ด้วย build เว็บใหม่ทันที (2) router ในบ้าน (192.168.1.1) ยังจำ NXDOMAIN ของ api.koochang.com ไว้ (`ipconfig /flushdns` ไม่ช่วย เพราะ cache อยู่ที่ router) เครื่องในบ้านจึงยังเปิดไม่ได้ชั่วคราว จะหายเองเมื่อ cache หมดอายุ (ปกติไม่เกิน ~30 นาที) หรือรีสตาร์ท router / ตั้ง DNS เป็น 1.1.1.1; โทรศัพท์ที่ใช้เน็ตมือถือไม่ติดปัญหานี้
+- **ต่อไป**: ตั้ง Stripe webhook ด้วย URL ที่คอนโซลแสดง (`https://api.koochang.com/v1/billing/stripe/webhook/...`); ติดตั้ง APK 0.2.12 บนโทรศัพท์; ลบ hostname `app-staging` ใน Cloudflare และเอา `https://app-staging.koochang.com` ออกจาก ADMIN_ORIGIN เมื่อพร้อม (ลิงก์เชิญเก่าที่เป็น app-staging จะใช้ไม่ได้)
 
 ### 2026-10-08 — ย้ายไปชื่อถาวร koochang.com / api.koochang.com + APK 0.2.12 (build 14)
 
