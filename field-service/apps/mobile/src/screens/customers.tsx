@@ -26,16 +26,27 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
   const errorText = useErrorText();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<CustomerSummary[] | null>(null);
+  const [next, setNext] = useState<number | null>(null);
+  const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const seq = useRef(0);
   useEffect(() => {
     const mine = ++seq.current;
     const timer = setTimeout(() => {
-      api.customers(membership.organization_id, q.trim()).then(r => { if (mine === seq.current) { setItems(r.items); setError(null); } },
+      api.customers(membership.organization_id, q.trim()).then(r => { if (mine === seq.current) { setItems(r.items); setNext(r.next_offset); setError(null); } },
         e => { if (mine === seq.current) setError(errorText(e)); });
     }, 250);
     return () => clearTimeout(timer);
   }, [q, membership.organization_id]);
+  async function loadMore() {
+    if (next === null || more) return;
+    const mine = seq.current;
+    setMore(true);
+    try {
+      const r = await api.customers(membership.organization_id, q.trim(), next);
+      if (mine === seq.current) { setItems(prev => [...(prev ?? []), ...r.items.filter(c => !prev?.some(p => p.id === c.id))]); setNext(r.next_offset); }
+    } catch (e) { if (mine === seq.current) setError(errorText(e)); } finally { setMore(false); }
+  }
 
   return <Screen>
     <View style={styles.headerRow}>
@@ -55,6 +66,7 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
           subtitle={[c.name && c.phone_normalized ? formatPhone(c.phone_normalized) : null, t('locationCount', { count: c.location_count })].filter(Boolean).join(' · ')}
           trailing={c.location_count ? <Badge text={c.located_count ? t('hasCoordinates') : t('noCoordinates')} tone={c.located_count ? 'ok' : 'neutral'} /> : undefined} />)}
       </Card>}
+    {items && next !== null ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
   </Screen>;
 }
 

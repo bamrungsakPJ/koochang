@@ -9,6 +9,7 @@ import { LanguageSwitch } from './onboarding';
 import { useUnread } from './notifications';
 import { MaintenanceCard } from './maintenance';
 import { MyJobs } from './jobs';
+import { UnsentRecords, type DraftTarget } from './service';
 import { appVersion } from './about';
 
 const memberTone = (status: string): Tone => status === 'active' ? 'green' : status === 'pending' ? 'amber' : status === 'suspended' ? 'rose' : 'sky';
@@ -162,8 +163,8 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications, onAccount, onOpenJob, onRecordAdhoc, onMaintenance, onBilling }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void; onAccount: () => void;
-  onOpenJob: (id: string) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onBilling: () => void }) {
+export function Home({ me, membership, onTeam, onNotifications, onAccount, onOpenJob, onOpenDraft, onRecordAdhoc, onMaintenance, onBilling }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void; onAccount: () => void;
+  onOpenJob: (id: string) => void; onOpenDraft: (target: DraftTarget) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onBilling: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
@@ -190,6 +191,7 @@ export function Home({ me, membership, onTeam, onNotifications, onAccount, onOpe
         style={({ pressed }) => [styles.heroAvatar, pressed && { opacity: 0.7 }]}><Avatar name={me.user.display_name} /></Pressable>
     </View>
     {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
+    <UnsentRecords membership={membership} onOpen={onOpenDraft} />
     <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
     <Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} />
     {owner ? <>

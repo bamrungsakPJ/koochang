@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatMoney, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Autopay, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
-import { CameraDeniedError, pickPhoto, uuid } from '../photos';
+import { CameraDeniedError, pickPhoto, readPicked, uuid } from '../photos';
 import { Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, tones, useErrorText, useT, type Tone } from '../ui';
 
 const invoiceTone = (s: InvoiceSummary['status']) => s === 'paid' ? 'ok' : s === 'open' ? 'warn' : 'neutral';
@@ -164,7 +164,7 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
       if (!picked) return;
       setBusy(true);
       proofId.current ??= uuid();
-      const data = await (await fetch(picked.uri)).blob();
+      const data = await readPicked(picked);
       const updated = await api.uploadProof(org, invoiceId, proofId.current, data, picked.mimeType);
       setInvoice(updated);
       proofId.current = null;

@@ -109,6 +109,24 @@
       }
     },
     {
+      "name": "fs-mobile-web-qa",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "field-service/apps/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "3102"
+      ],
+      "port": 3102,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://127.0.0.1:4101"
+      }
+    },
+    {
       "name": "fs-mobile-web-alt",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

@@ -1,19 +1,24 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatDateTime, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type EquipmentHistory, type EquipmentSummary, type Job, type Membership, type NextMaintenance, type ServiceItemInput, type ServiceResult } from '../api';
-import { CameraDeniedError, pickPhoto, uploadPhoto, uuid } from '../photos';
-import { clearDraft, loadDraft, saveDraft } from '../drafts';
-import { Badge, Banner, Button, Card, colors, Field, fonts, Icon, IconTile, LanguageContext, Loading, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
+import { CameraDeniedError, dropKeptPhoto, keepPhoto, pickPhoto, uploadPhoto, uuid } from '../photos';
+import { clearDraft, listDrafts, loadDraft, saveDraft } from '../drafts';
+import { Badge, Banner, Button, Card, colors, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
+import { customerTitle } from './customers';
 import { categoryIcon, useEquipmentTitle } from './equipment';
 
 const serviceTypes = ['maintenance', 'repair', 'inspection', 'installation', 'other'] as const;
 const outcomeTone = (o: string) => o === 'done' ? 'ok' : o === 'not_done' ? 'danger' : 'warn';
 type NextChoice = 'keep' | 3 | 6 | 12 | 'none';
+/** A photo the server has (id), or one still waiting on this phone (key + local file). The key is
+ * its upload request key, so sending it again never stores it twice. */
+interface Photo { id: string | null; thumb: string | null; key?: string; local?: string; mime?: string }
 interface Draft {
   service_type: string; outcome: 'done' | 'not_done' | 'deferred'; work_note: string; problem_note: string; not_done_reason: string;
-  before: { id: string; thumb: string | null }[]; after: { id: string; thumb: string | null }[]; next: NextChoice;
+  before: Photo[]; after: Photo[]; next: NextChoice;
 }
+const allPhotos = (drafts: Record<string, Draft>) => Object.values(drafts).flatMap(d => [...d.before, ...d.after]);
 
 /** Calendar months like the server: the same day n months later, or the month's last day. */
 function addMonths(day: string, months: number): string {
@@ -32,7 +37,9 @@ function Chip({ label, on, onPress, tone }: { label: string; on: boolean; onPres
   </Pressable>;
 }
 
-interface SavedForm { clientEventId: string; occurredAt: string; drafts: Record<string, Draft>; note: string }
+/** Where an unsent record belongs, so Home can reopen it. */
+export interface DraftTarget { jobId?: string; customerId: string; locationId: string; title: string }
+interface SavedForm { clientEventId: string; occurredAt: string; drafts: Record<string, Draft>; note: string; target?: DraftTarget }
 
 /** Record what was actually done, unit by unit. The client event id is kept with the entries,
  * so sending again after a network error never records twice. Entries are also kept on the
@@ -58,6 +65,15 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [title, setTitle] = useState(job ? [job.customer_name, job.location_label].filter(Boolean).join(' · ') : '');
+  const draftsNow = useRef(drafts); draftsNow.current = drafts;
+  // The job as last seen: a form opened without signal starts it only when the record is sent.
+  const jobNow = useRef(job);
+  // Photo uploads run one at a time; a photo already sent answers from sentIds, so the timer and a
+  // fresh photo never upload the same file twice.
+  const uploads = useRef<Promise<unknown>>(Promise.resolve());
+  const sentIds = useRef(new Map<string, string>());
 
   const fresh = (): Draft => ({ service_type: job && serviceTypes.includes(job.job_type as never) ? job.job_type : 'maintenance', outcome: 'done',
     work_note: '', problem_note: '', not_done_reason: '', before: [], after: [], next: 'keep' });
@@ -68,6 +84,10 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
       return Object.fromEntries(job.equipment.map(e => [e.id, fresh()]));
     });
   }, e => setFailure(errorText(e)));
+  useEffect(() => {
+    if (!adhoc) return;
+    api.customer(org, adhoc.customerId).then(c => setTitle([customerTitle(c), c.locations.find(l => l.id === locationId)?.label].filter(Boolean).join(' · ')), () => {});
+  }, []);
   useEffect(() => {
     void (async () => {
       const saved = await loadDraft<SavedForm>(draftKey);
@@ -82,21 +102,77 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   useEffect(() => {
     if (restored === null) return;
     if (!Object.keys(drafts).length && !note) return;
-    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note });
-  }, [drafts, note, restored]);
+    const target: DraftTarget = { jobId: job?.id, customerId: job?.customer_id ?? adhoc!.customerId, locationId, title };
+    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note, target });
+  }, [drafts, note, restored, title]);
 
-  const toggle = (id: string) => setDrafts(prev => { const next = { ...prev }; if (next[id]) delete next[id]; else next[id] = fresh(); return next; });
+  const toggle = (id: string) => setDrafts(prev => {
+    const next = { ...prev };
+    if (next[id]) { [...next[id]!.before, ...next[id]!.after].forEach(p => { if (p.local) dropKeptPhoto(p.local); }); delete next[id]; } else next[id] = fresh();
+    return next;
+  });
   const update = (id: string, patch: Partial<Draft>) => setDrafts(prev => ({ ...prev, [id]: { ...prev[id]!, ...patch } }));
+  /** Applies a change to the photo with this key wherever it is; null removes it. */
+  const changePhoto = (key: string, change: (p: Photo) => Photo | null) => setDrafts(prev => Object.fromEntries(Object.entries(prev).map(([id, d]) => [id, {
+    ...d, before: d.before.map(p => p.key === key ? change(p) : p).filter((p): p is Photo => p !== null),
+    after: d.after.map(p => p.key === key ? change(p) : p).filter((p): p is Photo => p !== null),
+  }])));
+
+  /** Sends one waiting photo. A failure other than no signal drops it: it would never be accepted. */
+  function sendPhoto(photo: Photo): Promise<string | 'offline' | null> {
+    const key = photo.key!;
+    const next = uploads.current.then(async () => {
+      const done = sentIds.current.get(key);
+      if (done) return done;
+      try {
+        const media = await uploadPhoto(org, { uri: photo.local!, mimeType: photo.mime ?? 'image/jpeg' }, 'service', key);
+        sentIds.current.set(key, media.id);
+        changePhoto(key, () => ({ id: media.id, thumb: media.thumbnail_url }));
+        dropKeptPhoto(photo.local!);
+        return media.id;
+      } catch (e) {
+        if (e instanceof ApiFailure && e.code === 'NETWORK_ERROR') return 'offline' as const;
+        changePhoto(key, () => null); dropKeptPhoto(photo.local!);
+        setFailure(e instanceof ApiFailure ? errorText(e) : t('uploadFailed'));
+        return null;
+      }
+    });
+    uploads.current = next.catch(() => {});
+    return next;
+  }
+
+  /** Sends every waiting photo in turn, stopping at the first one without signal. Returns the ids
+   * the server gave, or null while some are still waiting. */
+  async function flushPhotos(): Promise<Record<string, string> | null> {
+    const sent: Record<string, string> = {};
+    for (const photo of allPhotos(draftsNow.current).filter(p => !p.id && p.key && p.local)) {
+      const result = await sendPhoto(photo);
+      if (result === 'offline') return null;
+      if (result) sent[photo.key!] = result;
+    }
+    return sent;
+  }
+  const waiting = allPhotos(drafts).filter(p => !p.id).length;
+  // Waiting photos go out by themselves when the app comes back to the front, and every 20 s.
+  useEffect(() => {
+    if (!waiting) return;
+    const sub = AppState.addEventListener('change', state => { if (state === 'active') void flushPhotos(); });
+    const timer = setInterval(() => { void flushPhotos(); }, 20_000);
+    return () => { sub.remove(); clearInterval(timer); };
+  }, [waiting > 0]);
 
   async function addPhoto(id: string, kind: 'before' | 'after') {
-    setFailure(null);
+    setFailure(null); setNotice(null);
     try {
       const picked = await pickPhoto('camera').catch(async e => { if (e instanceof CameraDeniedError) return pickPhoto('library'); throw e; });
       if (!picked) return;
+      const key = uuid();
+      const kept = await keepPhoto(picked, key);
+      const photo: Photo = { id: null, thumb: null, key, local: kept.uri, mime: kept.mimeType };
+      setDrafts(prev => prev[id] ? { ...prev, [id]: { ...prev[id]!, [kind]: [...prev[id]![kind], photo] } } : prev);
       setUploading(`${id}:${kind}`);
-      const media = await uploadPhoto(org, picked, 'service');
-      setDrafts(prev => ({ ...prev, [id]: { ...prev[id]!, [kind]: [...prev[id]![kind], { id: media.id, thumb: media.thumbnail_url }] } }));
-    } catch (e) { setFailure(e instanceof ApiFailure ? errorText(e) : t('uploadFailed')); } finally { setUploading(null); }
+      if (await sendPhoto(photo) === 'offline') setNotice(t('photoQueued'));
+    } catch { setFailure(t('uploadFailed')); } finally { setUploading(null); }
   }
 
   async function submit() {
@@ -104,18 +180,29 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
     if (!ids.length) { setFailure(t('selectAtLeastOne')); return; }
     if (!ids.some(id => drafts[id]!.outcome === 'done')) { setFailure(t('field.noneDone')); return; }
     if (ids.some(id => drafts[id]!.outcome !== 'done' && !drafts[id]!.not_done_reason.trim())) { setFailure(t('notDoneReason')); return; }
-    setBusy(true); setFailure(null);
-    const items: ServiceItemInput[] = ids.map(id => {
-      const d = drafts[id]!;
+    setBusy(true); setFailure(null); setNotice(null);
+    const sent = await flushPhotos();
+    if (!sent) { setBusy(false); setFailure(t('unsentHint')); return; }
+    const current = draftsNow.current;
+    const photoId = (p: Photo) => p.id ?? (p.key ? sent[p.key] : undefined);
+    if (allPhotos(current).some(p => !photoId(p))) { setBusy(false); setFailure(t('unsentHint')); return; }
+    const items: ServiceItemInput[] = Object.keys(current).map(id => {
+      const d = current[id]!;
       const next: NextMaintenance | undefined = d.outcome !== 'done' || d.next === 'keep' ? undefined : d.next === 'none' ? { mode: 'none' } : { mode: 'months', interval_months: d.next };
       return { equipment_id: id, service_type: d.service_type, outcome: d.outcome, work_note: d.work_note.trim() || undefined, problem_note: d.problem_note.trim() || undefined,
         not_done_reason: d.outcome === 'done' ? undefined : d.not_done_reason.trim(),
-        photos: [...d.before.map(p => ({ media_asset_id: p.id, photo_type: 'before' as const })), ...d.after.map(p => ({ media_asset_id: p.id, photo_type: 'after' as const }))],
+        photos: [...d.before.map(p => ({ media_asset_id: photoId(p)!, photo_type: 'before' as const })), ...d.after.map(p => ({ media_asset_id: photoId(p)!, photo_type: 'after' as const }))],
         ...(next ? { next_maintenance: next } : {}) };
     });
     const body = { client_event_id: clientEventId.current, occurred_at: occurredAt.current, note: note.trim() || undefined, items };
     try {
-      const result = job ? await api.completeJob(org, job.id, { ...body, expected_version: job.version }) : await api.recordAdhoc(org, { ...body, customer_id: adhoc!.customerId, location_id: locationId });
+      let planned = jobNow.current;
+      if (planned?.status === 'scheduled') {
+        const started = await api.jobAction(org, planned.id, 'start', { expected_version: planned.version });
+        planned = jobNow.current = 'job' in started ? started.job : started;
+      }
+      const result = planned ? await api.completeJob(org, planned.id, { ...body, expected_version: planned.version })
+        : await api.recordAdhoc(org, { ...body, customer_id: adhoc!.customerId, location_id: locationId });
       await clearDraft(draftKey);
       onDone(result);
     } catch (e) {
@@ -127,7 +214,8 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   const today = todayBangkok();
   return <Screen onBack={onBack} footer={<Button icon="checkmark-done" title={job ? t('finishJob') : t('recordService')} busy={busy} onPress={submit} />}>
     <Title>{job ? t('recordService') : t('recordAdhoc')}</Title>
-    {job ? <Sub>{[job.customer_name, job.location_label].filter(Boolean).join(' · ')}</Sub> : <Sub>{t('adhocHint')}</Sub>}
+    {title ? <Sub>{title}</Sub> : null}
+    {job ? null : <Sub>{t('adhocHint')}</Sub>}
     {restored ? <Banner tone="info" text={t('draftRestored')} /> : null}
     <Section action={<Button small kind="ghost" icon="add" title={t('addEquipment')} onPress={() => onAddEquipment(locationId)} />}>{t('selectEquipment')}</Section>
     {units.map(unit => {
@@ -152,7 +240,10 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
             {(['before', 'after'] as const).map(kind => <View key={kind} style={{ flex: 1 }}>
               <Text style={styles.label}>{t(kind === 'before' ? 'beforePhoto' : 'afterPhoto')}</Text>
               <View style={styles.thumbs}>
-                {d[kind].map(p => p.thumb ? <Image key={p.id} source={{ uri: p.thumb }} style={styles.thumb} /> : <IconTile key={p.id} icon="image" tone="sky" />)}
+                {d[kind].map(p => <View key={p.id ?? p.key}>
+                  {p.thumb || p.local ? <Image source={{ uri: (p.thumb ?? p.local)! }} style={styles.thumb} /> : <IconTile icon="image" tone="sky" />}
+                  {p.id ? null : <View style={styles.waiting}><Icon name="cloud-upload" size={14} color={colors.onPrimary} /></View>}
+                </View>)}
                 <Pressable accessibilityRole="button" accessibilityLabel={t('takePhoto')} onPress={() => addPhoto(unit.id, kind)} style={styles.addPhoto}>
                   <Icon name={uploading === `${unit.id}:${kind}` ? 'hourglass' : 'camera'} size={20} color={colors.primary} />
                 </Pressable>
@@ -171,9 +262,27 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
       </Card>;
     })}
     <Field label={t('serviceNote')} value={note} onChangeText={setNote} multiline maxLength={2000} />
+    {waiting ? <Sub>{t('photosWaiting', { n: waiting })}</Sub> : null}
+    <Banner tone="info" text={notice} />
     <Banner text={failure} />
     <Text style={styles.hint}>{formatDateTime(new Date(occurredAt.current), language)}</Text>
   </Screen>;
+}
+
+/** Home reminder: service records kept on this phone that were not sent yet. */
+export function UnsentRecords({ membership, onOpen }: { membership: Membership; onOpen: (target: DraftTarget) => void }) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  const [items, setItems] = useState<{ key: string; savedAt: number; value: SavedForm }[]>([]);
+  useEffect(() => {
+    listDrafts<SavedForm>(`service:${membership.organization_id}:`)
+      .then(list => setItems(list.filter(d => d.value.target && Object.keys(d.value.drafts ?? {}).length)), () => {});
+  }, [membership.organization_id]);
+  if (!items.length) return null;
+  return <><Section>{t('unsentRecords')}</Section>
+    <Card padded={false}>{items.map((d, i) => <Row key={d.key} icon="cloud-upload" tone="amber" last={i === items.length - 1}
+      title={d.value.target!.title || t('recordAdhoc')} subtitle={`${formatDateTime(new Date(d.savedAt), language)} · ${t('unsentRecordsHint')}`}
+      onPress={() => onOpen(d.value.target!)} />)}</Card></>;
 }
 
 export function ServiceDone({ result, onDone }: { result: ServiceResult; onDone: () => void }) {
@@ -226,6 +335,7 @@ const styles = StyleSheet.create({
   photos: { flexDirection: 'row', gap: 12 },
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   thumb: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.line },
+  waiting: { position: 'absolute', right: 3, bottom: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center' },
   addPhoto: { width: 56, height: 56, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   hint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.faint, marginTop: 8 },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },

@@ -3,6 +3,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone } from '@field-service/core';
 import { formatDateTime, formatDayChip, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Customer, type CustomerSummary, type EquipmentSummary, type Job, type JobStatus, type JobSummary, type Membership, type TeamMember } from '../api';
+import { addDays, DatePicker } from '../calendar';
 import { uuid } from '../photos';
 import { Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 import { customerTitle, openMaps } from './customers';
@@ -20,6 +21,7 @@ export function bangkokDay(offset: number): string {
 }
 export const atBangkok = (day: string, time: string) => `${day}T${time}:00+07:00`;
 const times = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+const hourChoices = Array.from({ length: 16 }, (_, i) => String(i + 6).padStart(2, '0'));
 
 export function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon?: IconName }) {
   return <Pressable accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={onPress} style={[styles.chip, on && styles.chipOn]}>
@@ -28,21 +30,38 @@ export function Chip({ label, on, onPress, icon }: { label: string; on: boolean;
   </Pressable>;
 }
 
-/** Date chips (no time / today … +6), time chips and duration — no date-picker dependency. */
+/** Quick chips for the coming week and common times, plus any date within a year (calendar) and
+ * any quarter hour from 06:00 to 21:45. No native date-picker dependency. */
 export function WhenPicker({ day, time, hours, onChange }: { day: string | null; time: string; hours: number; onChange: (v: { day: string | null; time: string; hours: number }) => void }) {
   const t = useT();
   const language = useContext(LanguageContext);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => bangkokDay(i)), []);
+  const otherDay = day !== null && !days.includes(day);
+  const [calendar, setCalendar] = useState(false);
+  const [clock, setClock] = useState(!times.includes(time));
+  const set = (patch: Partial<{ day: string | null; time: string; hours: number }>) => onChange({ day, time, hours, ...patch });
+  const [hh, mm] = time.split(':') as [string, string];
   return <>
     <View style={styles.chips}>
-      <Chip label={t('notScheduled')} on={day === null} onPress={() => onChange({ day: null, time, hours })} />
+      <Chip label={t('notScheduled')} on={day === null} onPress={() => { setCalendar(false); set({ day: null }); }} />
       {days.map((d, i) => <Chip key={d} label={i === 0 ? t('today') : i === 1 ? t('tomorrow') : formatDayChip(new Date(`${d}T12:00:00+07:00`), language)}
-        on={day === d} onPress={() => onChange({ day: d, time, hours })} />)}
+        on={day === d} onPress={() => { setCalendar(false); set({ day: d }); }} />)}
+      <Chip icon="calendar" label={otherDay ? formatDayChip(new Date(`${day}T12:00:00+07:00`), language) : t('otherDate')} on={otherDay || calendar} onPress={() => setCalendar(!calendar)} />
     </View>
+    {calendar ? <DatePicker value={day} min={days[0]!} max={addDays(days[0]!, 365)} onChange={d => { setCalendar(false); set({ day: d }); }} /> : null}
     {day ? <>
-      <View style={[styles.chips, { marginTop: 10 }]}>{times.map(x => <Chip key={x} label={x} on={time === x} onPress={() => onChange({ day, time: x, hours })} />)}</View>
+      <View style={[styles.chips, { marginTop: 10 }]}>
+        {times.map(x => <Chip key={x} label={x} on={!clock && time === x} onPress={() => { setClock(false); set({ time: x }); }} />)}
+        <Chip icon="time" label={clock ? time : t('otherTime')} on={clock} onPress={() => setClock(true)} />
+      </View>
+      {clock ? <>
+        <Text style={styles.label}>{t('hourLabel')}</Text>
+        <View style={styles.chips}>{hourChoices.map(h => <Chip key={h} label={h} on={hh === h} onPress={() => set({ time: `${h}:${mm}` })} />)}</View>
+        <Text style={styles.label}>{t('minuteLabel')}</Text>
+        <View style={styles.chips}>{['00', '15', '30', '45'].map(m => <Chip key={m} label={m} on={mm === m} onPress={() => set({ time: `${hh}:${m}` })} />)}</View>
+      </> : null}
       <Text style={styles.label}>{t('duration')}</Text>
-      <View style={styles.chips}>{[1, 2, 3, 4].map(n => <Chip key={n} label={t('hours', { n })} on={hours === n} onPress={() => onChange({ day, time, hours: n })} />)}</View>
+      <View style={styles.chips}>{[1, 2, 3, 4, 6, 8].map(n => <Chip key={n} label={t('hours', { n })} on={hours === n} onPress={() => set({ hours: n })} />)}</View>
     </> : null}
   </>;
 }
@@ -65,14 +84,31 @@ export function JobsScreen({ membership, onOpen, onCreate }: { membership: Membe
   const errorText = useErrorText();
   const [filter, setFilter] = useState<'today' | 'upcoming' | 'unassigned'>('today');
   const [items, setItems] = useState<JobSummary[] | null>(null);
+  const [next, setNext] = useState<number | null>(null);
+  const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    setItems(null);
+  const seq = useRef(0);
+  const query = useMemo(() => {
     const today = bangkokDay(0);
-    const query = filter === 'today' ? { from: atBangkok(today, '00:00'), to: atBangkok(bangkokDay(1), '00:00') }
+    return filter === 'today' ? { from: atBangkok(today, '00:00'), to: atBangkok(bangkokDay(1), '00:00') }
       : filter === 'upcoming' ? { from: atBangkok(bangkokDay(1), '00:00'), to: atBangkok(bangkokDay(30), '00:00') } : { status: 'unassigned' };
-    api.jobs(membership.organization_id, query).then(r => setItems(filter === 'unassigned' ? r.items : r.items.filter(j => j.scheduled_start)), e => setError(errorText(e)));
-  }, [filter, membership.organization_id]);
+  }, [filter]);
+  const shown = (list: JobSummary[]) => filter === 'unassigned' ? list : list.filter(j => j.scheduled_start);
+  useEffect(() => {
+    const mine = ++seq.current;
+    setItems(null); setError(null);
+    api.jobs(membership.organization_id, { ...query, limit: '50' }).then(r => { if (mine === seq.current) { setItems(shown(r.items)); setNext(r.next_offset); } },
+      e => { if (mine === seq.current) setError(errorText(e)); });
+  }, [query, membership.organization_id]);
+  async function loadMore() {
+    if (next === null || more) return;
+    const mine = seq.current;
+    setMore(true);
+    try {
+      const r = await api.jobs(membership.organization_id, { ...query, limit: '50', offset: String(next) });
+      if (mine === seq.current) { setItems(prev => [...(prev ?? []), ...shown(r.items).filter(j => !prev?.some(p => p.id === j.id))]); setNext(r.next_offset); }
+    } catch (e) { if (mine === seq.current) setError(errorText(e)); } finally { setMore(false); }
+  }
   return <Screen>
     <View style={styles.header}><Title>{t('jobs')}</Title><Button small icon="add" title={t('createJob')} onPress={onCreate} /></View>
     <View style={styles.chips}>
@@ -82,6 +118,7 @@ export function JobsScreen({ membership, onOpen, onCreate }: { membership: Membe
     <Banner text={error} />
     {!items ? <Loading /> : items.length === 0 ? <Card><Sub>{t('noJobs')}</Sub></Card>
       : <Card padded={false}>{items.map((j, i) => <JobRow key={j.id} job={j} last={i === items.length - 1} onPress={() => onOpen(j.id)} />)}</Card>}
+    {items && next !== null ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
   </Screen>;
 }
 
@@ -107,30 +144,46 @@ export function JobCustomerPicker({ membership, onBack, onPicked, onCreate }: {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<CustomerSummary[] | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [next, setNext] = useState<number | null>(null);
+  const [more, setMore] = useState(false);
   const seq = useRef(0);
   useEffect(() => {
     const mine = ++seq.current;
-    const timer = setTimeout(() => { api.customers(membership.organization_id, q.trim()).then(r => { if (mine === seq.current) setItems(r.items); }, () => {}); }, 250);
+    const timer = setTimeout(() => { api.customers(membership.organization_id, q.trim()).then(r => { if (mine === seq.current) { setItems(r.items); setNext(r.next_offset); } }, () => {}); }, 250);
     return () => clearTimeout(timer);
   }, [q, membership.organization_id]);
+  async function loadMore() {
+    if (next === null || more) return;
+    const mine = seq.current;
+    setMore(true);
+    try {
+      const r = await api.customers(membership.organization_id, q.trim(), next);
+      if (mine === seq.current) { setItems(prev => [...(prev ?? []), ...r.items.filter(c => !prev?.some(p => p.id === c.id))]); setNext(r.next_offset); }
+    } catch { /* the button stays for another try */ } finally { setMore(false); }
+  }
   async function choose(id: string) {
     const full = await api.customer(membership.organization_id, id);
     if (full.locations.length === 1) onPicked(full.id, full.locations[0]!.id); else setCustomer(full);
   }
+  const found = items?.filter(c => c.location_count > 0) ?? [];
+  // Customers without a place are hidden here, so a page can come back with nothing to show:
+  // keep reading pages until there is something or the list ends.
+  const searching = Boolean(items) && found.length === 0 && next !== null;
+  useEffect(() => { if (searching && !more) void loadMore(); }, [searching, more]);
   if (customer) return <Screen onBack={() => setCustomer(null)}>
     <Title>{t('chooseLocation')}</Title><Sub>{customerTitle(customer)}</Sub>
     <Card padded={false}>{customer.locations.map((l, i) => <Row key={l.id} icon="home" tone="sky" title={l.label} subtitle={l.address ?? undefined}
       last={i === customer.locations.length - 1} onPress={() => onPicked(customer.id, l.id)} />)}</Card>
   </Screen>;
-  const found = items?.filter(c => c.location_count > 0) ?? [];
   return <Screen onBack={onBack}>
     <View style={styles.header}><Title>{t('chooseCustomer')}</Title><Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></View>
     <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder="08x-xxx-xxxx" />
-    {!items ? <Loading /> : found.length === 0
+    {!items || searching ? <Loading /> : found.length === 0
       ? <Card><Sub>{q.trim() ? t('noResults') : t('noCustomers')}</Sub>
           <Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></Card>
       : <Card padded={false}>{found.map((c, i) => <Row key={c.id} icon="person" tone="violet" title={customerTitle(c)}
         subtitle={t('locationCount', { count: c.location_count })} last={i === found.length - 1} onPress={() => { void choose(c.id); }} />)}</Card>}
+    {items && next !== null ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
   </Screen>;
 }
 
@@ -242,10 +295,19 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
 
   // No separate Start button: recording the service starts a scheduled job first (the server still
   // needs in_progress for started_at and photo uploads), then opens the service form.
+  // Without signal the form still opens; it starts the job itself when the record is sent.
   async function recordService() {
     if (!job) return;
-    const ready = job.status === 'scheduled' ? await act('start') : job;
-    if (ready?.status === 'in_progress') onRecordService(ready);
+    if (job.status !== 'scheduled') { onRecordService(job); return; }
+    setBusy(true); setError(null);
+    try {
+      const result = await api.jobAction(org, job.id, 'start', { expected_version: job.version });
+      const next = 'job' in result ? result.job : result;
+      setJob(next); onRecordService(next);
+    } catch (e) {
+      if (e instanceof ApiFailure && e.code === 'NETWORK_ERROR') onRecordService(job);
+      else { setError(errorText(e)); if (e instanceof ApiFailure && e.code === 'VERSION_CONFLICT') load(); }
+    } finally { setBusy(false); }
   }
 
   if (!job) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;

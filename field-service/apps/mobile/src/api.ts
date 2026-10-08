@@ -1,4 +1,5 @@
 import type { FieldErrors, Language, MemberStatus, SubscriptionState } from '@field-service/core';
+import { cacheable, clearCache, readCache, writeCache } from './cache';
 import { keys, storage } from './storage';
 
 export const apiBaseUrl = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
@@ -97,6 +98,8 @@ export interface Subscription {
   limits?: { technician_seats: number; storage_bytes: number; ocr_per_period: number };
   usage?: { technician_seats: number; storage_bytes: number; ocr: number };
 }
+/** One page of a list: next_offset is null on the last page. */
+export interface Page<T> { items: T[]; has_more: boolean; next_offset: number | null }
 interface Tokens { access_token: string; refresh_token: string; }
 
 /** Thin client for the A02 API. Attaches the access token, refreshes it once on
@@ -107,6 +110,8 @@ export class Api {
   private refreshToken: string | null = null;
   private refreshing: Promise<'ok' | 'rejected' | 'unavailable'> | null = null;
   onSignedOut: () => void = () => {};
+  /** Time of the saved copy being shown while the service is unreachable; null once it answers again. */
+  onOffline: (savedAt: number | null) => void = () => {};
 
   private async storedTokens(): Promise<{ access_token: string | null; refresh_token: string | null }> {
     const saved = await storage.get(keys.tokens);
@@ -134,6 +139,7 @@ export class Api {
     this.refreshToken = tokens?.refresh_token ?? null;
     await storage.set(keys.access, null);
     await storage.set(keys.refresh, null);
+    if (!tokens) clearCache();
   }
 
   // auth --------------------------------------------------------------------------------------
@@ -176,7 +182,9 @@ export class Api {
   changeMember(organizationId: string, memberId: string, action: string, expectedVersion: number) {
     return this.call('POST', `/organizations/${organizationId}/members/${memberId}/${action}`, { expected_version: expectedVersion });
   }
-  customers(organizationId: string, q: string) { return this.call<{ items: CustomerSummary[] }>('GET', `/organizations/${organizationId}/customers?q=${encodeURIComponent(q)}`); }
+  customers(organizationId: string, q: string, offset = 0, limit = 30) {
+    return this.call<Page<CustomerSummary>>('GET', `/organizations/${organizationId}/customers?q=${encodeURIComponent(q)}&offset=${offset}&limit=${limit}`);
+  }
   customer(organizationId: string, id: string) { return this.call<Customer>('GET', `/organizations/${organizationId}/customers/${id}`); }
   createCustomer(organizationId: string, body: { request_key: string; name?: string; phone?: string; note?: string; customer_type?: string; confirm_duplicate?: boolean;
     location?: { label: string; address?: string; travel_note?: string; coordinates?: { latitude: number; longitude: number; accuracy_m: number | null; method: 'current_location' } } }) { return this.call<Customer>('POST', `/organizations/${organizationId}/customers`, body); }
@@ -216,9 +224,9 @@ export class Api {
     return this.call<Equipment>('POST', `/organizations/${organizationId}/equipment/${id}/photos`, { photos });
   }
   // jobs ------------------------------------------------------------------------------------
-  jobs(organizationId: string, query: { from?: string; to?: string; status?: string; assignee?: string } = {}) {
+  jobs(organizationId: string, query: { from?: string; to?: string; status?: string; assignee?: string; limit?: string; offset?: string } = {}) {
     const q = Object.entries(query).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&');
-    return this.call<{ items: JobSummary[] }>('GET', `/organizations/${organizationId}/jobs${q ? `?${q}` : ''}`);
+    return this.call<Page<JobSummary>>('GET', `/organizations/${organizationId}/jobs${q ? `?${q}` : ''}`);
   }
   job(organizationId: string, id: string) { return this.call<Job>('GET', `/organizations/${organizationId}/jobs/${id}`); }
   createJob(organizationId: string, body: { request_key: string; customer_id: string; location_id: string; job_type: string; description?: string; scheduled_start?: string | null;
@@ -281,7 +289,7 @@ export class Api {
   private async call<T = unknown>(method: string, path: string, body?: unknown, auth = true, headers: Record<string, string> = {}, retried = false): Promise<T> {
     if (auth && !this.access && this.refreshToken) {
       const refreshed = await this.refresh();
-      if (refreshed === 'unavailable') throw new ApiFailure(0, 'NETWORK_ERROR', '');
+      if (refreshed === 'unavailable') return this.offline<T>(method, path, auth);
       if (refreshed === 'rejected') { await this.setTokens(null); this.onSignedOut(); throw new ApiFailure(401, 'SESSION_EXPIRED', ''); }
     }
     let response: Response;
@@ -292,10 +300,16 @@ export class Api {
         headers: { 'content-type': 'application/json', 'accept-language': this.language, ...(auth && this.access ? { authorization: `Bearer ${this.access}` } : {}), ...headers },
         body: body === undefined ? undefined : (body instanceof ArrayBuffer || (typeof Blob !== 'undefined' && body instanceof Blob)) ? body : JSON.stringify(body),
       });
-    } catch { throw new ApiFailure(0, 'NETWORK_ERROR', ''); }
+    } catch { return this.offline<T>(method, path, auth); }
+    // The tunnel answers 502/503/504/530 while the server is down: same as no signal for reads.
+    if ([502, 503, 504, 530].includes(response.status) && method === 'GET') return this.offline<T>(method, path, auth);
     const text = await response.text();
     const data = text ? safeJson(text) : null;
-    if (response.ok) return data as T;
+    if (response.ok) {
+      this.onOffline(null);
+      if (method === 'GET' && auth && cacheable(path)) writeCache(path, data);
+      return data as T;
+    }
     const failure = new ApiFailure(response.status, data?.code ?? 'INTERNAL_ERROR', data?.message ?? '', data?.field_errors ?? {}, data?.retry_after, data?.candidates ?? []);
     if (auth && response.status === 401) {
       // Another client instance (second tab, hot reload) may have rotated the tokens meanwhile:
@@ -306,12 +320,20 @@ export class Api {
         if (refreshed === 'ok') return this.call<T>(method, path, body, auth, headers, true);
         // Network or server trouble while refreshing is not a reason to sign out: keep the
         // tokens and let the user retry once the service is reachable.
-        if (refreshed === 'unavailable') throw new ApiFailure(0, 'NETWORK_ERROR', '');
+        if (refreshed === 'unavailable') return this.offline<T>(method, path, auth);
       }
       await this.setTokens(null);
       this.onSignedOut();
     }
     throw failure;
+  }
+
+  /** No answer from the service: a read falls back to the saved copy when there is one. */
+  private async offline<T>(method: string, path: string, auth: boolean): Promise<T> {
+    const saved = method === 'GET' && auth && cacheable(path) ? await readCache<T>(path) : null;
+    if (!saved) throw new ApiFailure(0, 'NETWORK_ERROR', '');
+    this.onOffline(saved.savedAt);
+    return saved.value;
   }
 
   private async adoptStoredTokens(usedAccess: string | null): Promise<boolean> {

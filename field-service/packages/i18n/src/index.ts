@@ -319,6 +319,9 @@ const th = {
   lastContact: 'ติดต่อล่าสุด: {result}', nextContactOn: 'ติดต่อใหม่วันที่', newDueDate: 'วันครบรอบใหม่', reasonLabel: 'เหตุผล', alsoBook: 'นัดพร้อมกันในสถานที่นี้',
   contactNote: 'บันทึก (ไม่บังคับ)', contactSaved: 'บันทึกการติดต่อแล้ว', postponed: 'เลื่อนรอบแล้ว', reminderStopped: 'หยุดเตือนแล้ว', jobBooked: 'สร้างงานนัดแล้ว',
   stopReminderConfirm: 'หยุดเตือนรอบดูแลของเครื่องนี้? ประวัติเดิมยังอยู่', maintenanceDueCount: 'รอบดูแลที่ต้องติดตาม', dateFormatHint: 'ปปปป-ดด-วว (ค.ศ.)',
+  loadMore: 'โหลดเพิ่ม', otherDate: 'เลือกวันอื่น', otherTime: 'เวลาอื่น', hourLabel: 'ชั่วโมง', minuteLabel: 'นาที', prevMonth: 'เดือนก่อน', nextMonth: 'เดือนถัดไป',
+  offlineCached: 'ไม่มีสัญญาณ แสดงข้อมูลที่บันทึกไว้ล่าสุด ({time})', photoQueued: 'ยังไม่มีสัญญาณ เก็บรูปไว้ในเครื่องแล้ว จะส่งให้เองเมื่อมีสัญญาณ',
+  photosWaiting: 'รูปรอส่ง {n} รูป', unsentRecords: 'ผลบริการที่ยังไม่ได้ส่ง', unsentRecordsHint: 'เปิดแล้วกดส่งเมื่อมีสัญญาณ',
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
@@ -640,6 +643,9 @@ const en: Catalog = {
   lastContact: 'Last contact: {result}', nextContactOn: 'Contact again on', newDueDate: 'New due date', reasonLabel: 'Reason', alsoBook: 'Book together at this location',
   contactNote: 'Note (optional)', contactSaved: 'Contact logged', postponed: 'Cycle postponed', reminderStopped: 'Reminders stopped', jobBooked: 'Job booked',
   stopReminderConfirm: 'Stop maintenance reminders for this unit? Its history stays.', maintenanceDueCount: 'Maintenance to follow up', dateFormatHint: 'YYYY-MM-DD',
+  loadMore: 'Load more', otherDate: 'Other date', otherTime: 'Other time', hourLabel: 'Hour', minuteLabel: 'Minute', prevMonth: 'Previous month', nextMonth: 'Next month',
+  offlineCached: 'No signal. Showing data saved earlier ({time})', photoQueued: 'No signal. The photo is kept on this phone and sent automatically when signal returns.',
+  photosWaiting: '{n} photo(s) waiting to send', unsentRecords: 'Unsent service records', unsentRecordsHint: 'Open and send when you have signal',
 };
 export const catalogs = { th, en };
 export type TranslationKey = keyof Catalog;

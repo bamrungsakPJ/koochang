@@ -1,7 +1,7 @@
 import { Unlock } from './src/biometrics';
 import { About } from './src/screens/about';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, Linking, StatusBar, StyleSheet, ToastAndroid, View } from 'react-native';
+import { AppState, BackHandler, Image, Linking, StatusBar, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
 import { getLocales } from 'expo-localization';
@@ -13,8 +13,8 @@ import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './s
 import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
 import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens/jobs';
 import { keys, storage } from './src/storage';
-import { Banner, Button, colors, Field, handleScreenBack, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
-import { formatDate, translate } from '@field-service/i18n';
+import { Banner, Button, colors, Field, fonts, handleScreenBack, Icon, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
+import { formatDate, formatDateTime, translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PasswordSetup, PasswordSignIn, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
 import { NotificationsScreen } from './src/screens/notifications';
@@ -46,6 +46,10 @@ type Route =
 // The native splash is hidden only once the start screen below has drawn, so there is no blank frame.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
+/** Back in the app after this long away, a phone with fingerprint unlock asks for it again. Short trips
+ * (camera, maps, payment page) stay unlocked. */
+const relockAfterMs = 5 * 60_000;
+
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
 });
@@ -57,9 +61,13 @@ export default function App() {
   const routeNow = useRef(route); routeNow.current = route;
   const languageNow = useRef(language); languageNow.current = language;
   const lastBack = useRef(0);
+  const [locked, setLocked] = useState(false);
+  const lockedNow = useRef(locked); lockedNow.current = locked;
+  const [offlineAt, setOfflineAt] = useState<number | null>(null);
   // Android back: same as the on-screen arrow; other tabs go to Home; Home/start screens need a second press to exit.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (lockedNow.current) return false;
       if (handleScreenBack()) return true;
       const screen = routeNow.current.screen;
       if (screen === 'jobs' || screen === 'customers' || screen === 'team' || screen === 'account') { setRoute({ screen: 'shop' }); return true; }
@@ -76,6 +84,7 @@ export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const pendingToken = useRef<string | null>(null);
+  const signedInNow = useRef(false); signedInNow.current = Boolean(me) && api.signedIn;
   const [pushTarget, setPushTarget] = useState<PushTarget | null>(null);
 
   const selectOrganization = useCallback(async (id: string | null) => {
@@ -103,6 +112,7 @@ export default function App() {
 
   useEffect(() => {
     api.onSignedOut = signedOut;
+    api.onOffline = setOfflineAt;
     const subscription = Linking.addEventListener('url', event => openJoinUrl(event.url));
     void (async () => {
       const saved = await storage.get(keys.language);
@@ -121,6 +131,20 @@ export default function App() {
     })();
     const stopPush = listenForPush(setPushTarget);
     return () => { subscription.remove(); stopPush(); };
+  }, []);
+
+  // Fingerprint unlock again after a long time in the background. The screen underneath stays
+  // mounted, so an open form keeps what was typed.
+  useEffect(() => {
+    let leftAt: number | null = null;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background') { leftAt = Date.now(); return; }
+      if (state !== 'active' || leftAt === null) return;
+      const away = Date.now() - leftAt; leftAt = null;
+      if (away < relockAfterMs || !signedInNow.current) return;
+      void storage.get(keys.biometric).then(v => { if (v === 'true' && signedInNow.current) setLocked(true); });
+    });
+    return () => sub.remove();
   }, []);
 
   // Register this phone for push once signed in (a pending technician's first push is the approval).
@@ -319,7 +343,8 @@ export default function App() {
         onChangePassword={() => setRoute({ screen: 'changePassword' })} onAbout={() => setRoute({ screen: 'about', back: { screen: 'account' } })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })}
+        onOpenDraft={d => setRoute(d.jobId ? { screen: 'job', id: d.jobId } : { screen: 'serviceAdhoc', customerId: d.customerId, locationId: d.locationId })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })} />;
       else content = <Loading />;
       if (membership && active) {
         const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -338,7 +363,14 @@ export default function App() {
   // Native splash (emblem) → this start screen (emblem + KooChang / คู่ช่าง) → the app.
   if (!fontsLoaded || route.screen === 'boot' || !shownLongEnough) return <LanguageContext.Provider value={language}><BrandStart /></LanguageContext.Provider>;
   return <LanguageContext.Provider value={language}>
-    <SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />{content}</SafeAreaView></SafeAreaProvider>
+    <SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}><StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      {offlineAt !== null && me ? <View style={styles.offline} accessibilityRole="alert">
+        <Icon name="cloud-offline" size={16} color={colors.warn} />
+        <Text style={styles.offlineText}>{translate(language, 'offlineCached', { time: formatDateTime(new Date(offlineAt), language) })}</Text>
+      </View> : null}
+      {content}
+      {locked ? <View style={[StyleSheet.absoluteFill, styles.root]}><Unlock onUnlock={async () => setLocked(false)} onPassword={async () => { setLocked(false); await signOut(); setRoute({ screen: 'signin' }); }} /></View> : null}
+    </SafeAreaView></SafeAreaProvider>
   </LanguageContext.Provider>;
 }
 
@@ -379,4 +411,8 @@ function CreateShopSignedIn({ onBack, onCreated }: { onBack: () => void; onCreat
   </Screen>;
 }
 
-const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: colors.bg } });
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  offline: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 6, backgroundColor: colors.warnSoft },
+  offlineText: { flex: 1, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.warn },
+});

@@ -8,6 +8,7 @@ import { Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconT
 import { customerTitle } from './customers';
 import { categoryIcon, useEquipmentTitle } from './equipment';
 import { atBangkok, bangkokDay, Chip, endOf, WhenPicker } from './jobs';
+import { addDays, DatePicker } from '../calendar';
 
 const buckets = ['overdue', 'within_7', 'within_30'] as const;
 const bucketLook: Record<MaintenanceItem['bucket'], { key: TranslationKey; tone: Tone; badge: 'danger' | 'warn' | 'info' }> = {
@@ -230,7 +231,9 @@ export function MaintenanceDetail({ membership, item: initial, onBack, onOpenJob
 
     {panel === 'postpone' ? <Card>
       <Strong>{t('postpone')}</Strong>
-      <Field label={t('newDueDate')} value={dueDate} onChangeText={setDueDate} placeholder={bangkokDay(30)} hint={t('dateFormatHint')} error={fieldError} maxLength={10} />
+      <Text style={styles.label}>{t('newDueDate')}{dueDate ? ` · ${formatDate(day(dueDate), language)}` : ''}</Text>
+      <DatePicker value={dueDate || null} min={bangkokDay(1)} max={addDays(bangkokDay(0), 730)} onChange={d => { setDueDate(d); setFieldError(undefined); }} />
+      {fieldError ? <Banner text={fieldError} /> : null}
       <Field label={t('reasonLabel')} value={reason} onChangeText={setReason} maxLength={500} />
       <Banner text={failure} />
       <Button icon="checkmark" title={t('save')} busy={busy} onPress={postpone} />
