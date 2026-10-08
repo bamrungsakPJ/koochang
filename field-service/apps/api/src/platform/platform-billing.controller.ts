@@ -19,10 +19,10 @@ export class PlatformBillingController {
   constructor(private readonly database: PlatformDatabaseService, @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage | null) {}
 
   @Get('invoices') @Permission('billing.read')
-  invoices(@Account() account: PlatformAccount, @Query('status') status?: string, @Query('offset') offset?: string) {
+  invoices(@Account() account: PlatformAccount, @Query('status') status?: string, @Query('offset') offset?: string, @Query('organization_id') organizationId?: string) {
     const filter = ['pending', 'open', 'paid', 'all'].includes(status ?? '') ? status : 'pending';
     const n = pageOffset(offset);
-    return this.database.run(async c => page((await c.query('SELECT * FROM padmin.payment_queue($1,$2,$3)', [account.accountId, filter, n])).rows, n));
+    return this.database.run(async c => page((await c.query('SELECT * FROM padmin.payment_queue($1,$2,$3,$4)', [account.accountId, filter, n, organizationId && uuidPattern.test(organizationId) ? organizationId : null])).rows, n));
   }
 
   /** Received, refunded and outstanding money for a Bangkok-date range (at most 366 days). */

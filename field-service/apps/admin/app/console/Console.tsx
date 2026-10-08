@@ -42,6 +42,15 @@ const nav: { name: NavName; key: AdminKey; group: Group; icon: LucideIcon; permi
   { name: 'account', key: 'accountSettings', group: 'navGroupSettings', icon: CircleUserRound },
 ];
 const parent: Partial<Record<View['name'], NavName>> = { invoice: 'payments', shop: 'shops', ticket: 'support' };
+const detail = ['invoice', 'shop', 'ticket'] as const;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The page in the address bar (#/shops, #/invoice/<id>) so refresh, Back and shared links keep it. */
+function viewFromHash(hash: string): View | null {
+  const [name, id] = hash.replace(/^#\/?/, '').split('/');
+  if ((detail as readonly string[]).includes(name ?? '')) return id && uuid.test(id) ? { name, id } as View : null;
+  return nav.some(n => n.name === name) ? { name } as View : null;
+}
+const hashOf = (v: View) => `#/${v.name}${'id' in v ? `/${v.id}` : ''}`;
 
 export function Console() {
   const [language, setLanguage] = useState<Language>('th');
@@ -49,6 +58,7 @@ export function Console() {
   const [ready, setReady] = useState(false);
   const [invite,setInvite]=useState<string|null>(null);
   const [view, setView] = useState<View | null>(null);
+  const open = useCallback((next: View) => { setView(next); if (location.hash !== hashOf(next)) history.pushState(null, '', hashOf(next)); }, []);
   const stepUpResolve = useRef<((ok: boolean) => void) | null>(null);
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [asking, setAsking] = useState<(AskOptions & { resolve: (value: string | null) => void }) | null>(null);
@@ -56,12 +66,16 @@ export function Console() {
   useEffect(() => {
     const token=new URLSearchParams(location.hash.slice(1)).get('invite');
     if(token){setInvite(token);history.replaceState(null,'',location.pathname+location.search);}
+    else setView(viewFromHash(location.hash));
+    const back = () => setView(viewFromHash(location.hash));
+    window.addEventListener('popstate', back);
     const saved = (() => { try { return localStorage.getItem('console.language'); } catch { return null; } })();
     const lang = normalizeLanguage(saved ?? navigator.language);
     setLanguage(lang); setApiLanguage(lang);
     setOnSignedOut(() => { setMe(null); setView(null); });
     if (session.get()) call<Me>('GET', '/platform/auth/me').then(setMe, () => setMe(null)).finally(() => setReady(true));
     else setReady(true);
+    return () => window.removeEventListener('popstate', back);
   }, []);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
   function changeLanguage(value: Language) { setLanguage(value); setApiLanguage(value); try { localStorage.setItem('console.language', value); } catch { /* ignore */ } }
@@ -79,17 +93,17 @@ export function Console() {
     const allowed = nav.filter(n => !n.permission || me.permissions.includes(n.permission));
     const current: View = view ?? (allowed[0] ? { name: allowed[0].name } as View : { name: 'overview' });
     const section = parent[current.name] ?? current.name;
-    const go = (name: string) => setView({ name } as View);
+    const go = (name: string) => open({ name } as View);
     const body = !allowed.some(n => n.name === section) ? <NoPermission />
       : current.name === 'invoice' ? <InvoiceView id={current.id} me={me} onBack={() => go('payments')} />
       : current.name === 'shop' ? <ShopView id={current.id} me={me} onBack={() => go('shops')} />
       : current.name === 'ticket' ? <TicketView id={current.id} me={me} onBack={() => go('support')} />
       : current.name === 'overview' ? <OverviewView onNavigate={name => { if (allowed.some(n => n.name === name)) go(name); }} />
-      : current.name === 'payments' ? <PaymentsView onOpen={id => setView({ name: 'invoice', id })} />
-      : current.name === 'refunds' ? <RefundsView me={me} onOpen={id => setView({ name: 'invoice', id })} />
+      : current.name === 'payments' ? <PaymentsView onOpen={id => open({ name: 'invoice', id })} />
+      : current.name === 'refunds' ? <RefundsView me={me} onOpen={id => open({ name: 'invoice', id })} />
       : current.name === 'reconcile' ? <ReconcileView />
-      : current.name === 'shops' ? <ShopsView onOpen={id => setView({ name: 'shop', id })} />
-      : current.name === 'support' ? <TicketsView onOpen={id => setView({ name: 'ticket', id })} />
+      : current.name === 'shops' ? <ShopsView onOpen={id => open({ name: 'shop', id })} />
+      : current.name === 'support' ? <TicketsView onOpen={id => open({ name: 'ticket', id })} />
       : current.name === 'access' ? <AccessView me={me} />
       : current.name === 'audit' ? <AuditView />
       : current.name === 'system' ? <SystemView />

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { translate, type TranslationKey, type AdminKey } from '@field-service/i18n';
+import { ShopFilter } from './shop-picker';
 import { call, ConsoleError, dateOnly, dateTime, download, isSuperAdmin, money, useAsk, useLanguage, useStepUp, useText, type Me } from './api';
 import { Pager, type Page } from './admin';
 
@@ -32,14 +33,16 @@ export function PaymentsView({ onOpen }: { onOpen: (id: string) => void }) {
   const t = useText();
   const lang = useLanguage();
   const [filter, setFilter] = useState<'pending' | 'open' | 'paid' | 'all'>('pending');
+  const [shop, setShop] = useState<string | null>(null);
   const [rows, setRows] = useState<QueueRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  useEffect(() => { setOffset(0); }, [filter]);
-  useEffect(() => { setRows(null); call<Page<QueueRow>>('GET', `/platform/billing/invoices?status=${filter}&offset=${offset}`).then(r => { setRows(r.items); setHasMore(r.has_more); }, e => setError(message(e))); }, [filter, offset]);
+  useEffect(() => { setOffset(0); }, [filter, shop]);
+  useEffect(() => { setRows(null); call<Page<QueueRow>>('GET', `/platform/billing/invoices?status=${filter}&offset=${offset}${shop ? `&organization_id=${shop}` : ''}`).then(r => { setRows(r.items); setHasMore(r.has_more); }, e => setError(message(e))); }, [filter, offset, shop]);
   return <section>
     <h1>{t('navPayments')}</h1>
+    <ShopFilter value={shop} onChange={setShop} />
     <div className="tabs">{(['pending', 'open', 'paid', 'all'] as const).map(f =>
       <button key={f} className={filter === f ? 'tab on' : 'tab'} onClick={() => setFilter(f)}>{t(f === 'pending' ? 'filterPending' : f === 'open' ? 'filterOpen' : f === 'paid' ? 'filterPaid' : 'filterAll')}</button>)}</div>
     {error ? <p className="error">{error}</p> : null}

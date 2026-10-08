@@ -220,6 +220,10 @@ test('a temporary suspension restored in time never becomes permanent; Stripe pa
  await f.provider.webhook(credential,Buffer.from(raw),sign(raw));
  const queue=(await asRole('fs_platform','SELECT invoice_id FROM padmin.payment_queue($1,$2,0)',[operator,'pending'])).rows.map(r=>r.invoice_id);
  assert.ok(queue.includes(f.invoice));
+ const only=async org=>(await asRole('fs_platform','SELECT invoice_id FROM padmin.payment_queue($1,$2,0,$3)',[operator,'all',org])).rows.map(r=>r.invoice_id);
+ assert.ok((await only(f.shop.organizationId)).includes(f.invoice),'shop filter keeps that shop');
+ assert.ok(!(await only(shop.organizationId)).includes(f.invoice),'shop filter drops other shops');
+ assert.ok((await only(null)).includes(f.invoice),'no filter means every shop');
  const detail=(await asRole('fs_platform','SELECT padmin.invoice_detail($1,$2) AS v',[operator,f.invoice])).rows[0].v;
  assert.deepEqual(detail.subscription_payments.map(p=>[p.stripe_invoice_id,p.status,p.reason]),[[odd.id,'manual_review','PAYMENT_MISMATCH']]);
 });

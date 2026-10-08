@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { AdminKey } from '@field-service/i18n';
 import { DatabaseZap, KeyRound, LifeBuoy, ReceiptText, RotateCcw, type LucideIcon } from 'lucide-react';
+import { ShopFilter } from './shop-picker';
 import { call, ConsoleError, dateOnly, dateTime, isSuperAdmin, money, useAsk, useCode, useLanguage, useStepUp, useText, type Me } from './api';
 
 const message = (e: unknown) => e instanceof ConsoleError ? e.message : String(e);
@@ -216,11 +217,13 @@ export function TicketsView({ onOpen }: { onOpen: (id: string) => void }) {
   const t = useText();
   const lang = useLanguage();
   const [filter, setFilter] = useState<'open' | 'resolved' | 'closed' | 'all'>('open');
+  const [shop, setShop] = useState<string | null>(null);
   const [rows, setRows] = useState<TicketRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setRows(null); call<{ items: TicketRow[] }>('GET', `/platform/tickets?status=${filter}`).then(r => setRows(r.items), e => setError(message(e))); }, [filter]);
+  useEffect(() => { setRows(null); call<{ items: TicketRow[] }>('GET', `/platform/tickets?status=${filter}${shop ? `&organization_id=${shop}` : ''}`).then(r => setRows(r.items), e => setError(message(e))); }, [filter, shop]);
   return <section>
     <h1>{t('navSupport')}</h1>
+    <ShopFilter value={shop} onChange={setShop} />
     <div className="tabs">{(['open', 'resolved', 'closed', 'all'] as const).map(f => <button key={f} className={filter === f ? 'tab on' : 'tab'} onClick={() => setFilter(f)}>{f === 'all' ? t('filterAll') : t(`filter.${f}` as AdminKey)}</button>)}</div>
     {error ? <p className="error">{error}</p> : null}
     <div className="table-scroll"><table>
@@ -339,13 +342,15 @@ export function AuditView() {
   const t = useText();
   const lang = useLanguage();
   const [action, setAction] = useState('');
+  const [shop, setShop] = useState<string | null>(null);
   const [rows, setRows] = useState<AuditRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = (before?: string, append = false) => call<{ items: AuditRow[] }>('GET', `/platform/audit?action=${encodeURIComponent(action)}${before ? `&before=${encodeURIComponent(before)}` : ''}`)
+  const load = (before?: string, append = false) => call<{ items: AuditRow[] }>('GET', `/platform/audit?action=${encodeURIComponent(action)}${shop ? `&organization_id=${shop}` : ''}${before ? `&before=${encodeURIComponent(before)}` : ''}`)
     .then(r => setRows(prev => append && prev ? [...prev, ...r.items] : r.items), e => setError(message(e)));
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { setRows(null); void load(); }, [shop]);
   return <section>
     <h1>{t('navAudit')}</h1>
+    <ShopFilter value={shop} onChange={setShop} />
     <form className="inline" onSubmit={e => { e.preventDefault(); setRows(null); void load(); }}>
       <label className="grow">{t('filterAction')}<input value={action} onChange={e => setAction(e.target.value)} /></label><button className="primary">OK</button>
     </form>

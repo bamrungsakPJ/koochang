@@ -280,3 +280,4 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0
 }
 .console .table-scroll td button.link { text-align:left; }
 .console .table-scroll td .muted { white-space:nowrap; }
+.console .shop-filter { max-width:420px; margin:0 0 14px; }

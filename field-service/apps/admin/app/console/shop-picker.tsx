@@ -9,6 +9,12 @@ const toPick = (r: Row): ShopPick => ({ id: r.id, name: r.name, detail: [r.owner
 
 /** Several shops picked by typing a shop name or the last 4 digits of the owner's phone (server search,
  * the same as the Shops page). Picked shops show as removable chips; known IDs are resolved to names. */
+/** One shop to filter a list by (empty = every shop). */
+export function ShopFilter({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+  const t = useText();
+  return <div className="shop-filter"><ShopMultiPicker label={t('filterShop')} value={value ? [value] : []} onChange={ids => onChange(ids.at(-1) ?? null)} /></div>;
+}
+
 export function ShopMultiPicker({ label, value, onChange }: { label: string; value: string[]; onChange: (ids: string[]) => void }) {
   const t = useText(), id = useId();
   const [names, setNames] = useState<Record<string, ShopPick>>({});

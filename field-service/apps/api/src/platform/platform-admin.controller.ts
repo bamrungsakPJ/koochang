@@ -100,9 +100,9 @@ export class PlatformAdminController {
   }
 
   @Get('tickets') @Permission('support.read')
-  tickets(@Account() a: PlatformAccount, @Query('status') status?: string) {
+  tickets(@Account() a: PlatformAccount, @Query('status') status?: string, @Query('organization_id') organizationId?: string) {
     const filter = ['open', 'resolved', 'closed', 'all'].includes(status ?? '') ? status : 'open';
-    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.tickets($1,$2)', [a.accountId, filter])).rows }));
+    return this.database.run(async c => ({ items: (await c.query('SELECT * FROM padmin.tickets($1,$2,$3)', [a.accountId, filter, organizationId && uuidPattern.test(organizationId) ? organizationId : null])).rows }));
   }
 
   @Get('tickets/:id') @Permission('support.read')
