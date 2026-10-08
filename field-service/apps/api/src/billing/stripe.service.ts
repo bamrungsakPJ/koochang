@@ -35,9 +35,18 @@ export class StripeService implements OnModuleDestroy {
     if(!this.settings.secretKey) throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     return {key:decrypt(this.settings.secretKey,config.secret_sealed),webhook:decrypt(this.settings.secretKey,config.webhook_sealed)};
   }
-  private base() {
+  /** Where Stripe sends the owner back: the /shop page, on the web origin they started from when it is one
+   * of ADMIN_ORIGIN (sign-in lives per origin), otherwise OWNER_WEB_URL. A bare OWNER_WEB_URL host means /shop. */
+  private base(origin?:string) {
     const raw=process.env.OWNER_WEB_URL;
-    try {const url=new URL(raw!);if(url.protocol!=='https:'&&!( !this.settings.production&&url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw Error();return url;}
+    const allowed=(u:URL)=>u.protocol==='https:'||(!this.settings.production&&u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname));
+    try {
+      const url=new URL(raw!);if(!allowed(url))throw Error();
+      const from=origin&&(process.env.ADMIN_ORIGIN??'').split(',').map(o=>o.trim()).includes(origin)?new URL(origin):null;
+      if(from&&allowed(from)){url.protocol=from.protocol;url.host=from.host;}
+      if(url.pathname==='/')url.pathname='/shop';
+      return url;
+    }
     catch{throw apiError(503,'TEMPORARILY_UNAVAILABLE');}
   }
   async methods():Promise<{stripe_card:boolean;stripe_qr:boolean;stripe_test:boolean}> {
@@ -50,7 +59,7 @@ export class StripeService implements OnModuleDestroy {
   /** Worker use: the same service on the worker's own fs_worker pool. */
   static forPool(settings:PlatformSettings,pool:Pool){const s=new StripeService(settings);void s.pool?.end();s.pool=pool;return s;}
   /** `subscribe` (card only): Stripe Subscription for automatic renewal instead of a one-time payment. */
-  async checkout(user:string,org:string,invoice:string,method:'card'|'promptpay',requestKey:string,subscribe=false) {
+  async checkout(user:string,org:string,invoice:string,method:'card'|'promptpay',requestKey:string,subscribe=false,origin?:string) {
     const available=await this.methods();
     if(!(method==='card'?available.stripe_card:available.stripe_qr)) throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     const a:StripeAttempt=await this.run(async c=>(await c.query('SELECT worker.prepare_stripe($1,$2,$3,$4,$5,$6) AS value',[user,org,invoice,method,requestKey,subscribe])).rows[0].value);
@@ -58,7 +67,7 @@ export class StripeService implements OnModuleDestroy {
     const config=await this.config(a.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     if(this.settings.production&&config.mode!=='live')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     const stripe=this.client(this.credentials(config).key);
-    const target=this.base();target.search=new URLSearchParams({section:'invoice',id:invoice,organization_id:org}).toString();
+    const target=this.base(origin);target.search=new URLSearchParams({section:'invoice',id:invoice,organization_id:org}).toString();
     if(a.session_id){
       const result=await this.refresh(a.id);
       if(['expired','failed','manual_review'].includes(result.status))throw apiError(422,'INVALID_STATE_TRANSITION');
@@ -172,11 +181,11 @@ export class StripeService implements OnModuleDestroy {
     await this.run(c=>c.query('SELECT worker.sync_subscription($1,$2,$3,$4)',[sub.id,sub.status,sub.cancel_at_period_end,seconds(sub.items?.data[0]?.current_period_end)]));
   }
   /** Stripe's customer portal: the owner changes the card or downloads receipts at Stripe. */
-  async portal(user:string,org:string) {
+  async portal(user:string,org:string,origin?:string) {
     const info=await this.ownerSubscription(user,org);
     if(!info)throw apiError(404,'RESOURCE_NOT_FOUND');
     const config=await this.config(info.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
-    const back=this.base();back.search=new URLSearchParams({section:'billing',organization_id:org}).toString();
+    const back=this.base(origin);back.search=new URLSearchParams({section:'billing',organization_id:org}).toString();
     const session=await this.client(this.credentials(config).key).billingPortal.sessions.create({customer:info.customer_id,return_url:back.toString(),locale:'auto'});
     if(new URL(session.url).origin!=='https://billing.stripe.com')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     return {url:session.url};

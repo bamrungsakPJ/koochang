@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { RuntimeSettingsService } from '../platform/runtime-settings.service.js';
 import { PLATFORM_SETTINGS, MEDIA_SETTINGS, type MediaSettings, type PlatformSettings } from '../config.js';
@@ -91,11 +91,11 @@ export class BillingController {
   }
 
   @Post('invoices/:invoiceId/checkout')
-  checkout(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('invoiceId') invoiceId: string, @Body() body: Record<string, unknown> = {}) {
+  checkout(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('invoiceId') invoiceId: string, @Body() body: Record<string, unknown> = {}, @Headers('origin') origin?: string) {
     this.ownerOnly(tenant); this.id(invoiceId);
     if (!['card','promptpay'].includes(body.method as string) || typeof body.request_key !== 'string' || !uuidPattern.test(body.request_key)) throw apiError(400,'VALIDATION_ERROR');
     if (body.subscribe !== undefined && (typeof body.subscribe !== 'boolean' || (body.subscribe && body.method !== 'card'))) throw apiError(400,'VALIDATION_ERROR');
-    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key,body.subscribe === true);
+    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key,body.subscribe === true,origin);
   }
 
   /** Automatic card renewal (Stripe Subscription): status only. Card details stay at Stripe. */
@@ -117,9 +117,9 @@ export class BillingController {
     return this.autopay(session, tenant);
   }
   @Post('autopay/portal')
-  portal(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
+  portal(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Headers('origin') origin?: string) {
     this.ownerOnly(tenant);
-    return this.stripe.portal(session.userId, tenant.organizationId);
+    return this.stripe.portal(session.userId, tenant.organizationId, origin);
   }
   @Post('invoices/:invoiceId/checkouts/:checkoutId/refresh')
   async refreshCheckout(@Session() session: SessionContext,@Tenant() tenant: TenantContext,@Param('invoiceId') invoiceId:string,@Param('checkoutId') checkoutId:string) {
