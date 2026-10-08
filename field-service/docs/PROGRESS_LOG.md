@@ -28,7 +28,7 @@
 
 ### งานที่ยังค้างและลำดับทำต่อ
 
-- (ใหม่ 2026-10-08) **ตั้งค่าการชำระเงินบน staging (ผู้ใช้ทำในคอนโซล)**: กรอก PromptPay ID ใน ตั้งค่าแพลตฟอร์ม → บัญชีรับเงิน (ตอนนี้ว่าง QR จึงไม่แสดง) และบันทึก Stripe keys + เปิดรับบัตรใน ตั้งค่าการชำระเงิน (ยังไม่ได้ตั้ง บัตร/Subscription จึงไม่แสดง) — ตอนนี้ร้านเห็นเฉพาะ "โอนเข้าบัญชี"; จากนั้นทดสอบจ่ายจริงทั้ง 3 แบบ; หน้าชำระเงินแบบใหม่บนมือถือต้องรอ APK ถัดไป (ยังไม่ได้ build); ลบไฟล์เกิน `/opt/field-service/staging/pnpm-workspace.yaml` บน server2 (ระบบบล็อกไม่ให้ Claude ลบ)
+- (ใหม่ 2026-10-08) **ตั้งค่าการชำระเงินบน staging (ผู้ใช้ทำในคอนโซล)**: กรอก PromptPay ID ใน ตั้งค่าแพลตฟอร์ม → บัญชีรับเงิน (ตอนนี้ว่าง QR จึงไม่แสดง) และบันทึก Stripe keys + เปิดรับบัตรใน ตั้งค่าการชำระเงิน (ยังไม่ได้ตั้ง บัตร/Subscription จึงไม่แสดง) — **ผู้ใช้เลือกใช้ Stripe โหมดจริง (live) เลย**; รอบแรกบันทึกไม่ผ่านเพราะใช้ restricted key `rk_live_` ต้องสร้าง Secret key สิทธิ์เต็ม `sk_live_` (ขั้นตอนในบันทึกรายวัน 2026-10-08 "ตั้งค่า Stripe"); ถ้า Stripe ไม่ให้สร้างสิทธิ์เต็ม ต้องแก้ API ให้รับ `rk_`; ควรทำข้อความ error หน้าตั้งค่าการชำระเงินให้บอกสาเหตุ (รอผู้ใช้ยืนยัน) — ตอนนี้ร้านเห็นเฉพาะ "โอนเข้าบัญชี"; จากนั้นทดสอบจ่ายจริงทั้ง 3 แบบ; หน้าชำระเงินแบบใหม่บนมือถือต้องรอ APK ถัดไป (ยังไม่ได้ build); ลบไฟล์เกิน `/opt/field-service/staging/pnpm-workspace.yaml` บน server2 (ระบบบล็อกไม่ให้ Claude ลบ)
 - (ใหม่ 2026-10-08) Console UI/UX: ตัวเลือกร้านแบบพิมพ์ค้นหาในประกาศ + ตัวกรองร้าน, ห่อตารางทุกหน้าให้เลื่อนบนมือถือ, เปลี่ยน prompt() เป็น dialog, แปลรหัสดิบ, ใส่ URL ประจำหน้า (รอผู้ใช้ยืนยันก่อนทำ) — หน้าแพ็กเกจเป็นตารางแล้ว
 
 0. (deploy staging 0c87428 + APK 0.2.11 แล้ว 2026-10-08 รอทดสอบบนโทรศัพท์) หน้าสร้างงานแบบใหม่ทั้งเว็บและมือถือ; ทดสอบ 3 ข้อที่ล้มอยู่ก่อนแล้ว (platform admin/plan-changes/mobile-client) ต้องแก้แยก
@@ -66,6 +66,17 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-08 — ตั้งค่า Stripe: ผู้ใช้เลือกโหมดจริง (live) ทันที; บันทึกไม่ผ่านเพราะใช้ restricted key
+
+- **ปัญหา**: หน้าคอนโซล "ตั้งค่าการชำระเงิน" ขึ้น "กรุณาตรวจช่องที่กรอกและลองใหม่" ตอนบันทึก
+- **ตรวจแล้ว**: server2 ติดต่อ api.stripe.com ได้ (ไม่มี key ตอบ 401 ตามปกติ) → ปัญหาอยู่ที่ค่าที่กรอก; API ตรวจ `^sk_(test|live)_`, `^whsec_` และเรียก `accounts.retrieve` ถ้า Stripe ไม่รับ key ก็ตอบ VALIDATION_ERROR เหมือนกัน (`payment-settings.controller.ts`); หน้าคอนโซลรวมทุกสาเหตุเป็นข้อความเดียว จึงไม่รู้ว่าผิดช่องไหน
+- **สาเหตุจริง**: บัญชี Stripe ของผู้ใช้ (Dashboard แบบใหม่) มีแค่ key `rk_live_…` ชื่อ koochang สิทธิ์ "Limited" (restricted key) + publishable `pk_live_` — ไม่มี `sk_`; ระบบรับเฉพาะ `sk_`
+- **ผู้ใช้ตัดสินใจ**: ใช้ **โหมดจริง (live) เลย** ไม่ตั้งค่าโหมดทดสอบก่อน
+- **ขั้นตอนที่แนะนำผู้ใช้ (โหมด Live)**: (1) API keys → + Create secret key เลือกสิทธิ์เต็ม (ไม่ใช่ Limited) ได้ `sk_live_` คัดลอกทันที (โชว์ครั้งเดียว) (2) วาง key ในคอนโซล ยังไม่บันทึก แล้วคัดลอก URL "ปลายทางรับผลชำระจาก Stripe" (3) Stripe Webhooks → Add endpoint ด้วย URL นั้น + 8 events (checkout.session.completed / async_payment_succeeded / async_payment_failed / expired, invoice.paid, invoice.payment_failed, customer.subscription.updated / deleted) → คัดลอก `whsec_` (4) คอนโซล: ติ๊กเปิดรับบัตร ไม่ติ๊ก QR PromptPay (ของ Stripe ไม่ใช้) แล้วบันทึก **ห้ามกด "อ่านค่าล่าสุด" ระหว่างทาง** เพราะ URL ปลายทางจะเปลี่ยน (5) Stripe: Manage failed payments → Cancel the subscription; Customer portal เปิดอัปเดตบัตร + ประวัติใบแจ้งหนี้ ปิดยกเลิก/Switch plans/Update quantities
+- **ข้อควรรู้โหมดจริง**: บัญชี Stripe ต้องยืนยันตัวตนครบ (charges_enabled) ไม่งั้นบันทึกไม่ได้ (TEMPORARILY_UNAVAILABLE); ทดสอบด้วยแพ็กเกจราคาต่ำ (เช่น 20 บาท) แล้วคืนเงินผ่านคอนโซลและยกเลิก subscription หลังทดสอบ; ลบ `rk_live_` ตัวเก่า (koochang) หลังได้ `sk_live_`
+- **ถ้า Stripe ไม่ให้สร้าง key สิทธิ์เต็ม**: ต้องแก้ API ให้รับ `rk_(test|live)_` และให้ผู้ใช้เปิดสิทธิ์ Account: Read, Checkout Sessions: Write, Subscriptions: Write, Invoices: Read, Customer portal: Write (โค้ดเรียก accounts.retrieve, checkout.sessions create/retrieve/expire, subscriptions retrieve/update, invoices.retrieve, billingPortal.sessions.create) — ยังไม่ได้ทำ รอผู้ใช้บอก
+- **ยังไม่ได้ทำ**: ทำข้อความ error หน้าตั้งค่าการชำระเงินให้บอกสาเหตุ (เช่น "Secret key ต้องขึ้นต้น sk_", "Stripe ไม่รับ key นี้") — เสนอแล้ว รอผู้ใช้ยืนยัน
 
 ### 2026-10-08 — Push + deploy staging ถึง 51e56d7 (เลือกวิธีชำระเงิน 3 แบบ + เอกสาร Stripe)
 
