@@ -1,9 +1,9 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, StyleSheet, Text, View } from 'react-native';
+import { AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatMoney, type TranslationKey } from '@field-service/i18n';
-import { api, ApiFailure, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
+import { api, ApiFailure, type Autopay, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
 import { CameraDeniedError, pickPhoto, uuid } from '../photos';
-import { Badge, Banner, Button, Card, colors, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, tones, useErrorText, useT, type Tone } from '../ui';
+import { Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, tones, useErrorText, useT, type Tone } from '../ui';
 
 const invoiceTone = (s: InvoiceSummary['status']) => s === 'paid' ? 'ok' : s === 'open' ? 'warn' : 'neutral';
 const proofTone = (s: string | null) => s === 'accepted' ? 'ok' : s === 'rejected' ? 'danger' : 'info';
@@ -43,6 +43,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
     <Sub>{t('renewHint')}</Sub>
     {plans && !plans.payment_available ? <Banner tone="info" text={t('paymentUnavailable')} /> : null}
     <Banner text={error} />
+    <AutopayCard org={org} />
     {plans?.items.map((p, i) => {
       const tone = planTone[i % planTone.length]!;
       return <Card key={p.price_version_id}>
@@ -73,6 +74,38 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
   </Screen>;
 }
 
+/** Saved card for automatic renewal; turned on while paying by card, turned off here. */
+function AutopayCard({ org }: { org: string }) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  const errorText = useErrorText();
+  const [state, setState] = useState<Autopay | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { api.autopay(org).then(setState, () => {}); }, [org]);
+  if (!state || (!state.available && !state.card)) return null;
+  const card = state.card, on = card?.status === 'active', last = state.last_charge;
+  async function disable() {
+    if (!await confirm(t('autopay.disableConfirm'), t('autopay.disable'), t('cancel'))) return;
+    setBusy(true); setError(null);
+    try { setState(await api.disableAutopay(org)); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+  return <Card>
+    <View style={styles.planHead}>
+      <IconTile icon="card" tone={on ? 'green' : 'blue'} size={40} />
+      <View style={{ flex: 1 }}>
+        <Strong>{t('autopay.title')}</Strong>
+        <Sub>{on && card ? t('autopay.on', { brand: (card.brand ?? '').toUpperCase(), last4: card.last4 ?? '', exp: `${card.exp_month ?? ''}/${card.exp_year ?? ''}` })
+          : card?.disabled_reason === 'OWNER' ? t('autopay.ownerStopped') : card ? t('autopay.stopped') : t('autopay.off')}</Sub>
+      </View>
+    </View>
+    {on && !state.available ? <Banner tone="info" text={t('autopay.paused')} /> : null}
+    {last?.status === 'failed' ? <Banner text={last.next_attempt_at && on ? `${t('autopay.lastFailed')} ${t('autopay.retry', { date: formatDate(new Date(last.next_attempt_at), language) })}` : t('autopay.lastFailed')} /> : null}
+    <Banner text={error} />
+    {on ? <Button small kind="secondary" title={t('autopay.disable')} busy={busy} onPress={disable} /> : null}
+  </Card>;
+}
+
 function Feature({ text }: { text: string }) {
   return <View style={styles.feature}><Icon name="checkmark-circle" size={18} color={colors.success} /><Text style={styles.featureText}>{text}</Text></View>;
 }
@@ -89,8 +122,10 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   const [done, setDone] = useState<string | null>(null);
   const proofId = useRef<string | null>(null);
   const checkoutKeys = useRef<Record<string,string>>({});
+  const [saveCard, setSaveCard] = useState(false);
   const active = invoice?.checkouts?.find(c => ['creating','open'].includes(c.status));
   useEffect(() => { api.invoice(org, invoiceId).then(setInvoice, e => setError(errorText(e))); }, [org, invoiceId]);
+  useEffect(() => { if (active?.method === 'card') setSaveCard(Boolean(active.save_card)); }, [active?.id]);
   useEffect(() => {
     if (!active || active.status !== 'open') return;
     let checking = false;
@@ -102,9 +137,11 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   async function checkout(method:'card'|'promptpay') {
     setBusy(true);setError(null);
     try{
-      if(!active&&invoice?.checkouts?.some(c=>c.method===method&&['expired','failed'].includes(c.status)))delete checkoutKeys.current[method];
-      checkoutKeys.current[method]??=uuid();
-      const result=await api.stripeCheckout(org,invoiceId,method,checkoutKeys.current[method]);
+      if(!active&&invoice?.checkouts?.some(c=>c.method===method&&['expired','failed'].includes(c.status))){delete checkoutKeys.current[method];delete checkoutKeys.current['card:save'];}
+      // One key per method and choice: ticking "save card" is a different checkout.
+      const save=method==='card'&&saveCard,slot=save?'card:save':method;
+      checkoutKeys.current[slot]??=uuid();
+      const result=await api.stripeCheckout(org,invoiceId,method,checkoutKeys.current[slot],save);
       setInvoice(await api.invoice(org,invoiceId));await Linking.openURL(result.url);
     }catch(e){try{setInvoice(await api.invoice(org,invoiceId));}catch{}setError(errorText(e));}finally{setBusy(false);}
   }
@@ -146,7 +183,13 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
       <Section>{t('stripe.title')}</Section><Sub>{t('stripe.hint')}</Sub>
       {invoice.methods?.stripe_test?<Banner tone="info" text={t('stripe.test')}/>:null}
       {invoice.methods?.stripe_qr?<Button title={t('stripe.qr')} busy={busy} disabled={Boolean(active&&active.method!=='promptpay')||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('promptpay')}/>:null}
-      {invoice.methods?.stripe_card?<Button kind="secondary" title={t('stripe.card')} busy={busy} disabled={Boolean(active&&active.method!=='card')||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>:null}
+      {invoice.methods?.stripe_card?<>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{checked:saveCard,disabled:Boolean(active)}} disabled={Boolean(active)} onPress={()=>setSaveCard(!saveCard)} style={styles.check}>
+          <Icon name={(active?active.save_card:saveCard)?'checkbox':'square-outline'} size={22} color={colors.primary}/>
+          <View style={{flex:1}}><Text style={styles.featureText}>{t('autopay.save')}</Text><Sub>{t('autopay.consent')}</Sub></View>
+        </Pressable>
+        <Button kind="secondary" title={t('stripe.card')} busy={busy} disabled={Boolean(active&&(active.method!=='card'||Boolean(active.save_card)!==saveCard))||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>
+      </>:null}
       {active?<><Sub>{t(`stripe.${active.status}` as TranslationKey)}</Sub><Button title={t('stripe.refresh')} busy={busy} onPress={()=>checkoutAction(false)}/>{active.status==='open'?<Button kind="secondary" title={t('stripe.cancel')} busy={busy} onPress={()=>checkoutAction(true)}/>:null}</>:null}
     </>:null}
     {invoice.checkouts?.filter(c=>c.reason).map(c=><Banner key={c.id} text={t(`stripe.${c.reason}` as TranslationKey)}/>)}
@@ -187,4 +230,5 @@ const styles = StyleSheet.create({
   featureText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
   amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   actions: { flexDirection: 'row', gap: 10 },
+  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginVertical: 8 },
 });

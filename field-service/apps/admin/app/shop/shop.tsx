@@ -64,6 +64,7 @@ export function NotificationsView({ org, go }: { org: string; go: Go }) {
     if (item.target_type === 'job' && item.target_id) go({ section: 'job', id: item.target_id });
     else if (item.target_type === 'invoice' && item.target_id) go({ section: 'invoice', id: item.target_id });
     else if (item.target_type === 'maintenance_cycle') go({ section: 'maintenance' });
+    else if (item.target_type === 'subscription') go({ section: 'billing' });
     else if (item.target_type === 'support_ticket' || item.target_type === 'support_grant') go({ section: 'support' });
     else if (item.template_key === 'join_request') go({ section: 'team' }); else await r.reload();
   })}>{translate(lang, `notify.${item.template_key}` as TranslationKey, item.parameters)}<span className="muted">{dateTime(item.created_at, lang)}</span></Button></li>)}</ul> : <Empty />}</Panel></>;

@@ -86,7 +86,27 @@ export class BillingController {
   checkout(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('invoiceId') invoiceId: string, @Body() body: Record<string, unknown> = {}) {
     this.ownerOnly(tenant); this.id(invoiceId);
     if (!['card','promptpay'].includes(body.method as string) || typeof body.request_key !== 'string' || !uuidPattern.test(body.request_key)) throw apiError(400,'VALIDATION_ERROR');
-    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key);
+    if (body.save_card !== undefined && (typeof body.save_card !== 'boolean' || (body.save_card && body.method !== 'card'))) throw apiError(400,'VALIDATION_ERROR');
+    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key,body.save_card === true);
+  }
+
+  /** Automatic card renewal: the saved card (brand/last digits only) and the latest charge attempt. */
+  @Get('autopay')
+  async autopay(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
+    this.ownerOnly(tenant);
+    const available = (await this.stripe.methods()).stripe_card;
+    return this.database.withTenant(session.userId, tenant.organizationId, async c => ({
+      available,
+      card: (await c.query('SELECT status, brand, last4, exp_month, exp_year, disabled_reason, updated_at FROM billing.card_autopay WHERE organization_id = $1', [tenant.organizationId])).rows[0] ?? null,
+      last_charge: (await c.query('SELECT status, reason, invoice_id, created_at, next_attempt_at FROM billing.autopay_charges WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1', [tenant.organizationId])).rows[0] ?? null,
+    }));
+  }
+  @Post('autopay/disable')
+  async disableAutopay(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
+    this.ownerOnly(tenant);
+    const outcome = await this.database.identity(async c => (await c.query('SELECT auth.disable_card_autopay($1,$2,gen_random_uuid()) AS v', [session.userId, tenant.organizationId])).rows[0].v);
+    if (outcome === 'forbidden') throw apiError(403, 'TENANT_ACCESS_DENIED');
+    return this.autopay(session, tenant);
   }
   @Post('invoices/:invoiceId/checkouts/:checkoutId/refresh')
   async refreshCheckout(@Session() session: SessionContext,@Tenant() tenant: TenantContext,@Param('invoiceId') invoiceId:string,@Param('checkoutId') checkoutId:string) {
@@ -154,7 +174,7 @@ export class BillingController {
       [tenant.organizationId, invoiceId])).rows[0] ?? null;
     const channel = invoice.receiver_snapshot ?? await this.bank();
     const { receiver_snapshot: _receiver, ...publicInvoice } = invoice;
-    const checkouts = (await client.query('SELECT id,method,status,reason,created_at,expires_at,checkout_url FROM billing.stripe_checkouts WHERE organization_id=$1 AND invoice_id=$2 ORDER BY created_at DESC',[tenant.organizationId,invoiceId])).rows;
+    const checkouts = (await client.query('SELECT id,method,status,reason,created_at,expires_at,checkout_url,save_card FROM billing.stripe_checkouts WHERE organization_id=$1 AND invoice_id=$2 ORDER BY created_at DESC',[tenant.organizationId,invoiceId])).rows;
     const methods = {transfer:Boolean(channel),...await this.stripe.methods()};
     return { ...publicInvoice, proofs, payment, period, checkouts, methods,
       pay_to: invoice.status === 'open' && channel ? { bank_name: channel.bankName, account_name: channel.accountName, account_number: channel.accountNumber,

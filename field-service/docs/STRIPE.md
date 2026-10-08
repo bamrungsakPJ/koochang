@@ -7,10 +7,11 @@ The existing transfer/EasySlip option remains available when its receiver is con
 The implementation uses the official `stripe` SDK, pinned to **23.0.0**, with its default API version
 **2026-09-30.endive**. Hosted Checkout receives one invoice amount in THB, with
 `allowed_payment_method_types` restricted to the owner's selected method. Payment details are
-entered at Stripe; the API never receives card numbers. These are one-time payments for the existing
-monthly plan period, not automatic recurring card charges. PromptPay uses Checkout **payment** mode;
+entered at Stripe; the API never receives card numbers. Each Checkout pays one invoice for one plan
+period. PromptPay uses Checkout **payment** mode;
 [Stripe's PromptPay documentation](https://docs.stripe.com/payments/promptpay) does not support
-Checkout subscription/setup mode for this method.
+Checkout subscription/setup mode for this method. Cards can additionally renew automatically — see
+**Automatic card renewal** below.
 
 ## Platform setup
 
@@ -89,6 +90,43 @@ Each checkout pins its original credential revision. Old encrypted credentials a
 are retained so pending sessions can finish after a rotation/account switch. Keep the old Stripe
 endpoint active until those sessions are settled. Changing only the enabled methods retains the
 current endpoint and applies to new checkouts; existing sessions can still finish.
+
+## Automatic card renewal (2026-10-08, migration 029)
+
+Owners paying by card can tick **Save this card and charge it automatically every period**. The
+Checkout then uses `setup_future_usage: off_session` with a Stripe customer for the shop (created on
+the first save, reused while the Stripe account is the same). When that checkout is paid, the API
+retrieves the PaymentIntent and stores only customer/payment-method IDs, brand, last 4 digits and
+expiry in `billing.card_autopay`. PromptPay and transfers stay one-time.
+
+This is deliberately **not** a Stripe Subscription. Our `subscription_periods` remain the only
+schedule, so suspension, cancel-renewal, erasure, plan prices, seat limits and grace keep working
+without syncing a second billing system. The worker (every 15 minutes, needs `PLATFORM_SECRET_KEY`):
+
+- picks shops whose paid period ends within **1 day** (or is in grace), renewal not cancelled, shop
+  active, next period unpaid, card payments enabled on the platform and the card saved on the
+  current Stripe account (same account ID and mode);
+- creates or reuses the renewal invoice at today's price of the same plan and interval, then sends an
+  off-session, confirmed PaymentIntent with idempotency key `autopay:<charge id>`;
+- on success records the payment (`note=card_autopay`), marks the invoice paid and adds the next
+  period from the old end date in one transaction, then notifies the owner (`payment_confirmed`);
+- on a decline retries a day later, at most **3 attempts** per period, and notifies `autopay_failed`;
+  `authentication_required`, expired/lost/stolen card, removed payment method and similar codes stop
+  automatic renewal immediately (`autopay_stopped`); the owner can still pay the open invoice;
+- leaves a charge `charging` on network errors and resends it with the same idempotency key after 2
+  minutes; `processing` intents are re-checked on each run.
+
+A charge in flight blocks slips and new checkouts for that invoice and keeps it from being replaced.
+The owner turns automatic renewal off in the plan page (web/mobile). A production worker never charges
+with a test key. Seat/plan problems (plan withdrawn, team larger than the plan now allows) record a
+failed attempt and notify the owner instead of charging. No new webhook events are required.
+
+Reminders: renewal reminders now go 7, 3 and **1** day before the end and are skipped when the next
+period is already paid. Shops on automatic renewal get `autopay_upcoming` naming the card instead of
+`renewal_due`. Tapping a subscription notification opens the plan page.
+
+Not verified with real Stripe yet: saving a card on test Checkout, an off-session charge, decline
+codes from real cards and the 3DS/authentication-required path.
 
 ## Verification and operations
 

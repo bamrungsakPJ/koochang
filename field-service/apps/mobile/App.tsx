@@ -239,6 +239,7 @@ export default function App() {
           : item.target_type === 'maintenance_cycle' && membership.role === 'owner' ? { screen: 'maintenance' }
           : item.target_type === 'invoice' && item.target_id && membership.role === 'owner' ? { screen: 'invoice', id: item.target_id }
           : (item.target_type === 'support_ticket' || item.target_type === 'support_grant') && membership.role === 'owner' ? { screen: 'support' }
+          : item.target_type === 'subscription' && membership.role === 'owner' ? { screen: 'billing' }
           : { screen: item.template_key === 'join_request' && membership.role === 'owner' ? 'team' : 'shop' })} /> : <Loading />; break;
     case 'customer': content = membership?.status === 'active'
       ? <CustomerDetail key={route.id} membership={membership} customerId={route.id} onBack={() => setRoute({ screen: 'customers' })}
