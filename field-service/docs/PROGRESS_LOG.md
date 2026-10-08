@@ -66,6 +66,10 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-08 — Push + deploy staging ถึง d81f87e (หน้าแพ็กเกจแบบตาราง)
+- push field-service-a02 ไป origin แล้ว; git bundle → server2 fetch/reset → pnpm install → build (NEXT_PUBLIC_API_URL=https://api-staging.koochang.com) → pm2 restart (ไม่มี migration ใหม่); 3 แอป online, /v1/health ok, /console 200 ทั้ง app-staging และ koochang.com, build มีโค้ดตารางแพ็กเกจ
+- ปัญหา: รัน pnpm install/build ผิดโฟลเดอร์ (รากของ repo แทน field-service/) ทำให้ build ล้มและเกิดไฟล์ `/opt/field-service/staging/pnpm-workspace.yaml` ที่ git ไม่ติดตาม; การลบไฟล์ถูกระบบอัตโนมัติบล็อก → ไม่กระทบ build (field-service มี workspace ของตัวเอง) ผู้ใช้ลบเองได้; ขั้นตอนที่ถูก: ต้อง cd `/opt/field-service/staging/field-service` ก่อน install/build
+
 ### 2026-10-08 — Console: หน้าแพ็กเกจแสดงเป็นตาราง + รีวิว UI/UX console
 
 - **ทำอะไร**: เปลี่ยนหน้า "แพ็กเกจและราคา" ใน console จากการ์ดเรียงต่อกันเป็นตาราง 2 ชุด ได้แก่ ร่าง (แพ็กเกจ, ราคา, จำนวนช่าง, พื้นที่รูป, ทดลอง/ผ่อนผัน, เริ่มมีผล, สถานะ, ปุ่ม) และแพ็กเกจที่เผยแพร่ (ใช้เวอร์ชันล่าสุด + สถานะเปิด/หยุดขาย) ราคาเดือน/ปีอยู่ในคอลัมน์เดียว เวอร์ชันเก่ากดลิงก์ "เวอร์ชันก่อนหน้า (n)" แล้วแสดงเป็นแถวย่อยใต้แพ็กเกจ คอลัมน์ชื่อแพ็กเกจตรึงไว้เมื่อเลื่อนตารางบนมือถือ เพิ่มข้อความ i18n colPrice/colStorage/colTrial/colGrace/olderVersions/hideVersions (th/en)
