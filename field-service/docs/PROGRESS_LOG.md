@@ -28,6 +28,7 @@
 
 ### งานที่ยังค้างและลำดับทำต่อ
 
+- (ใหม่ 2026-10-08) **ย้ายไป koochang.com / api.koochang.com (ทำตามลำดับ)**: ผู้ใช้เพิ่ม Cloudflare hostname `api.koochang.com` → `http://localhost:4100` และแก้ env OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น koochang.com → Claude build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` → แล้วจึงตั้ง Stripe webhook; APK 0.2.12 (build 14) ชี้ api.koochang.com แล้ว ใช้ได้หลังเพิ่ม hostname (รายละเอียดในบันทึกรายวัน)
 - (ใหม่ 2026-10-08) **ตั้งค่าการชำระเงินบน staging (ผู้ใช้ทำในคอนโซล)**: กรอก PromptPay ID ใน ตั้งค่าแพลตฟอร์ม → บัญชีรับเงิน (ตอนนี้ว่าง QR จึงไม่แสดง) และบันทึก Stripe keys + เปิดรับบัตรใน ตั้งค่าการชำระเงิน (ยังไม่ได้ตั้ง บัตร/Subscription จึงไม่แสดง) — **ผู้ใช้เลือกใช้ Stripe โหมดจริง (live) เลย**; รอบแรกบันทึกไม่ผ่านเพราะใช้ restricted key `rk_live_` ต้องสร้าง Secret key สิทธิ์เต็ม `sk_live_` (ขั้นตอนในบันทึกรายวัน 2026-10-08 "ตั้งค่า Stripe"); ถ้า Stripe ไม่ให้สร้างสิทธิ์เต็ม ต้องแก้ API ให้รับ `rk_`; ควรทำข้อความ error หน้าตั้งค่าการชำระเงินให้บอกสาเหตุ (รอผู้ใช้ยืนยัน) — ตอนนี้ร้านเห็นเฉพาะ "โอนเข้าบัญชี"; จากนั้นทดสอบจ่ายจริงทั้ง 3 แบบ; หน้าชำระเงินแบบใหม่บนมือถือต้องรอ APK ถัดไป (ยังไม่ได้ build); ลบไฟล์เกิน `/opt/field-service/staging/pnpm-workspace.yaml` บน server2 (ระบบบล็อกไม่ให้ Claude ลบ)
 - (ใหม่ 2026-10-08) Console UI/UX: ตัวเลือกร้านแบบพิมพ์ค้นหาในประกาศ + ตัวกรองร้าน, ห่อตารางทุกหน้าให้เลื่อนบนมือถือ, เปลี่ยน prompt() เป็น dialog, แปลรหัสดิบ, ใส่ URL ประจำหน้า (รอผู้ใช้ยืนยันก่อนทำ) — หน้าแพ็กเกจเป็นตารางแล้ว
 
@@ -66,6 +67,13 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-08 — ย้ายไปชื่อถาวร koochang.com / api.koochang.com + APK 0.2.12 (build 14)
+
+- **ผู้ใช้ตัดสินใจ**: ไม่ใช้ `app-staging` แล้ว (ไม่อยากตั้งค่าหลายรอบ) และใช้ **`api.koochang.com`** เป็นที่อยู่ API ถาวร — ทำก่อนตั้ง Stripe webhook เพื่อไม่ต้องตั้งใหม่ภายหลัง; เว็บใช้ `https://koochang.com` (/shop, /console, /join)
+- **ทำแล้ว**: `apps/mobile/eas.json` และ `scripts/android-build-env.ps1` → `EXPO_PUBLIC_API_URL=https://api.koochang.com`; app.json 0.2.12 / versionCode 14; คัดลอก api.ts, billing.tsx, i18n, app.json, eas.json, env script ไป D:\kc, build i18n, แก้ build.gradle 14/0.2.12, gradlew assembleRelease ด้วย Start-Process (BUILD SUCCESSFUL 1m04s) → `output/builds/apk/KooChang-0.2.12-build14.apk` (75.8 MB); ตรวจ package com.koochang.app 14/0.2.12, cert SHA-256 4eed9485… เดิม, bundle มี api.koochang.com และไม่มี api-staging, มีหน้าเลือกวิธีชำระเงิน (pay.qrHintApp, pay.cardAuto)
+- **ยังไม่ทำงาน**: `api.koochang.com` ยังไม่มีเส้นทาง (curl ได้ 000) → **APK 0.2.12 ใช้งานไม่ได้จนกว่าจะเพิ่ม Public hostname ใน Cloudflare Tunnel**: `api.koochang.com` → `http://localhost:4100` (Claude แก้ Cloudflare ไม่ได้ ผู้ใช้ทำเอง)
+- **ลำดับที่ต้องทำต่อ**: (1) ผู้ใช้เพิ่ม hostname ใน Cloudflare (2) ผู้ใช้แก้ `/etc/field-service/staging.env`: `OWNER_WEB_URL=https://koochang.com/shop`, `JOIN_LINK_BASE_URL=https://koochang.com/join` (ADMIN_ORIGIN มี koochang.com อยู่แล้ว; Claude แก้ env ผ่าน sudo ไม่ได้) (3) Claude build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` แล้ว pm2 restart — **ห้าม build เว็บก่อนข้อ 1** ไม่งั้น console/เว็บร้านเรียก API ไม่ได้ (4) ค่อยตั้ง Stripe: URL webhook ในคอนโซลจะเป็น api.koochang.com (5) ติดตั้ง APK 0.2.12 บนโทรศัพท์และทดสอบ; api-staging / app-staging เปิดไว้ระหว่างเปลี่ยน แล้วค่อยปิดใน Cloudflare
 
 ### 2026-10-08 — แก้กลับจาก Stripe แล้วไปหน้าเว็บหลัก (deploy staging e448755)
 

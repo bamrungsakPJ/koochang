@@ -11,6 +11,6 @@ $env:JAVA_HOME = (Resolve-Path -LiteralPath $JavaPath).Path
 $env:ANDROID_HOME = (Resolve-Path -LiteralPath $SdkPath).Path
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 $env:GRADLE_USER_HOME = $GradleCachePath
-$env:EXPO_PUBLIC_API_URL = 'https://api-staging.koochang.com'
+$env:EXPO_PUBLIC_API_URL = 'https://api.koochang.com'
 $env:Path = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:Path"
-Write-Output 'Android build environment configured for this terminal only (staging API).'
+Write-Output 'Android build environment configured for this terminal only (API https://api.koochang.com).'

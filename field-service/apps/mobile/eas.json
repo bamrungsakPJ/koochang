@@ -10,7 +10,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-staging.koochang.com"
+        "EXPO_PUBLIC_API_URL": "https://api.koochang.com"
       }
     },
     "production": {
