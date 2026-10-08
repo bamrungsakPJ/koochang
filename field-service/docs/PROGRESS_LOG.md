@@ -68,6 +68,12 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-08 — Stripe webhook ชี้ credential ปัจจุบันแล้ว
+
+- ผู้ใช้บันทึก key ชุดใหม่ 20:57 → credential ปัจจุบัน `db19ee92-33fd-4e51-bdf5-709a77a18c48` (live, เปิดบัตร, ปิด QR ของ Stripe); ตัวเก่า `ac7a69eb-…` ยังรับ webhook ได้แต่การชำระใหม่ใช้ db19ee92 และระบบตรวจ `metadata.credential_id` ตรงกับ URL (stripe.service.ts) → ผู้ใช้แก้ Endpoint URL ใน Stripe เป็น `https://api.koochang.com/v1/billing/stripe/webhook/db19ee92-33fd-4e51-bdf5-709a77a18c48` แล้ว (8 events, Active)
+- **บทเรียน**: บันทึก key ใหม่ในคอนโซลทุกครั้ง = URL webhook เปลี่ยน ต้องแก้ใน Stripe ตาม; ถ้าไม่เปลี่ยน key ให้เว้นช่อง key ว่างตอนบันทึก
+- ยังรอ: Send test event ได้ 200, กรอก PromptPay ID, สร้างแพ็กเกจ test20 แล้วลองจ่ายจริง
+
 ### 2026-10-08 — คอนโซล ตั้งค่าการชำระเงิน: ช่อง key ตรวจได้ก่อนบันทึก (deploy staging fd1f8de)
 
 - **ผู้ใช้แจ้ง**: ช่อง Secret key / Webhook signing secret เป็นจุดทั้งหมด เช็กไม่ได้ว่าใส่ถูกไหมก่อนบันทึก; ในภาพยังเห็นจุดเต็มช่องหลังบันทึกแล้ว (ระบบล้างช่องหลังบันทึก) → น่าจะเป็นเบราว์เซอร์กรอกรหัสผ่านที่จำไว้ให้เอง
