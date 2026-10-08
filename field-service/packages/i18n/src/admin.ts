@@ -106,6 +106,12 @@ const th = {
   recoverySummary: 'อนุมัติแล้วจะล้างรหัสผ่านและ MFA ออกจากทุกเครื่อง จากนั้นต้องสร้างลิงก์คำเชิญใหม่ให้เจ้าของบัญชี',
   yes: 'ใช่',
   no: 'ไม่',
+  colPrice: 'ราคา',
+  colStorage: 'พื้นที่รูป',
+  colTrial: 'ทดลอง (วัน)',
+  colGrace: 'ผ่อนผัน (วัน)',
+  olderVersions: 'เวอร์ชันก่อนหน้า ({n})',
+  hideVersions: 'ซ่อนเวอร์ชันก่อนหน้า',
 };
 type AdminCatalog = { [K in keyof typeof th]: string };
 const en: AdminCatalog = {
@@ -214,6 +220,12 @@ const en: AdminCatalog = {
   recoverySummary: 'Approving clears the password and MFA and signs out every device. Then create a new invitation link for the account owner.',
   yes: 'Yes',
   no: 'No',
+  colPrice: 'Price',
+  colStorage: 'Photo storage',
+  colTrial: 'Trial (days)',
+  colGrace: 'Grace (days)',
+  olderVersions: 'Earlier versions ({n})',
+  hideVersions: 'Hide earlier versions',
 };
 export type AdminKey = keyof AdminCatalog;
 const adminCatalogs = { th, en };
