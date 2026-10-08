@@ -52,8 +52,11 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
           <View style={{ flex: 1 }}>
             <Strong>{language === 'th' ? p.name_th : p.name_en}</Strong>
             <Text style={[styles.price, { color: tones[tone][1] }]}>{money(p.amount_minor,language)} {t(p.interval_unit==='year'?'ownerWeb.year':'ownerWeb.month')}</Text>
+            {p.renewal ? <Sub>{t('plan.yourPrice')}</Sub> : null}
           </View>
         </View>
+        {p.change ? <Banner tone="info" text={t('plan.changeOn', { date: formatDate(new Date(p.change.effective_at), language), price: money(p.change.amount_minor, language),
+          seats: p.change.technician_seats, storage: Math.round(Number(p.change.storage_bytes) / 1e9) })} /> : null}
         <Feature text={p.technician_seats ? t('seatsN', { n: p.technician_seats }) : t('ownerOnly')} />
         <Feature text={t('storageN', { n: Math.round(Number(p.storage_bytes) / 1e9) })} />
         <Feature text={t('ocrUnlimited')} />

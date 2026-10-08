@@ -106,7 +106,7 @@ Decisions agreed with the owner of the product (2026-10-08):
 - While a subscription is live (trialing/active/past_due/unpaid/incomplete/paused) the owner cannot
   upload a slip, start another checkout or create/replace an invoice (`PAYMENT_IN_PROGRESS`); they
   cancel automatic renewal first.
-- A subscription keeps the price it started with; a new price applies after cancelling and subscribing again.
+- ~~A subscription keeps the price it started with~~ — replaced by the plan-change rules below (migration 031).
 - **Manage card / receipts** opens Stripe's customer portal (`billingPortal.sessions`).
 
 Flow: each paid Stripe invoice (`invoice.paid`, retrieved again from Stripe before use) pays the
@@ -116,6 +116,25 @@ period end, continuing without a gap from the previous paid period. Replays are 
 invoice ID. Wrong amount/currency or a conflicting open invoice is recorded as `manual_review` in
 `billing.stripe_subscription_invoices` with a platform audit entry and does not activate anything.
 `invoice.payment_failed` notifies the owner (`autopay_failed`); Stripe retries on its own schedule.
+
+## Plan changes for shops that already pay (2026-10-08, migration 031)
+
+Decided by the product owner ("policy C"). Applies to renewals of the same plan and billing interval
+while the shop is active or in grace, by transfer/slip/one-time payment and by card subscription alike:
+- **Better** (price not higher and no fewer seats, storage or grace days): from the first renewal starting
+  on or after the new version's effective time. Owners get `plan_change_better` once.
+- **Worse in any way** (a mix counts as worse): `worker.scan_plan_changes` (every 15 min) records a
+  notice in `billing.plan_change_notices` and sends `plan_change_notice` with the date; the shop moves at
+  the first renewal starting at or after max(version effective time, notice + 30 days). Until then
+  `auth.create_invoice` accepts the shop's kept price (`billing.renewal_price`).
+- Renewing the shop's own plan skips the seat check: fewer seats never block renewal; the shop only
+  cannot approve more technicians (and cannot upload past less storage) while over the limit.
+- Lapsed/trial shops, other plans and archived plans buy at today's price as before.
+- Card subscriptions: `StripeService.pushPrices` (worker) updates the subscription item to the new
+  price (same product, `proration_behavior: none`, idempotency key `price:<sub>:<price_version>`) before
+  the charge that starts the moved period. A late invoice at the previous amount still matches
+  (`previous_price_version_id`). Owners who do not want the new price cancel before that charge.
+- The owner plan page shows the kept price as "Your renewal price" and the scheduled change with its date.
 `customer.subscription.updated/deleted` sync the status; a cancellation the owner did not request
 (retries exhausted, cancelled in Dashboard) notifies `autopay_stopped`, after which the owner can pay
 another way. Owner **Cancel automatic renewal** cancels in Stripe immediately (`prorate=false`,

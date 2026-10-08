@@ -194,6 +194,23 @@ export class StripeService implements OnModuleDestroy {
     }
     return rows.length;
   }
+  /** Plan changes that reached a card subscription: Stripe charges the new price from the next
+   * period, without proration. The product stays the same. */
+  async pushPrices():Promise<number> {
+    const rows:{subscription_id:string;credential_id:string;price_version_id:string;amount_minor:number|string;interval_unit:'month'|'year'}[]=
+      (await this.run(async c=>(await c.query('SELECT worker.subscription_prices_to_push() AS v')).rows)).map(r=>r.v);
+    for(const r of rows){
+      const config=await this.config(r.credential_id);if(!config)continue;
+      const stripe=this.client(this.credentials(config).key),sub=await stripe.subscriptions.retrieve(r.subscription_id),item=sub.items.data[0];
+      if(!item)continue;
+      const product=typeof item.price.product==='string'?item.price.product:item.price.product.id;
+      await stripe.subscriptions.update(r.subscription_id,{proration_behavior:'none',
+        items:[{id:item.id,price_data:{currency:'thb',unit_amount:Number(r.amount_minor),recurring:{interval:r.interval_unit==='year'?'year':'month'},product}}]},
+        {idempotencyKey:`price:${r.subscription_id}:${r.price_version_id}`});
+      await this.run(c=>c.query('SELECT worker.subscription_price_pushed($1,$2)',[r.subscription_id,r.price_version_id]));
+    }
+    return rows.length;
+  }
   /** Permanent suspension: Stripe stops charging now (no refund, no final invoice). */
   async stopSuspendedSubscriptions():Promise<number> {
     const rows:{subscription_id:string;credential_id:string}[]=(await this.run(async c=>(await c.query('SELECT worker.subscriptions_to_stop() AS v')).rows)).map(r=>r.v);

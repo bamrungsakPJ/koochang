@@ -68,7 +68,8 @@ export async function runScheduled(deps: WorkerDeps): Promise<{ reminders: numbe
   await deps.pool.query('SELECT worker.requeue_stale_ocr(600)');
   const reminders = (await deps.pool.query('SELECT worker.scan_subscriptions(now()) AS n')).rows[0].n as number
     + ((await deps.pool.query('SELECT worker.scan_suspensions(now()) AS n')).rows[0].n as number)
-    + ((await deps.pool.query('SELECT worker.scan_maintenance(now()) AS n')).rows[0].n as number);
+    + ((await deps.pool.query('SELECT worker.scan_maintenance(now()) AS n')).rows[0].n as number)
+    + ((await deps.pool.query('SELECT worker.scan_plan_changes(now()) AS n')).rows[0].n as number);
   const housekeeping = (await deps.pool.query('SELECT worker.housekeeping() AS r')).rows[0].r;
   return { reminders, housekeeping };
 }
@@ -140,6 +141,8 @@ async function main() {
         await runScheduled(deps); lastScheduled = Date.now();
         // "Stop renewal" set by the platform (e.g. privacy erasure) must reach Stripe before it charges.
         await stripe.pushRenewalFlags().catch(error => console.error('STRIPE_RENEWAL_SYNC_ERROR', error instanceof Error ? error.message.slice(0, 120) : ''));
+        // Plan changes that reached a card subscription must reach Stripe before its next charge.
+        await stripe.pushPrices().catch(error => console.error('STRIPE_PRICE_SYNC_ERROR', error instanceof Error ? error.message.slice(0, 120) : ''));
         // Permanently suspended shops (made permanent by runScheduled above) stop being charged.
         await stripe.stopSuspendedSubscriptions().catch(error => console.error('STRIPE_SUSPENSION_SYNC_ERROR', error instanceof Error ? error.message.slice(0, 120) : ''));
       }

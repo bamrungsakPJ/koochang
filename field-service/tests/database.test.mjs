@@ -34,9 +34,9 @@ test('migration is replayable and has a recorded checksum',async()=>{
   }
   finally { await db.exec('RESET ROLE'); }
 });
-test('67 tables: foundation, business workflows, console management, branding and Stripe subscriptions',async()=>{
+test('68 tables: foundation, business workflows, console management, branding, Stripe subscriptions and plan-change notices',async()=>{
   const r=await db.query("SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema IN ('core','billing','platform','ops')");
-  assert.equal(r.rows[0].n,67);
+  assert.equal(r.rows[0].n,68);
 });
 test('missing tenant context reveals no customers',async()=>{
   await db.exec('BEGIN; SET LOCAL ROLE fs_api;');

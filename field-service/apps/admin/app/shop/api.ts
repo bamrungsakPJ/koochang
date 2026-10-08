@@ -61,7 +61,9 @@ export interface EquipmentHistory {
   items: { id: string; occurred_at: string; performed_by_name: string | null; service_type: string; outcome: string; work_note: string | null; problem_note: string | null;
     not_done_reason: string | null; next_due_on: string | null; note: string | null; photos: { photo_type: string; url: string | null; thumbnail_url: string | null }[] }[];
 }
-export interface PlanOffer { code: string; name_th: string; name_en: string; technician_seats: number; storage_bytes: string; ocr_per_period: number; price_version_id: string; amount_minor: string; interval_unit: string; }
+/** `renewal`: the shop's own plan at the price its next renewal uses; `change`: a scheduled plan change. */
+export interface PlanOffer { code: string; name_th: string; name_en: string; technician_seats: number; storage_bytes: string; ocr_per_period: number; price_version_id: string; amount_minor: string; interval_unit: string;
+  renewal?: boolean; change?: { effective_at: string; amount_minor: string; technician_seats: number; storage_bytes: string } | null; }
 export interface InvoiceSummary { id: string; number: string; amount_minor: string; status: 'open' | 'paid' | 'voided'; created_at: string; paid_at: string | null; plan_name_th: string; plan_name_en: string; proof_status: 'pending' | 'accepted' | 'rejected' | null; }
 /** Automatic card renewal through Stripe Subscription: status only, no card details. */
 export interface Autopay {

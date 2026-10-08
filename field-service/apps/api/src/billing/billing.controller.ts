@@ -22,14 +22,17 @@ export class BillingController {
     @Optional() private readonly runtime?: RuntimeSettingsService) {}
   private bank() { return this.runtime ? this.runtime.bank() : Promise.resolve(this.settings.payment); }
 
-  /** Paid plans at their current published price (proposal prices until launch). */
+  /** Paid plans at their current published price (proposal prices until launch). The shop's own
+   * plan shows the price its renewal uses instead (`renewal`), with any scheduled `change`. */
   @Get('plans')
   async plans(@Session() session: SessionContext, @Tenant() tenant: TenantContext) {
     this.ownerOnly(tenant);
     const stripe = await this.stripe.methods();
     const bank = await this.bank();
     const allowed=(await this.runtime?.read())?.policy?.new_payments_enabled!==false;
-    return this.database.withTenant(session.userId, tenant.organizationId, async client => ({
+    return this.database.withTenant(session.userId, tenant.organizationId, async client => {
+      const own = (await client.query('SELECT auth.renewal_offer($1,$2) AS v', [session.userId, tenant.organizationId])).rows[0]?.v ?? null;
+      return {
       payment_available: allowed&&(Boolean(bank) || stripe.stripe_card || stripe.stripe_qr),
       methods: { transfer: Boolean(bank), ...stripe },
       items: (await client.query(
@@ -39,8 +42,10 @@ export class BillingController {
          JOIN billing.price_versions pr ON pr.plan_version_id = pv.id AND pr.effective_from <= now()
          WHERE p.kind = 'paid' AND p.status = 'active'
          AND pv.version_no=(SELECT max(latest.version_no) FROM billing.plan_versions latest WHERE latest.plan_id=p.id AND latest.published_at<=now())
-         ORDER BY p.id, pr.interval_unit, pr.effective_from DESC`)).rows.sort((a, b) => Number(a.amount_minor) - Number(b.amount_minor)),
-    }));
+         ORDER BY p.id, pr.interval_unit, pr.effective_from DESC`)).rows
+        .map(item => own && item.code === own.code && item.interval_unit === own.interval_unit ? own : item)
+        .sort((a, b) => Number(a.amount_minor) - Number(b.amount_minor)),
+    };});
   }
 
   @Get('invoices')

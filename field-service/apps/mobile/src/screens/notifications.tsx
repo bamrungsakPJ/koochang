@@ -10,6 +10,7 @@ const look: Record<string, [IconName, Tone]> = {
   subscription_ended: ['stop-circle', 'rose'], storage_threshold: ['images', 'violet'], job_assigned: ['briefcase', 'blue'],
   job_unassigned: ['swap-horizontal', 'amber'], job_rescheduled: ['calendar', 'amber'], job_cancelled: ['close-circle', 'rose'],
   autopay_upcoming: ['card', 'blue'], autopay_failed: ['card', 'rose'], autopay_stopped: ['card', 'rose'], payment_confirmed: ['checkmark-circle', 'green'],
+  plan_change_notice: ['pricetag', 'amber'], plan_change_better: ['pricetag', 'green'],
 };
 
 /** Text is rendered here from template + parameters, so it follows the reader's language. */
