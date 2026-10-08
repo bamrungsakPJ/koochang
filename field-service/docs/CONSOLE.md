@@ -11,7 +11,8 @@ Shop sessions and platform sessions remain separate. Thai and English are availa
 - **Plans and prices**: drafts → approval → immutable published version (monthly and/or yearly
   price, seats, storage, OCR, trial and grace days, effective time). A new version applies to new
   invoices and new trials only; issued invoices and running periods keep their snapshot. Only one
-  active trial plan; archive needs `plans.publish`.
+  active trial plan; archive needs `plans.publish`. Shops that already pay follow the plan-change
+  rules below; the same manual is shown on the plans page (collapsible guide, Thai/English).
 - **Staff**: invite with a one-use 48-hour link (password + authenticator on enrolment), disable /
   enable, sign out devices, role changes and account recovery through **Approvals**. Recovery
   clears password and MFA after a second person approves; then **Create new invitation link**
@@ -38,6 +39,25 @@ Shop sessions and platform sessions remain separate. Thai and English are availa
 - **Stripe settings**, **Platform settings** (bank, DeeSMSx, EasySlip, service on/off),
   **System policy** (new shops / new payments, retention and cooling days — two people) and
   **My account** (name, language, password, sessions).
+
+## คู่มือ: ปรับแพ็กเกจแล้วร้านเดิมได้อะไร (Plan changes for paying shops)
+
+กติกาแบบ C ที่เจ้าของผลิตภัณฑ์ตัดสินใจ 2026-10-08 (migration 031) ข้อความเดียวกันแสดงในหน้า **แพ็กเกจ** ของ console
+(`apps/admin/app/console/plan-guide.tsx`) และในข้อตกลงการใช้งานฉบับ 1.2 — แก้ที่ใดต้องแก้ให้ตรงกันทั้งสามที่
+
+1. **ไม่เปลี่ยนเด็ดขาด**: รอบที่จ่ายแล้วและใบแจ้งชำระที่ออกแล้ว คงราคา/สิทธิ์เดิม
+2. **ได้เวอร์ชันใหม่ทันทีเมื่อถึงวันมีผล**: ร้านใหม่/ทดลองใช้ที่ซื้อครั้งแรก, ร้านที่หมดช่วงผ่อนผันแล้วซื้อใหม่, ร้านที่เปลี่ยนแพ็กเกจหรือรอบชำระ
+3. **ร้านเดิมที่ต่ออายุแพ็กเกจและรอบชำระเดิม** (ยังมีวันใช้งานหรืออยู่ในช่วงผ่อนผัน ทั้งโอน/สลิปและตัดบัตร) ระบบเทียบ ราคา, จำนวนช่าง, พื้นที่รูป, วันผ่อนผัน
+   - **ดีขึ้น** (ราคาไม่สูงขึ้น และอีก 3 ข้อไม่ลดลง): มีผลรอบต่ออายุถัดไป (ถ้าวันมีผลอยู่ในอนาคต นับรอบแรกที่เริ่มตั้งแต่วันนั้น) แจ้งร้าน `plan_change_better` 1 ครั้ง
+   - **แย่ลงข้อใดข้อหนึ่ง** (ผสมดี/แย่ = แย่ลง): worker แจ้ง `plan_change_notice` ภายใน ~15 นาทีหลังเผยแพร่ บันทึกใน `billing.plan_change_notices`;
+     วันเปลี่ยน = max(วันมีผลของเวอร์ชัน, วันแจ้ง + 30 วัน); ร้านเปลี่ยนที่รอบต่ออายุแรกที่เริ่มตั้งแต่วันนั้น ก่อนหน้านั้นต่ออายุราคาเดิมได้
+   - ตัวอย่าง: ขึ้นราคา 1 พ.ย. → วันเปลี่ยน 1 ธ.ค.; ร้านครบรอบ 15 พ.ย. ต่อราคาเดิม 1 รอบ, รอบเริ่ม 15 ธ.ค. ใช้ราคาใหม่
+4. **ตัดบัตร Stripe**: worker เปลี่ยนราคา subscription item เอง (product เดิม, ไม่คิดส่วนต่าง) ก่อนการตัดเงินรอบที่ถึงวันเปลี่ยน; ไม่ต้องแก้ใน Stripe Dashboard;
+   ยอดราคาเก่าที่มาช้ายังจับคู่ได้; audit `subscription.stripe_price_changed`; ร้านยกเลิกได้ก่อนวันตัดเงิน
+5. **ลดช่าง/พื้นที่**: ไม่ลบสมาชิกหรือรูป ต่ออายุได้ แต่เพิ่มช่าง/อัปโหลดเพิ่มไม่ได้จนกว่าจะอยู่ในเกณฑ์
+6. **ก่อนกดเผยแพร่**: เวอร์ชันแก้ไม่ได้และร้านได้แจ้งเตือนทันที; ผิดให้ออกเวอร์ชันใหม่ทับ (ระบบเทียบกับเวอร์ชันล่าสุด ถ้ายังแย่กว่า นับ 30 วันใหม่);
+   ใส่ราคาให้ครบทุกรอบชำระที่มีลูกค้า (ไม่มีราคารายปี = ร้านรายปีคงเวอร์ชันเดิม); การ archive ไม่ใช่การปรับราคา
+7. **ร้านเห็น**: แจ้งเตือนในแอป/push และหน้าแพ็กเกจแสดง "ราคาต่ออายุของร้านคุณ" กับวันที่จะเปลี่ยน
 
 ## Setup and runtime behavior
 
