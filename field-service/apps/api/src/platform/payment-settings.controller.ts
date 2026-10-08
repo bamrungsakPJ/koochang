@@ -42,7 +42,7 @@ export class PaymentSettingsController {
    const secret=key||(old?decrypt(this.settings.secretKey,old.secret_sealed):'');
    const webhookSecret=webhook||(old?decrypt(this.settings.secretKey,old.webhook_sealed):'');
    let account;
-   try{account=await this.stripe.client(secret).accounts.retrieve(null);}catch{throw apiError(400,'VALIDATION_ERROR');}
+   try{account=await this.stripe.client(secret).accounts.retrieve(null);}catch{throw apiError(400,'VALIDATION_ERROR',{field_errors:{secret_key:'stripe.keyRejected'}});}
    const mode=secret.startsWith('sk_live_')?'live':'test';
    if(body.qr_enabled&&account.country!=='TH')throw apiError(400,'VALIDATION_ERROR',{field_errors:{qr_enabled:'stripe.thaiAccountRequired'}});
    if((body.card_enabled||body.qr_enabled)&&mode==='live'&&!account.charges_enabled)throw apiError(422,'TEMPORARILY_UNAVAILABLE');

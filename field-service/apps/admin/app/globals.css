@@ -192,6 +192,24 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0
 .checks { border:1px solid var(--c-line); border-radius:var(--radius); padding:8px 14px; display:flex; flex-wrap:wrap; gap:4px 18px; margin:10px 0; }
 .checks legend { font-size:13px; color:var(--c-muted); padding:0 4px; }
 .console .settings-form { max-width:880px; margin-top:18px; }
+.console .settings-form label.check:has(input[type=checkbox]),
+.console .settings-form label.payment-setting-toggle {
+  flex-direction:row; align-items:center; gap:10px; width:fit-content; min-height:44px;
+  padding:10px 16px; border:1px solid #cbd5e1; border-radius:10px;
+  background:#f8fafc; color:#475569; font-weight:600; cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.console .settings-form label.check:has(input:checked),
+.console .settings-form label.payment-setting-toggle:has(input:checked) {
+  background:#ecfdf5; border-color:#86efac; color:#166534;
+}
+.console .settings-form input[type=checkbox] { accent-color:#15803d; width:18px; height:18px; flex:none; }
+.console .settings-form label:has(input[type=checkbox]):focus-within { outline:2px solid #2563eb; outline-offset:3px; }
+.console .settings-nav { gap:8px; }
+.console .settings-nav button.primary { background:#2563eb; border-color:#2563eb; color:#fff; }
+.console .settings-nav button.primary:hover:not(:disabled) { background:#1d4ed8; border-color:#1d4ed8; }
+.console .settings-nav button.ghost { background:#fff; border-color:#dbe3ef; color:#334155; }
+.console .settings-nav button.ghost:hover:not(:disabled) { background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
 .console .settings-table { overflow-x:auto; margin-bottom:16px; }
 .console .settings-table td:first-child { overflow-wrap:anywhere; max-width:350px; }
 .console .settings-form code { overflow-wrap:anywhere; }
@@ -232,3 +250,12 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0
 @keyframes toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 @media (max-width:640px) { .toast-region { left:16px; right:16px; bottom:16px; } .toast { min-width:0; width:100%; max-width:none; } }
 @media (prefers-reduced-motion:reduce) { .toast { animation:none; } }
+/* Payment settings: secret fields with show/hide and a live format check. */
+.console .secret-field { display:flex; flex-direction:column; gap:4px; }
+.console .secret-input { position:relative; display:flex; align-items:center; }
+.console .secret-input input { flex:1; padding-right:44px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; }
+.console .secret-input .icon-btn { position:absolute; right:4px; }
+.console .key-check { margin:0 0 6px; font-size:13px; font-weight:500; }
+.console .key-check.ok { color:#047857; }
+.console .key-check.bad { color:#b91c1c; }
+.console .key-check.warn { color:#b45309; }
