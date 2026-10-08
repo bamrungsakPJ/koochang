@@ -253,10 +253,10 @@ export class Api {
     return this.call<CustomerHistory>('GET', `/organizations/${organizationId}/customers/${customerId}/service-history?limit=${limit}&offset=${offset}${locationId ? `&location_id=${locationId}` : ''}`);
   }
   equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
-  stripeCheckout(organizationId: string, invoiceId: string, method: 'card'|'promptpay', requestKey: string, subscribe = false) { return this.call<{id: string; url: string}>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkout`, {method, request_key: requestKey, ...(subscribe ? { subscribe: true } : {})}); }
+  stripeCheckout(organizationId: string, invoiceId: string, method: 'card'|'promptpay', requestKey: string, subscribe = false) { return this.call<{id: string; url: string}>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkout`, {method, request_key: requestKey, return_to: 'app', ...(subscribe ? { subscribe: true } : {})}); }
   autopay(organizationId: string) { return this.call<Autopay>('GET', `/organizations/${organizationId}/billing/autopay`); }
   cancelAutopay(organizationId: string) { return this.call<Autopay>('POST', `/organizations/${organizationId}/billing/autopay/cancel`); }
-  autopayPortal(organizationId: string) { return this.call<{ url: string }>('POST', `/organizations/${organizationId}/billing/autopay/portal`); }
+  autopayPortal(organizationId: string) { return this.call<{ url: string }>('POST', `/organizations/${organizationId}/billing/autopay/portal`, { return_to: 'app' }); }
   refreshCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/refresh`); }
   cancelCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/cancel`); }
   billingPlans(organizationId: string) { return this.call<{ payment_available: boolean; items: PlanOffer[] }>('GET', `/organizations/${organizationId}/billing/plans`); }

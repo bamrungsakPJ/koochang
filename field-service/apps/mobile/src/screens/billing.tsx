@@ -226,7 +226,6 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
         </View> : null}
       </> : null}
       {chosen === 'card' ? <>
-        <Sub>{t('stripe.hint')}</Sub>
         {invoice.methods?.stripe_test?<Banner tone="info" text={t('stripe.test')}/>:null}
         {invoice.methods?.stripe_card?<>
           <Sub>{t('pay.chargeBy')}</Sub>
@@ -234,7 +233,7 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
             <Pressable key={String(auto)} accessibilityRole="radio" accessibilityState={{checked:subscribe===auto,disabled:Boolean(active)}} disabled={Boolean(active)} onPress={()=>setSubscribe(auto)}
               style={[styles.charge, subscribe===auto && styles.methodOn]}>
               <Icon name={subscribe===auto?'radio-button-on':'radio-button-off'} size={22} color={colors.primary}/>
-              <View style={{flex:1}}><Text style={styles.featureText}>{t(auto?'pay.cardAuto':'pay.cardOnce')}</Text><Sub>{t(auto?'autopay.consent':'pay.cardOnceHint')}</Sub></View>
+              <View style={{flex:1}}><Text style={styles.featureText}>{t(auto?'pay.cardAuto':'pay.cardOnce')}</Text>{auto?<Sub>{t('pay.cardAutoShort')}</Sub>:null}</View>
             </Pressable>)}</View>
           <Button title={t('pay.card')} busy={busy} disabled={Boolean(active&&(active.method!=='card'||(active.mode==='subscription')!==subscribe))||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>
         </>:null}

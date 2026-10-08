@@ -49,6 +49,9 @@ export class StripeService implements OnModuleDestroy {
     }
     catch{throw apiError(503,'TEMPORARILY_UNAVAILABLE');}
   }
+  /** Paying from the mobile app: Stripe returns to a page on our site that hands the owner back to the app
+   * (the phone browser has no sign-in). The app refreshes the invoice when it comes to the front. */
+  private appReturn(kind:'payment'|'card') {const url=this.base();url.pathname='/pay-return';url.search=new URLSearchParams({to:'app',kind}).toString();return url;}
   async methods():Promise<{stripe_card:boolean;stripe_qr:boolean;stripe_test:boolean}> {
     const off={stripe_card:false,stripe_qr:false,stripe_test:false};
     if(!this.pool||!this.settings.secretKey)return off;
@@ -59,7 +62,7 @@ export class StripeService implements OnModuleDestroy {
   /** Worker use: the same service on the worker's own fs_worker pool. */
   static forPool(settings:PlatformSettings,pool:Pool){const s=new StripeService(settings);void s.pool?.end();s.pool=pool;return s;}
   /** `subscribe` (card only): Stripe Subscription for automatic renewal instead of a one-time payment. */
-  async checkout(user:string,org:string,invoice:string,method:'card'|'promptpay',requestKey:string,subscribe=false,origin?:string) {
+  async checkout(user:string,org:string,invoice:string,method:'card'|'promptpay',requestKey:string,subscribe=false,origin?:string,app=false) {
     const available=await this.methods();
     if(!(method==='card'?available.stripe_card:available.stripe_qr)) throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     const a:StripeAttempt=await this.run(async c=>(await c.query('SELECT worker.prepare_stripe($1,$2,$3,$4,$5,$6) AS value',[user,org,invoice,method,requestKey,subscribe])).rows[0].value);
@@ -67,7 +70,7 @@ export class StripeService implements OnModuleDestroy {
     const config=await this.config(a.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     if(this.settings.production&&config.mode!=='live')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     const stripe=this.client(this.credentials(config).key);
-    const target=this.base(origin);target.search=new URLSearchParams({section:'invoice',id:invoice,organization_id:org}).toString();
+    const target=app?this.appReturn('payment'):this.base(origin);if(!app)target.search=new URLSearchParams({section:'invoice',id:invoice,organization_id:org}).toString();
     if(a.session_id){
       const result=await this.refresh(a.id);
       if(['expired','failed','manual_review'].includes(result.status))throw apiError(422,'INVALID_STATE_TRANSITION');
@@ -181,11 +184,11 @@ export class StripeService implements OnModuleDestroy {
     await this.run(c=>c.query('SELECT worker.sync_subscription($1,$2,$3,$4)',[sub.id,sub.status,sub.cancel_at_period_end,seconds(sub.items?.data[0]?.current_period_end)]));
   }
   /** Stripe's customer portal: the owner changes the card or downloads receipts at Stripe. */
-  async portal(user:string,org:string,origin?:string) {
+  async portal(user:string,org:string,origin?:string,app=false) {
     const info=await this.ownerSubscription(user,org);
     if(!info)throw apiError(404,'RESOURCE_NOT_FOUND');
     const config=await this.config(info.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
-    const back=this.base(origin);back.search=new URLSearchParams({section:'billing',organization_id:org}).toString();
+    const back=app?this.appReturn('card'):this.base(origin);if(!app)back.search=new URLSearchParams({section:'billing',organization_id:org}).toString();
     const session=await this.client(this.credentials(config).key).billingPortal.sessions.create({customer:info.customer_id,return_url:back.toString(),locale:'auto'});
     if(new URL(session.url).origin!=='https://billing.stripe.com')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     return {url:session.url};

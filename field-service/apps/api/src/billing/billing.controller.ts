@@ -95,7 +95,7 @@ export class BillingController {
     this.ownerOnly(tenant); this.id(invoiceId);
     if (!['card','promptpay'].includes(body.method as string) || typeof body.request_key !== 'string' || !uuidPattern.test(body.request_key)) throw apiError(400,'VALIDATION_ERROR');
     if (body.subscribe !== undefined && (typeof body.subscribe !== 'boolean' || (body.subscribe && body.method !== 'card'))) throw apiError(400,'VALIDATION_ERROR');
-    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key,body.subscribe === true,origin);
+    return this.stripe.checkout(session.userId,tenant.organizationId,invoiceId,body.method as 'card'|'promptpay',body.request_key,body.subscribe === true,origin,body.return_to === 'app');
   }
 
   /** Automatic card renewal (Stripe Subscription): status only. Card details stay at Stripe. */
@@ -117,9 +117,9 @@ export class BillingController {
     return this.autopay(session, tenant);
   }
   @Post('autopay/portal')
-  portal(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Headers('origin') origin?: string) {
+  portal(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Headers('origin') origin?: string, @Body() body: Record<string, unknown> = {}) {
     this.ownerOnly(tenant);
-    return this.stripe.portal(session.userId, tenant.organizationId, origin);
+    return this.stripe.portal(session.userId, tenant.organizationId, origin, body.return_to === 'app');
   }
   @Post('invoices/:invoiceId/checkouts/:checkoutId/refresh')
   async refreshCheckout(@Session() session: SessionContext,@Tenant() tenant: TenantContext,@Param('invoiceId') invoiceId:string,@Param('checkoutId') checkoutId:string) {
