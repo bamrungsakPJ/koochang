@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { AdminKey } from '@field-service/i18n';
 import { DatabaseZap, KeyRound, LifeBuoy, ReceiptText, RotateCcw, type LucideIcon } from 'lucide-react';
-import { call, ConsoleError, dateOnly, dateTime, isSuperAdmin, money, useCode, useLanguage, useStepUp, useText, type Me } from './api';
+import { call, ConsoleError, dateOnly, dateTime, isSuperAdmin, money, useAsk, useCode, useLanguage, useStepUp, useText, type Me } from './api';
 
 const message = (e: unknown) => e instanceof ConsoleError ? e.message : String(e);
 const states = ['trialing', 'active', 'past_due', 'expired', 'ended', 'pending_payment', 'suspended'];
@@ -132,7 +132,7 @@ interface ShopDetail {
 }
 
 export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () => void }) {
-  const t = useText(), code = useCode();
+  const t = useText(), code = useCode(), ask = useAsk();
   const lang = useLanguage();
   const stepUp = useStepUp();
   const [d, setD] = useState<ShopDetail | null>(null);
@@ -183,7 +183,7 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
         <td>{t(`kind.${g.kind}` as AdminKey)}<div className="muted">{Object.entries(g.entitlements).map(([k, v]) => `${code('ent', k)}: ${k === 'storage_bytes' ? gb(v) : v}`).join(', ')}</div></td>
         <td>{g.reason}<div className="muted">{g.granted_by}</div></td><td>{g.ended_at ? t('ended') : dateTime(g.valid_until, lang)}</td>
         <td>{!g.ended_at && new Date(g.valid_until) > new Date() && can('grants.manage') ? <button className="ghost small" disabled={busy}
-          onClick={() => { const r = prompt(t('reason')); if (r) void run(() => call('POST', `/platform/grants/${g.id}/end`, { reason: r })); }}>{t('endGrant')}</button> : null}</td>
+          onClick={async () => { const r = await ask({ title: t('endGrant'), input: { label: t('reason'), required: true }, danger: true }); if (r) void run(() => call('POST', `/platform/grants/${g.id}/end`, { reason: r })); }}>{t('endGrant')}</button> : null}</td>
       </tr>)}</tbody></table></div> : <p className="muted">{t('empty')}</p>}
       {can('grants.manage') ? <form className="inline" onSubmit={ev => { ev.preventDefault(); void run(() => call('POST', `/platform/shops/${id}/grants`, { kind: grant.kind, reason: grant.reason,
         valid_until: new Date(`${grant.until}T23:59:59+07:00`).toISOString(), entitlements: { technician_seats: grant.seats ? Number(grant.seats) : undefined,
@@ -303,7 +303,7 @@ export function TicketView({ id, me, onBack }: { id: string; me: Me; onBack: () 
 interface AccessRow { id: string; organization_name: string; ticket_id: string; subject: string; requested_by: string; account_id: string; scope: string[]; reason: string; duration_minutes: number; consented: boolean; created_at: string }
 
 export function AccessView({ me }: { me: Me }) {
-  const t = useText();
+  const t = useText(), ask = useAsk();
   const lang = useLanguage();
   const stepUp = useStepUp();
   const [rows, setRows] = useState<AccessRow[] | null>(null);
@@ -312,7 +312,7 @@ export function AccessView({ me }: { me: Me }) {
   useEffect(() => { void load(); }, []);
   async function decide(id: string, approve: boolean) {
     setError(null);
-    const reason = approve ? undefined : prompt(t('reason')) ?? undefined;
+    const reason = approve ? undefined : await ask({ title: t('reject'), input: { label: t('reason'), required: true }, danger: true }) ?? undefined;
     if (!approve && !reason) return;
     try { await stepUp(() => call('POST', `/platform/access/${id}/${approve ? 'approve' : 'reject'}`, { reason })); await load(); } catch (e) { setError(message(e)); }
   }
@@ -383,15 +383,15 @@ interface DataRow { id: string; organization_name: string; request_type: string;
 const nextSteps: Record<string, string[]> = { pending: ['approved', 'rejected'], approved: ['running', 'cancelled'], running: ['succeeded', 'cancelled'] };
 
 export function DataRequestsView() {
-  const t = useText();
+  const t = useText(), ask = useAsk();
   const lang = useLanguage();
   const [rows, setRows] = useState<DataRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = () => call<{ items: DataRow[] }>('GET', '/platform/data-requests').then(r => setRows(r.items), e => setError(message(e)));
   useEffect(() => { void load(); }, []);
   async function step(id: string, status: string) {
-    const note = prompt(t('note')) ?? '';
-    if (status === 'rejected' && !note) return;
+    const note = await ask({ title: t(`data.${status}` as AdminKey), input: { label: t('note'), required: status === 'rejected' }, danger: status === 'rejected' || status === 'cancelled' });
+    if (note === null) return;
     setError(null);
     try { await call('POST', `/platform/data-requests/${id}`, { status, note: note || undefined }); await load(); } catch (e) { setError(message(e)); }
   }

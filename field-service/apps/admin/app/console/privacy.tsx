@@ -1,17 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { call, dateTime, download, isSuperAdmin, useLanguage, useStepUp, useText, type Me } from './api';
+import { call, dateTime, download, isSuperAdmin, useAsk, useLanguage, useStepUp, useText, type Me } from './api';
 import { Editor, Feedback, useWork } from './management';
 import { Pager, type Page } from './admin';
 type Row={id:string;organization_name:string;request_type:string;status:string;requested_by:string;reason:string|null;created_at:string};
 type Preview={request:{id:string;version:number;organization_id:string;request_type:string;status:string;decided_by:string|null;execution_note:string|null};organization_status:string;owner_verified:boolean;policy_configured:boolean;eligible_at:string;holds:{id:string;reason:string;created_at:string}[];counts:Record<string,number>;artifact:{expires_at:string;byte_count:number}|null;erasure_remaining:number;unsettled_payments:number};
 export function PrivacyView({me}:{me:Me}){
- const t=useText(),lang=useLanguage(),step=useStepUp(),w=useWork(),[rows,setRows]=useState<Row[]|null>(null),[d,setD]=useState<Preview|null>(null),[note,setNote]=useState(''),[offset,setOffset]=useState(0),[hasMore,setHasMore]=useState(false);
+ const t=useText(),lang=useLanguage(),step=useStepUp(),ask=useAsk(),w=useWork(),[rows,setRows]=useState<Row[]|null>(null),[d,setD]=useState<Preview|null>(null),[note,setNote]=useState(''),[offset,setOffset]=useState(0),[hasMore,setHasMore]=useState(false);
  const load=async()=>{const r=await call<Page<Row>>('GET',`/platform/data-requests?offset=${offset}`);setRows(r.items);setHasMore(r.has_more);};useEffect(()=>{void load().catch(e=>w.setError(e instanceof Error?e.message:String(e)));},[offset]);
  const preview=async(id:string)=>{setD(await call('GET',`/platform/privacy/requests/${id}`));setNote('');};
  async function decision(status:string){if(!d||!note.trim())return;await w.run(async()=>{await step(()=>call('POST',`/platform/data-requests/${d.request.id}`,{status,note}));await preview(d.request.id);await load();});}
- async function execute(exportFile:boolean){if(!d||!note.trim())return;if(!exportFile&&!confirm(t('privacyExecutionHint')))return;await w.run(async()=>{setD(await step(()=>call<Preview>('POST',`/platform/privacy/requests/${d.request.id}/${exportFile?'export':'execute'}`,{version:d.request.version,note})));setNote('');await load();});}
- async function hold(release?:string){if(!d)return;const reason=prompt(t('confirmationReason'));if(!reason?.trim())return;await w.run(async()=>{await step(()=>call('POST','/platform/privacy/holds',{organization_id:d.request.organization_id,release_id:release,reason}));await preview(d.request.id);});}
+ async function execute(exportFile:boolean){if(!d||!note.trim())return;if(!exportFile&&await ask({title:t('privacyExecuteTitle'),message:t('privacyExecutionHint'),danger:true})===null)return;await w.run(async()=>{setD(await step(()=>call<Preview>('POST',`/platform/privacy/requests/${d.request.id}/${exportFile?'export':'execute'}`,{version:d.request.version,note})));setNote('');await load();});}
+ async function hold(release?:string){if(!d)return;const reason=await ask({title:t('confirmTitle'),input:{label:t('confirmationReason'),required:true}});if(!reason?.trim())return;await w.run(async()=>{await step(()=>call('POST','/platform/privacy/holds',{organization_id:d.request.organization_id,release_id:release,reason}));await preview(d.request.id);});}
  async function ledger(){await w.run(async()=>{const result=await step(()=>download('/platform/privacy/tombstones'));const a=document.createElement('a');a.href=result.url;a.download='erasure-ledger.json';a.click();setTimeout(()=>URL.revokeObjectURL(result.url),1000);});}
  const blocked=d&&(!d.owner_verified||d.holds.length>0||d.unsettled_payments>0||(d.request.decided_by===me.id&&!isSuperAdmin(me))||d.request.request_type==='deletion'&&(!d.policy_configured||Date.parse(d.eligible_at)>Date.now()));
  return <><h1>{t('navData')}</h1><p className="muted">{t('privacyExecutionHint')}</p><Feedback {...w}/><div className="actions"><button disabled={w.busy} onClick={()=>w.run(load)}>{t('reloadSettings')}</button>{me.permissions.includes('operations.manage')?<button disabled={w.busy} onClick={ledger}>{t('downloadTombstones')}</button>:null}</div>

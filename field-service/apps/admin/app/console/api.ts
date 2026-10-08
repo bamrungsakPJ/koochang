@@ -89,6 +89,10 @@ export function useCode() {
   const lang = useContext(LanguageContext);
   return (group: string, value: string | null | undefined) => !value ? '—' : (adminText(lang, `${group}.${value}` as AdminKey) || value);
 }
+/** In-page replacement for prompt()/confirm(). Resolves to the typed text ('' when there is no input) or null when cancelled. */
+export interface AskOptions { title: string; message?: string; input?: { label: string; required?: boolean }; confirmText?: string; danger?: boolean }
+export const AskContext = createContext<(options: AskOptions) => Promise<string | null>>(async () => null);
+export function useAsk() { return useContext(AskContext); }
 export { normalizeLanguage };
 
 /** Runs a money/access action; when the server asks for step-up, prompts for a code and retries once. */

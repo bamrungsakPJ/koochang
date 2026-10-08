@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Language } from '@field-service/core';
 import type { AdminKey } from '@field-service/i18n';
-import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useCode, useText, type Me } from './api';
+import { AskContext, call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useCode, useText, type AskOptions, type Me } from './api';
 import { InvoiceView, PaymentsView, ReconcileView, RefundsView } from './payments';
 import { AccessView, AuditView, DataRequestsView, OverviewView, ShopsView, ShopView, SystemView, TicketsView, TicketView } from './admin';
 import { PaymentSettingsView } from './payment-settings';
@@ -51,6 +51,7 @@ export function Console() {
   const [view, setView] = useState<View | null>(null);
   const stepUpResolve = useRef<((ok: boolean) => void) | null>(null);
   const [stepUpOpen, setStepUpOpen] = useState(false);
+  const [asking, setAsking] = useState<(AskOptions & { resolve: (value: string | null) => void }) | null>(null);
 
   useEffect(() => {
     const token=new URLSearchParams(location.hash.slice(1)).get('invite');
@@ -66,6 +67,8 @@ export function Console() {
   function changeLanguage(value: Language) { setLanguage(value); setApiLanguage(value); try { localStorage.setItem('console.language', value); } catch { /* ignore */ } }
 
   const askStepUp = useCallback(() => new Promise<boolean>(resolve => { stepUpResolve.current = resolve; setStepUpOpen(true); }), []);
+  const ask = useCallback((options: AskOptions) => new Promise<string | null>(resolve => setAsking({ ...options, resolve })), []);
+  function closeAsk(value: string | null) { asking?.resolve(value); setAsking(null); }
   function closeStepUp(ok: boolean) { setStepUpOpen(false); stepUpResolve.current?.(ok); stepUpResolve.current = null; }
 
   let content: ReactNode = null;
@@ -106,13 +109,14 @@ export function Console() {
   }
 
   return <LanguageContext.Provider value={language}>
-    <StepUpContext.Provider value={askStepUp}>
+    <StepUpContext.Provider value={askStepUp}><AskContext.Provider value={ask}>
       <div className="console">
         {me && !invite ? null : <LanguageSelect value={language} onChange={changeLanguage} floating />}
         {me && !invite && content ? <LanguageBridge value={language} onChange={changeLanguage}>{content}</LanguageBridge> : content}
+        {asking ? <AskDialog options={asking} onDone={closeAsk} /> : null}
         {stepUpOpen ? <StepUpDialog onDone={closeStepUp} /> : null}
       </div>
-    </StepUpContext.Provider>
+    </AskContext.Provider></StepUpContext.Provider>
   </LanguageContext.Provider>;
 }
 
@@ -214,6 +218,22 @@ function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
     {error ? <p className="error" role="alert">{error}</p> : null}
     <button className="primary" disabled={busy}>{step === 'password' ? t('next') : t('confirm')}</button>
   </form></div>;
+}
+
+/** Reason / confirmation dialog used instead of the browser's prompt() and confirm(). */
+function AskDialog({ options, onDone }: { options: AskOptions; onDone: (value: string | null) => void }) {
+  const t = useText();
+  const [text, setText] = useState('');
+  const missing = Boolean(options.input?.required && !text.trim());
+  useEffect(() => { const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onDone(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onDone]);
+  return <div className="backdrop" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+    <form className="dialog" onSubmit={e => { e.preventDefault(); if (!missing) onDone(options.input ? text.trim() : ''); }}>
+      <h2 id="ask-title">{options.title}</h2>{options.message ? <p className="muted ask-message">{options.message}</p> : null}
+      {options.input ? <label>{options.input.label}<textarea rows={3} maxLength={500} autoFocus required={options.input.required} value={text} onChange={e => setText(e.target.value)} /></label> : null}
+      <div className="row"><button type="button" className="ghost" autoFocus={!options.input} onClick={() => onDone(null)}>{t('cancel')}</button>
+        <button className={options.danger ? 'danger' : 'primary'} disabled={missing}>{options.confirmText ?? t('confirm')}</button></div>
+    </form>
+  </div>;
 }
 
 function StepUpDialog({ onDone }: { onDone: (ok: boolean) => void }) {

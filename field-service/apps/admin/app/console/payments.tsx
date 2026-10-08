@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { translate, type TranslationKey, type AdminKey } from '@field-service/i18n';
-import { call, ConsoleError, dateOnly, dateTime, download, isSuperAdmin, money, useLanguage, useStepUp, useText, type Me } from './api';
+import { call, ConsoleError, dateOnly, dateTime, download, isSuperAdmin, money, useAsk, useLanguage, useStepUp, useText, type Me } from './api';
 import { Pager, type Page } from './admin';
 
 interface QueueRow { invoice_id: string; number: string; organization_name: string; amount_minor: string; status: string; plan_name_th: string; plan_name_en: string;
@@ -161,7 +161,7 @@ export function InvoiceView({ id, me, onBack }: { id: string; me: Me; onBack: ()
 }
 
 function RefundActions({ refund, me, onDone }: { refund: { id: string; status: string; requested_by: string }; me: Me; onDone: () => void }) {
-  const t = useText();
+  const t = useText(), ask = useAsk();
   const stepUp = useStepUp();
   const [error, setError] = useState<string | null>(null);
   const [reference, setReference] = useState('');
@@ -175,7 +175,7 @@ function RefundActions({ refund, me, onDone }: { refund: { id: string; status: s
   return <div className="actions">
     {refund.status === 'pending' && approver ? <>
       <button className="primary small" disabled={busy} onClick={() => act('approve', {})}>{t('approve')}</button>
-      <button className="danger small" disabled={busy} onClick={() => { const reason = prompt(t('reason')); if (reason) void act('reject', { reason }); }}>{t('reject')}</button>
+      <button className="danger small" disabled={busy} onClick={async () => { const reason = await ask({ title: t('reject'), input: { label: t('reason'), required: true }, danger: true }); if (reason) void act('reject', { reason }); }}>{t('reject')}</button>
     </> : null}
     {refund.status === 'approved' && me.permissions.includes('refund.request') ? <>
       <input placeholder={t('bankReference')} value={reference} onChange={e => setReference(e.target.value)} />
