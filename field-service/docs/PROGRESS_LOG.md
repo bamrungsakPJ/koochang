@@ -68,6 +68,11 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-08 — เพิ่มแพ็กเกจทดสอบ test20 บน staging
+
+- ผู้ใช้ขอให้ Claude เพิ่มแพ็กเกจราคาถูกไว้ทดสอบจ่ายจริง → เพิ่ม `database/catalog/test-plan.sql` (แบบเดียวกับ launch-plans.sql: ไม่ทำซ้ำถ้ามี code แล้ว + บันทึก audit `plan.published` source=test_catalog) และรันบน staging (PG 16/staging :5434) แล้ว: **test20** "ทดสอบ 20 บาท" / "Test 20 THB", ชำระเงิน, 20 บาท/เดือน (ไม่มีรายปี), ช่าง 1, พื้นที่รูป 1 GB, ผ่อนผัน 7 วัน, active
+- หลังทดสอบ: คืนเงินในคอนโซล ยกเลิก subscription ที่สมัครไว้ และกด "หยุดขายแพ็กเกจ" test20 ในคอนโซล
+
 ### 2026-10-08 — Stripe webhook ชี้ credential ปัจจุบันแล้ว
 
 - ผู้ใช้บันทึก key ชุดใหม่ 20:57 → credential ปัจจุบัน `db19ee92-33fd-4e51-bdf5-709a77a18c48` (live, เปิดบัตร, ปิด QR ของ Stripe); ตัวเก่า `ac7a69eb-…` ยังรับ webhook ได้แต่การชำระใหม่ใช้ db19ee92 และระบบตรวจ `metadata.credential_id` ตรงกับ URL (stripe.service.ts) → ผู้ใช้แก้ Endpoint URL ใน Stripe เป็น `https://api.koochang.com/v1/billing/stripe/webhook/db19ee92-33fd-4e51-bdf5-709a77a18c48` แล้ว (8 events, Active)
