@@ -272,3 +272,11 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin:0
 .console .shop-picker-pop li.active { background:var(--c-primary-soft, #eef2ff); }
 .console .shop-picker-pop li span { font-size:12px; }
 .console .shop-picker-pop .note { margin:0; padding:10px 16px; font-size:13px; }
+/* Phones: wide tables keep readable columns and scroll sideways inside .table-scroll instead of squeezing. */
+@media (max-width:760px) {
+  .console .table-scroll { -webkit-overflow-scrolling:touch; }
+  .console .table-scroll > table:has(th:nth-child(5)) { min-width:680px; }
+  .console .table-scroll > table:has(th:nth-child(4)):not(:has(th:nth-child(5))) { min-width:520px; }
+}
+.console .table-scroll td button.link { text-align:left; }
+.console .table-scroll td .muted { white-space:nowrap; }

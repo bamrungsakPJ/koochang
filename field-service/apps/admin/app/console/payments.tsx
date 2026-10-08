@@ -43,13 +43,13 @@ export function PaymentsView({ onOpen }: { onOpen: (id: string) => void }) {
     <div className="tabs">{(['pending', 'open', 'paid', 'all'] as const).map(f =>
       <button key={f} className={filter === f ? 'tab on' : 'tab'} onClick={() => setFilter(f)}>{t(f === 'pending' ? 'filterPending' : f === 'open' ? 'filterOpen' : f === 'paid' ? 'filterPaid' : 'filterAll')}</button>)}</div>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('invoice')}</th><th>{t('shop')}</th><th>{t('plan')}</th><th className="num">{t('amount')}</th><th>{t('proof')}</th><th>{t('status')}</th><th>{t('created')}</th></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.invoice_id} className="click" onClick={() => onOpen(r.invoice_id)}>
         <td><button className="link">{r.number}</button></td><td>{r.organization_name}</td><td>{lang === 'th' ? r.plan_name_th : r.plan_name_en}</td>
         <td className="num">{money(r.amount_minor, lang)}</td><td><Pill kind="proof" value={r.proof_status} /></td><td><Pill kind="invoice" value={r.status} /></td><td>{dateTime(r.created_at, lang)}</td>
       </tr>) : <tr><td colSpan={7} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
     <Pager offset={offset} hasMore={hasMore} busy={!rows} onChange={setOffset} />
   </section>;
 }
@@ -147,10 +147,10 @@ export function InvoiceView({ id, me, onBack }: { id: string; me: Me; onBack: ()
     {detail.payment ? <div className="panel">
       <h2>{t('refunds')}</h2>
       <p className="muted">{t('refundRule')}</p>
-      {detail.refunds.length ? <table><thead><tr><th className="num">{t('amount')}</th><th>{t('status')}</th><th>{t('reason')}</th><th>{t('created')}</th><th /></tr></thead>
+      {detail.refunds.length ? <div className="table-scroll"><table><thead><tr><th className="num">{t('amount')}</th><th>{t('status')}</th><th>{t('reason')}</th><th>{t('created')}</th><th /></tr></thead>
         <tbody>{detail.refunds.map(r => <tr key={r.id}><td className="num">{money(r.amount_minor, lang)}</td><td><Pill kind="refund" value={r.status} /></td>
           <td>{r.reason}<div className="muted">{t('requestedBy', { name: r.requested_by })}</div></td><td>{dateTime(r.created_at, lang)}</td>
-          <td><RefundActions refund={{ id: r.id, status: r.status, requested_by: r.requested_by_id }} me={me} onDone={() => void load()} /></td></tr>)}</tbody></table> : null}
+          <td><RefundActions refund={{ id: r.id, status: r.status, requested_by: r.requested_by_id }} me={me} onDone={() => void load()} /></td></tr>)}</tbody></table></div> : null}
       {can('refund.request') ? <form onSubmit={requestRefund} className="inline">
         <label>{t('refundAmount')}<input inputMode="decimal" required value={refundAmount} onChange={e => setRefundAmount(e.target.value)} /></label>
         <label className="grow">{t('reason')}<input required maxLength={500} value={refundReason} onChange={e => setRefundReason(e.target.value)} /></label>
@@ -197,7 +197,7 @@ export function RefundsView({ me, onOpen }: { me: Me; onOpen: (invoiceId: string
     <h1>{t('navRefunds')}</h1>
     <p className="muted">{t('refundRule')}</p>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('invoice')}</th><th>{t('shop')}</th><th className="num">{t('refundAmount')}</th><th>{t('status')}</th><th>{t('reason')}</th><th /></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.refund_id}>
         <td><button className="link" onClick={() => onOpen(r.invoice_id)}>{r.number}</button></td><td>{r.organization_name}</td>
@@ -205,7 +205,7 @@ export function RefundsView({ me, onOpen }: { me: Me; onOpen: (invoiceId: string
         <td>{r.reason}<div className="muted">{t('requestedBy', { name: r.requested_by_name })} · {dateTime(r.created_at, lang)}</div></td>
         <td><RefundActions refund={{ id: r.refund_id, status: r.status, requested_by: r.requested_by }} me={me} onDone={() => void load()} /></td>
       </tr>) : <tr><td colSpan={6} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
   </section>;
 }
 
@@ -229,9 +229,9 @@ function FinanceSummary({ report }: { report: Report }) {
     <h2>{t('financeSummary')}</h2>
     <div className="tiles small">{tiles.map(([key, value, sub]) => <div key={key} className="tile plain"><strong>{value}</strong><span>{t(key)}{sub ? <small className="muted"> · {sub}</small> : null}</span></div>)}</div>
     <div className="grid2">
-      <div><h3>{t('bySource')}</h3><table><tbody>{report.by_source.map(s => <tr key={s.source}><td>{t(`source.${s.source}` as AdminKey)}</td><td className="num">{s.count}</td><td className="num">{money(s.amount_minor, lang)}</td></tr>)}</tbody></table>
+      <div><h3>{t('bySource')}</h3><div className="table-scroll"><table><tbody>{report.by_source.map(s => <tr key={s.source}><td>{t(`source.${s.source}` as AdminKey)}</td><td className="num">{s.count}</td><td className="num">{money(s.amount_minor, lang)}</td></tr>)}</tbody></table></div>
         {!report.by_source.length ? <p className="muted">{t('empty')}</p> : null}</div>
-      <div><h3>{t('byPlan')}</h3><table><tbody>{report.by_plan.map(p => <tr key={`${p.plan_code}-${p.interval_unit}`}><td>{lang === 'th' ? p.name_th : p.name_en} <span className="muted">/ {t(p.interval_unit === 'year' ? 'priceYear' : 'priceMonth')}</span></td><td className="num">{p.count}</td><td className="num">{money(p.amount_minor, lang)}</td></tr>)}</tbody></table>
+      <div><h3>{t('byPlan')}</h3><div className="table-scroll"><table><tbody>{report.by_plan.map(p => <tr key={`${p.plan_code}-${p.interval_unit}`}><td>{lang === 'th' ? p.name_th : p.name_en} <span className="muted">/ {t(p.interval_unit === 'year' ? 'priceYear' : 'priceMonth')}</span></td><td className="num">{p.count}</td><td className="num">{money(p.amount_minor, lang)}</td></tr>)}</tbody></table></div>
         {!report.by_plan.length ? <p className="muted">{t('empty')}</p> : null}</div>
     </div>
     {report.by_day.length ? <><h3>{t('byDay')}</h3><div className="table-scroll"><table>

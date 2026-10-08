@@ -84,6 +84,11 @@ export function useText() {
   return (key: AdminKey, params?: Record<string, string | number>) => adminText(lang, key, params);
 }
 export function useLanguage() { return useContext(LanguageContext); }
+/** Readable text for a stored code (role, status, source…); unknown codes show as they are. */
+export function useCode() {
+  const lang = useContext(LanguageContext);
+  return (group: string, value: string | null | undefined) => !value ? '—' : (adminText(lang, `${group}.${value}` as AdminKey) || value);
+}
 export { normalizeLanguage };
 
 /** Runs a money/access action; when the server asks for step-up, prompts for a code and retries once. */

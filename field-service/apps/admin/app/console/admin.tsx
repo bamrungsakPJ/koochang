@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { AdminKey } from '@field-service/i18n';
 import { DatabaseZap, KeyRound, LifeBuoy, ReceiptText, RotateCcw, type LucideIcon } from 'lucide-react';
-import { call, ConsoleError, dateOnly, dateTime, isSuperAdmin, money, useLanguage, useStepUp, useText, type Me } from './api';
+import { call, ConsoleError, dateOnly, dateTime, isSuperAdmin, money, useCode, useLanguage, useStepUp, useText, type Me } from './api';
 
 const message = (e: unknown) => e instanceof ConsoleError ? e.message : String(e);
 const states = ['trialing', 'active', 'past_due', 'expired', 'ended', 'pending_payment', 'suspended'];
@@ -109,13 +109,13 @@ export function ShopsView({ onOpen }: { onOpen: (id: string) => void }) {
       <button className="primary">{t('search').split(' ')[0]}</button>
     </form>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('shop')}</th><th>{t('owner')}</th><th>{t('status')}</th><th>{t('plan')}</th><th className="num">{t('technicians')}</th><th>{t('periodEnd')}</th><th>{t('created')}</th></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.id} className="click" onClick={() => onOpen(r.id)}>
         <td><button className="link">{r.name}</button></td><td>{r.owner_name ?? '—'}<div className="muted">{r.owner_phone}</div></td><td><Pill group="state" value={r.state} /></td>
         <td>{r.plan_code ?? '—'}</td><td className="num">{r.active_technicians}</td><td>{dateOnly(r.period_end, lang)}</td><td>{dateOnly(r.created_at, lang)}</td>
       </tr>) : <tr><td colSpan={7} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
     <Pager offset={offset} hasMore={hasMore} busy={!rows} onChange={at => load(undefined, at)} />
   </section>;
 }
@@ -132,7 +132,7 @@ interface ShopDetail {
 }
 
 export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () => void }) {
-  const t = useText();
+  const t = useText(), code = useCode();
   const lang = useLanguage();
   const stepUp = useStepUp();
   const [d, setD] = useState<ShopDetail | null>(null);
@@ -169,7 +169,7 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
       </div>
       <div className="panel">
         <h2>{t('team')}</h2>
-        <ul className="plain">{d.team.map((m, i) => <li key={i}><strong>{m.name}</strong> · {m.role} · {m.status} <span className="muted">{m.phone}</span></li>)}</ul>
+        <ul className="plain">{d.team.map((m, i) => <li key={i}><strong>{m.name}</strong> · {code('shopRole', m.role)} · {code('member', m.status)} <span className="muted">{m.phone}</span></li>)}</ul>
         {can('shops.suspend') ? <form className="sub" onSubmit={ev => { ev.preventDefault(); void run(() => call('POST', `/platform/shops/${id}/${suspended ? 'restore' : 'suspend'}`, { reason })).then(() => setReason('')); }}>
           <h3>{suspended ? t('restore') : t('suspend')}</h3><p className="muted">{t('suspendHint')}</p>
           <label>{t('reason')}<input required maxLength={500} value={reason} onChange={ev => setReason(ev.target.value)} /></label>
@@ -179,12 +179,12 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
     </div>
     <div className="panel">
       <h2>{t('grants')}</h2>
-      {d.grants.length ? <table><thead><tr><th>{t('kind')}</th><th>{t('reason')}</th><th>{t('validUntil')}</th><th /></tr></thead><tbody>{d.grants.map(g => <tr key={g.id}>
-        <td>{t(`kind.${g.kind}` as AdminKey)}<div className="muted">{Object.entries(g.entitlements).map(([k, v]) => `${k}: ${k === 'storage_bytes' ? gb(v) : v}`).join(', ')}</div></td>
+      {d.grants.length ? <div className="table-scroll"><table><thead><tr><th>{t('kind')}</th><th>{t('reason')}</th><th>{t('validUntil')}</th><th /></tr></thead><tbody>{d.grants.map(g => <tr key={g.id}>
+        <td>{t(`kind.${g.kind}` as AdminKey)}<div className="muted">{Object.entries(g.entitlements).map(([k, v]) => `${code('ent', k)}: ${k === 'storage_bytes' ? gb(v) : v}`).join(', ')}</div></td>
         <td>{g.reason}<div className="muted">{g.granted_by}</div></td><td>{g.ended_at ? t('ended') : dateTime(g.valid_until, lang)}</td>
         <td>{!g.ended_at && new Date(g.valid_until) > new Date() && can('grants.manage') ? <button className="ghost small" disabled={busy}
           onClick={() => { const r = prompt(t('reason')); if (r) void run(() => call('POST', `/platform/grants/${g.id}/end`, { reason: r })); }}>{t('endGrant')}</button> : null}</td>
-      </tr>)}</tbody></table> : <p className="muted">{t('empty')}</p>}
+      </tr>)}</tbody></table></div> : <p className="muted">{t('empty')}</p>}
       {can('grants.manage') ? <form className="inline" onSubmit={ev => { ev.preventDefault(); void run(() => call('POST', `/platform/shops/${id}/grants`, { kind: grant.kind, reason: grant.reason,
         valid_until: new Date(`${grant.until}T23:59:59+07:00`).toISOString(), entitlements: { technician_seats: grant.seats ? Number(grant.seats) : undefined,
           storage_bytes: grant.storage ? Math.round(Number(grant.storage) * 1e9) : undefined } })); }}>
@@ -197,8 +197,8 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
       </form> : null}
     </div>
     <div className="grid2">
-      <div className="panel"><h2>{t('periods')}</h2><ul className="plain">{d.periods.map((p, i) => <li key={i}>{p.source} · {p.plan} · {dateOnly(p.start_at, lang)} – {dateOnly(p.end_at, lang)}</li>)}</ul>
-        <h3>{t('invoices')}</h3><ul className="plain">{d.invoices.map(i => <li key={i.id}>{i.number} · {money(i.amount_minor, lang)} · {i.status}</li>)}</ul></div>
+      <div className="panel"><h2>{t('periods')}</h2><ul className="plain">{d.periods.map((p, i) => <li key={i}>{code('period', p.source)} · {p.plan} · {dateOnly(p.start_at, lang)} – {dateOnly(p.end_at, lang)}</li>)}</ul>
+        <h3>{t('invoices')}</h3><ul className="plain">{d.invoices.map(i => <li key={i.id}>{i.number} · {money(i.amount_minor, lang)} · {code('invoice', i.status)}</li>)}</ul></div>
       <div className="panel"><h2>{t('history')}</h2><ul className="plain">{d.platform_history.map((h, i) => <li key={i}><code>{h.action}</code> · {h.actor ?? '—'} · {dateTime(h.created_at, lang)}
         {h.reason ? <div className="muted">{h.reason}</div> : null}</li>)}</ul></div>
     </div>
@@ -223,13 +223,13 @@ export function TicketsView({ onOpen }: { onOpen: (id: string) => void }) {
     <h1>{t('navSupport')}</h1>
     <div className="tabs">{(['open', 'resolved', 'closed', 'all'] as const).map(f => <button key={f} className={filter === f ? 'tab on' : 'tab'} onClick={() => setFilter(f)}>{f === 'all' ? t('filterAll') : t(`filter.${f}` as AdminKey)}</button>)}</div>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('subject')}</th><th>{t('shop')}</th><th>{t('status')}</th><th>{t('assigned')}</th><th>{t('lastMessage')}</th></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.id} className="click" onClick={() => onOpen(r.id)}>
         <td><button className="link">{r.subject}</button>{r.last_from_shop && r.status !== 'closed' ? <span className="pill warn" style={{ marginLeft: 8 }}>{t('waitingUs')}</span> : null}</td>
         <td>{r.organization_name}</td><td><Pill group="ticket" value={r.status} /></td><td>{r.assigned_to ?? '—'}</td><td>{dateTime(r.last_message_at, lang)}</td>
       </tr>) : <tr><td colSpan={5} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
   </section>;
 }
 
@@ -294,8 +294,8 @@ export function TicketView({ id, me, onBack }: { id: string; me: Me; onBack: () 
       </div>
     </div>
     {reading ? <div className="panel"><h2>{t(`scope.${reading.what}` as AdminKey)}</h2>
-      {reading.rows.length ? <table><thead><tr>{Object.keys(reading.rows[0]!).filter(k => k !== 'id').map(k => <th key={k}>{k}</th>)}</tr></thead>
-        <tbody>{reading.rows.map((r, i) => <tr key={i}>{Object.entries(r).filter(([k]) => k !== 'id').map(([k, v]) => <td key={k}>{typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '—')}</td>)}</tr>)}</tbody></table>
+      {reading.rows.length ? <div className="table-scroll"><table><thead><tr>{Object.keys(reading.rows[0]!).filter(k => k !== 'id').map(k => <th key={k}>{k}</th>)}</tr></thead>
+        <tbody>{reading.rows.map((r, i) => <tr key={i}>{Object.entries(r).filter(([k]) => k !== 'id').map(([k, v]) => <td key={k}>{typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '—')}</td>)}</tr>)}</tbody></table></div>
         : <p className="muted">{t('empty')}</p>}</div> : null}
   </section>;
 }
@@ -320,7 +320,7 @@ export function AccessView({ me }: { me: Me }) {
     <h1>{t('navAccess')}</h1>
     <p className="muted">{t('accessRule')}</p>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('shop')}</th><th>{t('subject')}</th><th>{t('scope')}</th><th>{t('reason')}</th><th>{t('requestedBy2')}</th><th /></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.id}>
         <td>{r.organization_name}</td><td>{r.subject}</td><td>{r.scope.map(s => t(`scope.${s}` as AdminKey)).join(', ')} · {r.duration_minutes} {t('minutes')}</td>
@@ -329,7 +329,7 @@ export function AccessView({ me }: { me: Me }) {
           <button className="primary small" disabled={!r.consented} onClick={() => decide(r.id, true)}>{t('approve')}</button>
           <button className="danger small" onClick={() => decide(r.id, false)}>{t('reject')}</button></> : null}</td>
       </tr>) : <tr><td colSpan={6} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
   </section>;
 }
 
@@ -350,18 +350,18 @@ export function AuditView() {
       <label className="grow">{t('filterAction')}<input value={action} onChange={e => setAction(e.target.value)} /></label><button className="primary">OK</button>
     </form>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('when')}</th><th>{t('actor')}</th><th>{t('action')}</th><th>{t('shop')}</th><th>{t('reason')}</th></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.id}><td>{dateTime(r.created_at, lang)}</td><td>{r.actor ?? '—'}<div className="muted">{r.permission}</div></td>
         <td><code>{r.action}</code><div className="muted">{Object.keys(r.details ?? {}).length ? JSON.stringify(r.details) : ''}</div></td><td>{r.organization_name ?? '—'}</td><td>{r.reason ?? ''}</td></tr>)
         : <tr><td colSpan={5} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
     {rows && rows.length >= 200 ? <button className="ghost" onClick={() => load(rows.at(-1)!.created_at, true)}>{t('older')}</button> : null}
   </section>;
 }
 
 export function SystemView() {
-  const t = useText();
+  const t = useText(), code = useCode();
   const lang = useLanguage();
   const [d, setD] = useState<{ database_time: string; ocr: Record<string, number> | null; ocr_oldest_queued: string | null; deliveries: Record<string, number> | null;
     uploads_pending: number; reservations_open: number; last_scan: string | null } | null>(null);
@@ -371,8 +371,8 @@ export function SystemView() {
     <h1>{t('navSystem')}</h1>
     {error ? <p className="error">{error}</p> : null}
     {d ? <div className="grid2">
-      <div className="panel"><h2>OCR</h2><dl>{Object.entries(d.ocr ?? {}).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}<dt>{t('oldestQueued')}</dt><dd>{dateTime(d.ocr_oldest_queued, lang)}</dd></dl></div>
-      <div className="panel"><h2>Push (7d)</h2><dl>{Object.entries(d.deliveries ?? {}).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></div>
+      <div className="panel"><h2>{t('ocrTitle')}</h2><dl>{Object.entries(d.ocr ?? {}).map(([k, v]) => <Fragment key={k}><dt>{code('ocr', k)}</dt><dd>{v}</dd></Fragment>)}<dt>{t('oldestQueued')}</dt><dd>{dateTime(d.ocr_oldest_queued, lang)}</dd></dl></div>
+      <div className="panel"><h2>{t('pushTitle')}</h2><dl>{Object.entries(d.deliveries ?? {}).map(([k, v]) => <Fragment key={k}><dt>{code('delivery', k)}</dt><dd>{v}</dd></Fragment>)}</dl></div>
       <div className="panel"><dl><dt>{t('dbTime')}</dt><dd>{dateTime(d.database_time, lang)}</dd><dt>{t('uploadsStuck')}</dt><dd>{d.uploads_pending}</dd>
         <dt>{t('reservationsOpen')}</dt><dd>{d.reservations_open}</dd><dt>{t('lastScan')}</dt><dd>{dateTime(d.last_scan, lang)}</dd></dl></div>
     </div> : null}
@@ -399,12 +399,12 @@ export function DataRequestsView() {
     <h1>{t('navData')}</h1>
     <p className="muted">{t('dataRule')}</p>
     {error ? <p className="error">{error}</p> : null}
-    <table>
+    <div className="table-scroll"><table>
       <thead><tr><th>{t('shop')}</th><th>{t('type')}</th><th>{t('status')}</th><th>{t('requested')}</th><th>{t('note')}</th><th /></tr></thead>
       <tbody>{rows?.length ? rows.map(r => <tr key={r.id}><td>{r.organization_name}</td><td>{t(`dataType.${r.request_type}` as AdminKey)}</td><td><Pill group="data" value={r.status} /></td>
         <td>{r.requested_by}<div className="muted">{dateTime(r.created_at, lang)}</div></td><td>{r.reason}<div className="muted">{r.decision_note}</div></td>
         <td className="actions">{(nextSteps[r.status] ?? []).map(s => <button key={s} className={s === 'rejected' || s === 'cancelled' ? 'danger small' : 'primary small'} onClick={() => step(r.id, s)}>{t(`data.${s}` as AdminKey)}</button>)}</td>
       </tr>) : <tr><td colSpan={6} className="muted">{rows ? t('empty') : '…'}</td></tr>}</tbody>
-    </table>
+    </table></div>
   </section>;
 }

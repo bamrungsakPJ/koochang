@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Language } from '@field-service/core';
 import type { AdminKey } from '@field-service/i18n';
-import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useText, type Me } from './api';
+import { call, ConsoleError, LanguageContext, normalizeLanguage, session, setApiLanguage, setOnSignedOut, StepUpContext, useCode, useText, type Me } from './api';
 import { InvoiceView, PaymentsView, ReconcileView, RefundsView } from './payments';
 import { AccessView, AuditView, DataRequestsView, OverviewView, ShopsView, ShopView, SystemView, TicketsView, TicketView } from './admin';
 import { PaymentSettingsView } from './payment-settings';
@@ -133,7 +133,7 @@ const mainRole = (roles: string[]) => [...roles].sort((a, b) => (rolePriority.in
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
 
 function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; view: string; items: typeof nav; onNavigate: (name: NavName) => void; onSignOut: () => void; children: ReactNode }) {
-  const t = useText();
+  const t = useText(), code = useCode();
   const language = useContext(LanguageControl);
   const [open, setOpen] = useState(false);
   const current = items.find(n => n.name === view);
@@ -166,7 +166,7 @@ function Shell({ me, view, items, onNavigate, onSignOut, children }: { me: Me; v
       <header className="topbar">
         <button className="icon-btn menu-btn" aria-label={t('openMenu')} onClick={() => setOpen(true)}><Menu size={20} /></button>
         <div className="crumbs">{current ? <><span>{t(current.group)}</span><span className="sep">/</span><strong>{t(current.key)}</strong></> : null}</div>
-        <div className="top-actions">{language}<span className="role-chip" title={me.roles.join(', ')}>{mainRole(me.roles)}{me.roles.length > 1 ? ` +${me.roles.length - 1}` : ''}</span></div>
+        <div className="top-actions">{language}<span className="role-chip" title={me.roles.map(r => code('role', r)).join(', ')}>{code('role', mainRole(me.roles))}{me.roles.length > 1 ? ` +${me.roles.length - 1}` : ''}</span></div>
       </header>
       <main className="work">{children}</main>
     </div>
