@@ -28,7 +28,7 @@
 
 ### งานที่ยังค้างและลำดับทำต่อ
 
-- (ใหม่ 2026-10-09) **ผู้ใช้ทำต่อ**: ติดตั้ง APK 0.2.13 แล้วทดสอบจ่ายจากแอป (กลับเข้าแอปได้ไหม) และโอน + สลิป; คืนเงิน 20 บาท (INV-2610-000002) — อนุมัติในคอนโซลแล้ว เหลือกด Refund ใน Stripe Dashboard แล้วกด "ทำเสร็จ" ในคอนโซลพร้อมเลข `re_…`; Stripe Dashboard: Send test event (ต้อง 200), Manage failed payments → Cancel subscription, Customer portal (เปิดอัปเดตบัตร + ประวัติ, ปิดยกเลิก/Switch plans/Update quantities); ทดสอบเสร็จหยุดขาย test20; ลบ `/opt/field-service/staging/pnpm-workspace.yaml`; ภายหลังลบ hostname app-staging (+ เอาออกจาก ADMIN_ORIGIN)
+- (ใหม่ 2026-10-09) **ผู้ใช้ทำต่อ**: ติดตั้ง APK 0.2.13 แล้วทดสอบจ่ายจากแอป (กลับเข้าแอปได้ไหม) และโอน + สลิป; คืนเงิน 20 บาท (INV-2610-000002) — อนุมัติในคอนโซลแล้ว; หลัง deploy `af3503d` (migration 033) กด "คืนเงินผ่าน Stripe" ในคอนโซล (หรือกด Refund ใน Stripe Dashboard แทน แต่ห้ามทำทั้งสองทาง); Stripe Dashboard: Send test event (ต้อง 200), Manage failed payments → Cancel subscription, Customer portal (เปิดอัปเดตบัตร + ประวัติ, ปิดยกเลิก/Switch plans/Update quantities); ทดสอบเสร็จหยุดขาย test20; ลบ `/opt/field-service/staging/pnpm-workspace.yaml`; ภายหลังลบ hostname app-staging (+ เอาออกจาก ADMIN_ORIGIN)
 - (ใหม่ 2026-10-09) **โค้ดที่ทำต่อได้**: test "photo upload" ใน auth-http ผลไม่คงที่; test เก่าที่ยังล้ม 2 ข้อ (plan-changes, mobile-client); แยกร่างผลบริการตามผู้ใช้; ปุ่มบันทึกรูป QR บนมือถือ (expo-media-library); ข้อความ error การรับ `rk_` key ถ้า Stripe ไม่ให้สร้าง key สิทธิ์เต็ม
 - (2026-10-08 **ย้ายชื่อเสร็จแล้ว** — เหลือ: ลบ hostname app-staging + เอาออกจาก ADMIN_ORIGIN เมื่อพร้อม) ~~ย้ายไป koochang.com / api.koochang.com (ทำตามลำดับ)~~: ผู้ใช้เพิ่ม Cloudflare hostname `api.koochang.com` → `http://localhost:4100` และแก้ env OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น koochang.com → Claude build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` → แล้วจึงตั้ง Stripe webhook; APK 0.2.12 (build 14) ชี้ api.koochang.com แล้ว ใช้ได้หลังเพิ่ม hostname (รายละเอียดในบันทึกรายวัน)
 - (อนาคต, ผู้ใช้ตัดสินใจ 2026-10-08) **เพิ่ม Omise (Opn Payments) เป็นตัวเลือกจ่ายบัตร** คู่กับ Stripe — ค่าธรรมเนียมบัตรไม่มีค่าคงที่ ฿10 (ดูบันทึกรายวัน 2026-10-08 "ค่าธรรมเนียม Stripe vs Omise")
@@ -71,11 +71,20 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-09 — คืนเงินผ่าน Stripe อัตโนมัติเมื่ออนุมัติ (commit af3503d, migration 033; ยังไม่ deploy)
+
+- **ทำ**: อนุมัติคืนเงินของ payment ที่มาจาก Stripe (`STRIPE:pi_…` จ่ายครั้งเดียว หรือ `STRIPE:in_…` Subscription) → API สร้าง refund ใน Stripe ทันที แล้วบันทึกสำเร็จพร้อม `STRIPE:re_…`; ถ้า Stripe ปฏิเสธ → บันทึก "ไม่สำเร็จ" (ขอคืนใหม่ได้) + audit เก็บรหัส error; ถ้าติดต่อ Stripe ไม่ได้ → ค้างสถานะอนุมัติ ในคอนโซลมีปุ่ม "คืนเงินผ่าน Stripe" ให้กดซ้ำ (endpoint `POST /platform/billing/refunds/:id/stripe`, สิทธิ์ refund.approve)
+- **กันคืนซ้ำ**: ใส่ `metadata.refund_id` + idempotency key `refund:<id>`; ก่อนสร้างจะค้น refund เดิมของ payment intent ที่มี refund_id ตรงกันก่อน (กันกรณีคำตอบหายเกิน 24 ชม.)
+- **คอนโซล**: ตารางคืนเงินใช้ `padmin.refund_list` (เพิ่ม `via_stripe`); รายการ Stripe ไม่แสดงช่องเลขอ้างอิงธนาคาร; การโอนธนาคารยังเป็นแบบเดิม
+- **ปัญหา/แก้**: test สร้าง error จาก Stripe SDK ฉบับ CJS ทำให้ `instanceof` กับฉบับ ESM ไม่ตรง → ตรวจด้วย `error.type === 'StripeInvalidRequestError'` แทน; test ก่อนหน้าหมุน credential → ใช้ credential ของ attempt
+- **ตรวจ**: stripe + auth-http บน PostgreSQL 16 จริง 37 ผ่าน; stripe-subscription/console-completion/i18n ผ่าน; typecheck admin ผ่าน
+- **ยังไม่ทำ**: deploy staging (ระบบบล็อก Claude เขียนบน server2 รอบนี้ — รอผู้ใช้สั่ง/อนุญาต); หลัง deploy รายการ 20 บาท (INV-2610-000002) ที่อนุมัติไว้แล้วจะมีปุ่ม "คืนเงินผ่าน Stripe" ให้ผู้ใช้กดเอง (เงินจริง)
+
 ### 2026-10-09 — ตรวจการคืนเงิน 20 บาท (INV-2610-000002)
 
 - ผู้ใช้ทำคืนเงินในคอนโซล ตรวจฐาน staging: refund 2,000 สตางค์ สถานะ `approved` (ยังไม่ `succeeded`) ของ payment `STRIPE:pi_3UOI3yFdDkHSjgNH14pvTDio` (บัตร)
-- **ข้อสังเกต**: ขั้นคืนเงินในคอนโซล (ขอ → อนุมัติ → ทำเสร็จ) เป็นการบันทึกอย่างเดียว ไม่ได้เรียก Stripe refund API — เงินยังไม่กลับเข้าบัตร ต้องกด Refund ใน Stripe Dashboard ที่ payment นั้นเอง แล้วกลับมากด "ทำเสร็จ" ในคอนโซลพร้อมเลขอ้างอิง `re_…`
-- อนาคต (ยังไม่ทำ รอผู้ใช้ตัดสินใจ): ให้ payment ที่มาจาก Stripe คืนเงินผ่าน API อัตโนมัติเมื่ออนุมัติ
+- **ข้อสังเกต**: ขั้นคืนเงินในคอนโซล (ขอ → อนุมัติ → ทำเสร็จ) เป็นการบันทึกอย่างเดียว ไม่ได้เรียก Stripe refund API — เงินยังไม่กลับเข้าบัตร
+- ผู้ใช้สั่งทำต่อ → ทำแล้ว (`af3503d`) ดูรายการ "คืนเงินผ่าน Stripe อัตโนมัติ" ด้านบน
 
 ### 2026-10-08 (สรุปทั้งวัน) — งานที่ทำ, การตัดสินใจ, สิ่งที่ค้าง
 
