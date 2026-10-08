@@ -1,8 +1,8 @@
 'use client';
-import { Children, createContext, useContext, useEffect, useRef, useState, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes } from 'react';
+import { Children, createContext, useContext, useEffect, useId, useRef, useState, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes } from 'react';
 import { catalogs, translate, errorMessage, formatDateTime, formatMoney, type TranslationKey } from '@field-service/i18n';
 import type { Language } from '@field-service/core';
-import { ApiFailure, api, type Media } from './api';
+import { ApiFailure, api, type Media, type TeamMember } from './api';
 
 export const LanguageContext = createContext<Language>('th');
 export function useText() { const lang = useContext(LanguageContext); return (key: TranslationKey, params?: Record<string, string | number>) => translate(lang, key, params); }
@@ -28,6 +28,79 @@ export function Field({ label, ...props }: InputHTMLAttributes<HTMLInputElement>
     onBlur={dateInput ? e => { props.onChange?.(e as React.ChangeEvent<HTMLInputElement>); props.onBlur?.(e); } : props.onBlur} /></label>;
 }
 export function Select({ label, children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { label: string }) { return <label>{label}<select {...props}>{children}</select></label>; }
+export interface PickOption { value: string; label: string; detail?: string | null }
+const foldText = (v: string) => v.toLocaleLowerCase('th').normalize('NFC');
+/** Phone-like queries compare digits only, without a leading 0 or 66, so 081-234 and +6681 match. */
+const phoneDigits = (v: string) => { const d = v.replace(/\D/g, ''); return d.startsWith('66') ? d.slice(2) : d.replace(/^0/, ''); };
+function matchesQuery(o: PickOption, q: string) {
+  const text = foldText(`${o.label} ${o.detail ?? ''}`), digits = phoneDigits(q);
+  return text.includes(foldText(q)) || (digits.length >= 3 && /^[\d\s+()-]+$/.test(q) && phoneDigits(text).includes(digits));
+}
+function Highlight({ text, query }: { text: string; query: string }) {
+  const i = query ? foldText(text).indexOf(foldText(query)) : -1;
+  return i < 0 ? <>{text}</> : <>{text.slice(0, i)}<mark>{text.slice(i, i + query.length)}</mark>{text.slice(i + query.length)}</>;
+}
+/** Type-to-search picker for lists that can grow (customers, locations, technicians). Pass
+ * `options` to filter in the browser, or `load` to ask the server as the user types. On phones
+ * the open list takes the whole screen so the keyboard does not cover it. */
+export function SearchSelect({ label, selected, onSelect, options, load, placeholder, disabled, clearable = true, footer }: {
+  label: string; selected: PickOption | null; onSelect: (option: PickOption | null) => void; options?: PickOption[]; load?: (query: string) => Promise<PickOption[]>;
+  placeholder?: string; disabled?: boolean; clearable?: boolean; footer?: (query: string, close: () => void) => ReactNode;
+}) {
+  const t = useText(), id = useId(), errorText = useError();
+  const [open, setOpen] = useState(false), [query, setQuery] = useState(''), [active, setActive] = useState(0);
+  const [remote, setRemote] = useState<PickOption[] | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState<unknown>(null);
+  const root = useRef<HTMLDivElement>(null), input = useRef<HTMLInputElement>(null), loader = useRef(load); loader.current = load;
+  useEffect(() => {
+    if (!open || !loader.current) return;
+    let live = true; setBusy(true); setError(null);
+    const timer = setTimeout(() => { loader.current!(query.trim()).then(r => { if (live) setRemote(r); }, e => { if (live) setError(e); }).finally(() => { if (live) setBusy(false); }); }, query ? 250 : 0);
+    return () => { live = false; clearTimeout(timer); };
+  }, [open, query]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) close(); };
+    document.addEventListener('pointerdown', outside); return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
+  const items = load ? remote ?? [] : (options ?? []).filter(o => !query.trim() || matchesQuery(o, query.trim()));
+  function close() { setOpen(false); setQuery(''); setActive(0); }
+  function choose(o: PickOption) { onSelect(o); close(); input.current?.blur(); }
+  function key(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!open) setOpen(true); else setActive(i => Math.max(0, Math.min(items.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))); }
+    else if (e.key === 'Enter' && open) { e.preventDefault(); if (items[active]) choose(items[active]); }
+    else if (e.key === 'Escape' && open) { e.preventDefault(); close(); }
+    else if (e.key === 'Tab') close();
+  }
+  const listId = `${id}-list`;
+  return <div ref={root} className={`search-select${open ? ' open' : ''}`}>
+    <label htmlFor={`${id}-input`}>{label}</label>
+    <div className="search-select-head"><Button className="search-select-back" aria-label={t('cancel')} onClick={close}>←</Button>
+      <input id={`${id}-input`} ref={input} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" autoComplete="off" disabled={disabled}
+        aria-activedescendant={open && items[active] ? `${id}-${active}` : undefined} placeholder={selected ? '' : placeholder ?? t('ownerWeb.typeToSearch')}
+        value={open ? query : selected ? selected.label : ''} onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onKeyDown={key}
+        onChange={e => { setQuery(e.target.value); setActive(0); setOpen(true); }} />
+      {selected && !open && clearable && !disabled ? <Button className="search-select-clear" aria-label={t('ownerWeb.clearSelection')} onClick={() => onSelect(null)}>×</Button> : null}</div>
+    {selected && !open && selected.detail ? <span className="search-select-detail muted">{selected.detail}</span> : null}
+    {open ? <div className="search-select-pop"><ul id={listId} role="listbox" aria-label={label}>
+      {items.map((o, i) => <li key={o.value} id={`${id}-${i}`} role="option" aria-selected={selected?.value === o.value} className={i === active ? 'active' : ''}
+        onPointerDown={e => e.preventDefault()} onClick={() => choose(o)} onPointerEnter={() => setActive(i)}>
+        <strong><Highlight text={o.label} query={query.trim()} /></strong>{o.detail ? <span className="muted"><Highlight text={o.detail} query={query.trim()} /></span> : null}</li>)}
+    </ul>{busy ? <p className="search-select-note muted" role="status">{t('loading')}</p> : null}
+      {error ? <p className="search-select-note error" role="alert">{errorText(error)}</p> : null}
+      {!busy && !error && !items.length ? <p className="search-select-note muted">{query.trim() ? t('ownerWeb.noMatches', { q: query.trim() }) : t('ownerWeb.no_records_yet')}</p> : null}
+      {footer ? <div className="search-select-footer">{footer(query.trim(), close)}</div> : null}</div> : null}
+  </div>;
+}
+/** Active members for an assignee picker, with their open job count so the owner can spread work. */
+export function useTeamOptions(members: TeamMember[] | undefined, selfId?: string): PickOption[] {
+  const t = useText();
+  return members?.filter(m => m.status === 'active').map(m => ({ value: m.member_id, label: m.member_id === selfId ? t('doItMyself') : m.display_name,
+    detail: [m.member_id === selfId ? m.display_name : null, m.open_jobs ? t('ownerWeb.openJobsCount', { n: m.open_jobs }) : null].filter(Boolean).join(' · ') || null })) ?? [];
+}
+/** Short fixed choices as one-tap chips instead of a dropdown. */
+export function Chips({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+  return <fieldset className="chips">{label ? <legend>{label}</legend> : null}{options.map(o => <Button key={o.value} className={`chip${o.value === value ? ' on' : ''}`} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>{o.label}</Button>)}</fieldset>;
+}
 export function Note({ label, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) { return <label>{label}<textarea rows={3} {...props} /></label>; }
 export function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) { return Children.toArray(children).some(v => typeof v !== 'string' || !!v.trim()) ? <p role={error ? 'alert' : 'status'} className={error ? 'error' : 'ok-box'}>{children}</p> : null; }
 export function Panel({ title, children }: { title?: string; children: ReactNode }) { return <section className="panel">{title ? <h2>{title}</h2> : null}{children}</section>; }

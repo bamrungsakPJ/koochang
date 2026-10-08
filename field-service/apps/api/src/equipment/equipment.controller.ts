@@ -33,7 +33,12 @@ export class EquipmentController {
         `SELECT e.id, e.name, e.equipment_type AS category, e.brand, e.model, e.serial_number, e.status, e.version,
            (SELECT m.thumbnail_key FROM core.equipment_photos p JOIN core.media_assets m ON m.organization_id = p.organization_id AND m.id = p.media_asset_id
              WHERE p.organization_id = e.organization_id AND p.equipment_id = e.id AND m.status = 'ready'
-             ORDER BY (p.photo_type = 'equipment') DESC, p.sort_order, p.created_at LIMIT 1) AS thumbnail_key
+             ORDER BY (p.photo_type = 'equipment') DESC, p.sort_order, p.created_at LIMIT 1) AS thumbnail_key,
+           (SELECT to_char(min(cy.due_date), 'YYYY-MM-DD') FROM core.maintenance_cycles cy
+             JOIN core.maintenance_schedules s ON s.organization_id = cy.organization_id AND s.id = cy.schedule_id AND s.enabled
+             WHERE s.organization_id = e.organization_id AND s.equipment_id = e.id AND cy.status = 'open') AS next_due_on,
+           (SELECT max(se.occurred_at) FROM core.service_event_equipment i JOIN core.service_events se ON se.organization_id = i.organization_id AND se.id = i.service_event_id
+             WHERE i.organization_id = e.organization_id AND i.equipment_id = e.id AND se.status = 'committed') AS last_serviced_at
          FROM core.equipment e WHERE e.organization_id = $1 AND e.location_id = $2 AND e.status = 'active' ORDER BY e.created_at`,
         [tenant.organizationId, locationId])).rows;
       return { items: rows.map(({ thumbnail_key, ...e }) => ({ ...e, thumbnail_url: signedFileUrl(this.settings, request, thumbnail_key) })) };

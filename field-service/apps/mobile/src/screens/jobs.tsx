@@ -1,8 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPhone } from '@field-service/core';
-import { formatDateTime, formatDayChip, type TranslationKey } from '@field-service/i18n';
-import { api, ApiFailure, type Customer, type CustomerSummary, type EquipmentSummary, type Job, type JobStatus, type JobSummary, type Membership, type TeamMember } from '../api';
+import { formatDate, formatDateTime, formatDayChip, type TranslationKey } from '@field-service/i18n';
+import { api, ApiFailure, type Customer, type CustomerHistory, type CustomerSummary, type EquipmentSummary, type Job, type JobStatus, type JobSummary, type Membership, type TeamMember } from '../api';
 import { addDays, DatePicker } from '../calendar';
 import { uuid } from '../photos';
 import { Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
@@ -177,12 +177,12 @@ export function JobCustomerPicker({ membership, onBack, onPicked, onCreate }: {
   </Screen>;
   return <Screen onBack={onBack}>
     <View style={styles.header}><Title>{t('chooseCustomer')}</Title><Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></View>
-    <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder="08x-xxx-xxxx" />
+    <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder={t('ownerWeb.searchCustomerHint')} />
     {!items || searching ? <Loading /> : found.length === 0
       ? <Card><Sub>{q.trim() ? t('noResults') : t('noCustomers')}</Sub>
           <Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></Card>
       : <Card padded={false}>{found.map((c, i) => <Row key={c.id} icon="person" tone="violet" title={customerTitle(c)}
-        subtitle={t('locationCount', { count: c.location_count })} last={i === found.length - 1} onPress={() => { void choose(c.id); }} />)}</Card>}
+        subtitle={[c.name && c.phone_normalized ? formatPhone(c.phone_normalized) : null, c.first_address, c.location_count > 1 ? t('locationCount', { count: c.location_count }) : null].filter(Boolean).join(' · ')} last={i === found.length - 1} onPress={() => { void choose(c.id); }} />)}</Card>}
     {items && next !== null ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
   </Screen>;
 }
@@ -205,11 +205,15 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
   const [selected, setSelected] = useState<string[]>([]);
   const [estimate, setEstimate] = useState('');
   const [assignee, setAssignee] = useState<string | null>(null);
+  const [teamQuery, setTeamQuery] = useState('');
+  const [history, setHistory] = useState<CustomerHistory | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const language = useContext(LanguageContext);
   useEffect(() => {
     api.customer(org, customerId).then(setCustomer, () => {});
     api.equipmentList(org, locationId).then(r => setEquipment(r.items), () => {});
+    api.customerHistory(org, customerId, locationId).then(setHistory, () => {});
     api.team(org).then(r => {
       const active = r.members.filter(m => m.status === 'active');
       setTeam(active);
@@ -226,7 +230,7 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
       const result = await api.createJob(org, {
         request_key: key, customer_id: customerId, location_id: locationId, job_type: type, description: description.trim() || undefined,
         scheduled_start: when.day ? atBangkok(when.day, when.time) : null, scheduled_end: when.day ? endOf(when.day, when.time, when.hours) : null,
-        estimated_equipment_count: n && Number.isInteger(n) && n > 0 ? n : null, equipment_ids: selected, assignee_member_id: assignee,
+        estimated_equipment_count: equipment.length ? selected.length || null : n && Number.isInteger(n) && n > 0 ? n : null, equipment_ids: selected, assignee_member_id: assignee,
       });
       onCreated(result.job.id, result.conflicts.length);
     } catch (e) { setFailure(errorText(e)); } finally { setBusy(false); }
@@ -235,6 +239,10 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
   return <Screen onBack={onBack} footer={<Button icon="checkmark" busy={busy} title={assignee ? t('createAndAssign') : t('createUnassigned')} onPress={submit} />}>
     <Title>{t('createJob')}</Title>
     {customer ? <Sub>{customerTitle(customer)}{location ? ` · ${location.label}` : ''}</Sub> : null}
+    {location ? <Card>{location.address ? <Text style={styles.historyText}>{location.address}</Text> : null}{location.travel_note ? <Sub>{location.travel_note}</Sub> : null}
+      {location.latitude !== null ? <View style={styles.actions}><Button small kind="secondary" icon="navigate" title={t('ownerWeb.openInMaps')} onPress={() => openMaps(location)} /></View>
+        : <Banner tone="info" text={t('ownerWeb.noCoordinatesHint')} />}</Card> : null}
+    {history?.open_jobs.length ? <Banner tone="info" text={t('ownerWeb.openJobsWarning', { n: history.open_jobs.length })} /> : null}
     <Section>{t('jobType')}</Section>
     <View style={styles.chips}>{jobTypes.map(x => <Chip key={x} label={t(`jobType.${x}` as TranslationKey)} on={type === x} onPress={() => setType(x)} icon={typeLook[x]![0]} />)}</View>
     <Field label={t('jobDescription')} value={description} onChangeText={setDescription} multiline maxLength={2000} />
@@ -244,18 +252,21 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
     {equipment.length ? <Card padded={false}>{equipment.map((e, i) => {
       const on = selected.includes(e.id);
       const [icon, tone] = categoryIcon(e.category);
-      return <Row key={e.id} last={i === equipment.length - 1} icon={<IconTile icon={icon} tone={tone} />} title={equipmentTitle(e)} subtitle={e.serial_number ?? undefined}
-        trailing={<Icon name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.primary : colors.faint} />}
+      return <Row key={e.id} last={i === equipment.length - 1} icon={e.thumbnail_url ? <Image source={{ uri: e.thumbnail_url }} style={styles.thumb} /> : <IconTile icon={icon} tone={tone} />}
+        title={equipmentTitle(e)} subtitle={e.serial_number ? `S/N ${e.serial_number}` : undefined}
+        below={dueBadge(t, language, e.next_due_on)} trailing={<Icon name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.primary : colors.faint} />}
         onPress={() => setSelected(on ? selected.filter(x => x !== e.id) : [...selected, e.id])} />;
     })}</Card> : null}
-    <Field label={t('estimatedCount')} value={estimate} onChangeText={v => setEstimate(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" />
+    {!equipment.length ? <Field label={t('estimatedCount')} hint={t('ownerWeb.noEquipmentHint')} value={estimate} onChangeText={v => setEstimate(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" /> : null}
     <Section>{t('assignee')}</Section>
+    {team.length > 6 ? <Field label={t('ownerWeb.pickTechnician')} icon="search" value={teamQuery} onChangeText={setTeamQuery} autoCorrect={false} /> : null}
     <View style={styles.chips}>
       <Chip label={t('unassignedOption')} on={assignee === null} onPress={() => setAssignee(null)} />
-      {team.map(m => <Chip key={m.member_id} label={m.member_id === me.memberId ? t('doItMyself') : m.display_name} on={assignee === m.member_id}
+      {team.filter(m => m.member_id === assignee || !teamQuery.trim() || m.display_name.toLocaleLowerCase('th').includes(teamQuery.trim().toLocaleLowerCase('th'))).map(m => <Chip key={m.member_id} label={m.member_id === me.memberId ? t('doItMyself') : m.display_name} on={assignee === m.member_id}
         icon={m.role === 'owner' ? 'person-circle' : 'construct'} onPress={() => setAssignee(m.member_id)} />)}
     </View>
     <Banner text={failure} />
+    <CustomerHistorySection org={org} customerId={customerId} locationId={locationId} history={history} setHistory={setHistory} />
   </Screen>;
 }
 
@@ -387,4 +398,54 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: 12, marginBottom: 6 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   history: { paddingVertical: 6 },
+  historyGap: { borderTopWidth: 1, borderTopColor: colors.line, marginTop: 6, paddingTop: 12 },
+  historyItem: { marginTop: 6, gap: 2 },
+  historyText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink },
+  historyPhotos: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  historyPhoto: { width: 64, height: 64, borderRadius: 8, backgroundColor: colors.line },
+  thumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.line },
 });
+
+/** Open jobs and the latest service at this location, so the person booking sees what was done
+ * last time and does not book the same visit twice. Same data as the shop web. */
+function CustomerHistorySection({ org, customerId, locationId, history, setHistory }: {
+  org: string; customerId: string; locationId: string; history: CustomerHistory | null; setHistory: (h: CustomerHistory) => void;
+}) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  const equipmentTitle = useEquipmentTitle();
+  const [more, setMore] = useState(false);
+  async function loadMore() {
+    if (!history || more) return;
+    setMore(true);
+    try { const next = await api.customerHistory(org, customerId, locationId, history.items.length); setHistory({ ...next, items: [...history.items, ...next.items] }); }
+    catch { /* the button stays for another try */ } finally { setMore(false); }
+  }
+  if (!history) return null;
+  return <>
+    <Section>{t('ownerWeb.serviceHistory')}</Section>
+    {!history.items.length ? <Sub>{t('ownerWeb.noServiceYet')}</Sub> : <Card>{history.items.map((ev, i) => <View key={ev.id} style={[styles.history, i > 0 && styles.historyGap]}>
+      <Strong>{formatDateTime(new Date(ev.occurred_at), language)}</Strong>
+      <Sub>{[ev.job_type ? t(`jobType.${ev.job_type}` as TranslationKey) : t('ownerWeb.adhocService'), ev.performed_by_name ? t('ownerWeb.byName', { name: ev.performed_by_name }) : null].filter(Boolean).join(' · ')}</Sub>
+      {ev.equipment.map(e => <View key={e.equipment_id} style={styles.historyItem}>
+        <Text style={styles.historyText}>{equipmentTitle(e)} · {t(`outcome.${e.outcome}` as TranslationKey)}</Text>
+        {e.problem_note ? <Sub>{t('problemNote')}: {e.problem_note}</Sub> : null}
+        {e.work_note ? <Sub>{t('workNote')}: {e.work_note}</Sub> : null}
+        {e.next_due_on ? <Sub>{t('ownerWeb.nextDue', { date: dayText(e.next_due_on, language) })}</Sub> : null}
+        {e.photos.some(p => p.thumbnail_url) ? <View style={styles.historyPhotos}>{e.photos.map((p, k) => p.thumbnail_url
+          ? <Pressable key={k} accessibilityRole="imagebutton" accessibilityLabel={p.photo_type} onPress={() => { void Linking.openURL(p.url ?? p.thumbnail_url!); }}>
+            <Image source={{ uri: p.thumbnail_url }} style={styles.historyPhoto} /></Pressable> : null)}</View> : null}
+      </View>)}
+      {ev.note ? <Sub>{ev.note}</Sub> : null}
+    </View>)}</Card>}
+    {history.has_more ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
+  </>;
+}
+const dayText = (day: string, language: 'th' | 'en') => formatDate(new Date(`${day}T00:00:00+07:00`), language);
+/** Due badge for an equipment row: overdue, due within 30 days, or the next date. */
+function dueBadge(t: ReturnType<typeof useT>, language: 'th' | 'en', due: string | null | undefined) {
+  if (!due) return null;
+  const today = bangkokDay(0), soon = bangkokDay(30), date = dayText(due, language);
+  return due < today ? <Badge tone="danger" text={t('ownerWeb.overdueSince', { date })} />
+    : due <= soon ? <Badge tone="warn" text={t('ownerWeb.dueOn', { date })} /> : <Badge text={t('ownerWeb.nextDue', { date })} />;
+}

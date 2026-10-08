@@ -19,7 +19,8 @@ const customerTypes = ['individual', 'business'];
 export class CustomersController {
   constructor(private readonly database: DatabaseService) {}
 
-  /** Search by phone (any format) or name. Phone digits match anywhere, name is case-insensitive. */
+  /** Search by phone (any format), name, or a location's label or address. Phone digits match
+   * anywhere, text is case-insensitive. first_address helps tell same-name customers apart. */
   @Get('customers')
   list(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Query('q') q?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
     const page = pagination(limit, offset, 30, 100);
@@ -28,10 +29,13 @@ export class CustomersController {
     const phone = digits.length >= 3 ? (digits.startsWith('0') ? digits.slice(1) : digits.replace(/^66/, '')) : null;
     return this.database.withTenant(session.userId, tenant.organizationId, async client => pageRows((await client.query(
         `SELECT c.id, c.name, c.phone_normalized, c.customer_type, c.version, c.updated_at,
-           count(l.id)::int AS location_count, count(l.latitude)::int AS located_count
+           count(l.id)::int AS location_count, count(l.latitude)::int AS located_count,
+           (array_agg(coalesce(l.address, l.name) ORDER BY l.created_at, l.id) FILTER (WHERE l.id IS NOT NULL))[1] AS first_address
          FROM core.customers c LEFT JOIN core.customer_locations l ON l.organization_id = c.organization_id AND l.customer_id = c.id AND l.archived_at IS NULL
          WHERE c.organization_id = $1 AND c.archived_at IS NULL
-           AND ($2 = '' OR lower(coalesce(c.name, '')) LIKE '%' || lower($2) || '%' OR ($3::text IS NOT NULL AND c.phone_normalized LIKE '%' || $3 || '%'))
+           AND ($2 = '' OR lower(coalesce(c.name, '')) LIKE '%' || lower($2) || '%' OR ($3::text IS NOT NULL AND c.phone_normalized LIKE '%' || $3 || '%')
+             OR EXISTS (SELECT 1 FROM core.customer_locations s WHERE s.organization_id = c.organization_id AND s.customer_id = c.id AND s.archived_at IS NULL
+               AND (lower(s.name) LIKE '%' || lower($2) || '%' OR lower(coalesce(s.address, '')) LIKE '%' || lower($2) || '%')))
          GROUP BY c.id ORDER BY c.updated_at DESC, c.id DESC LIMIT $4 OFFSET $5`, [tenant.organizationId, text, phone, page.limit + 1, page.offset])).rows, page));
   }
 

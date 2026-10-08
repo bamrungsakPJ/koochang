@@ -23,7 +23,7 @@ export interface TeamMember {
   phone_e164: string | null; version: number; requested_at: string; open_jobs: number;
 }
 export interface Team { members: TeamMember[]; seats: { active_technicians: number; seat_limit: number }; }
-export interface CustomerSummary { id: string; name: string | null; phone_normalized: string | null; customer_type: string; location_count: number; located_count: number; version: number; }
+export interface CustomerSummary { id: string; name: string | null; phone_normalized: string | null; customer_type: string; location_count: number; located_count: number; first_address: string | null; version: number; }
 export interface CustomerLocation {
   id: string; label: string; address: string | null; travel_note: string | null; latitude: number | null; longitude: number | null;
   accuracy_m: number | null; capture_method: string | null; location_captured_at: string | null; version: number;
@@ -32,7 +32,13 @@ export interface Customer { id: string; name: string | null; phone_normalized: s
 export interface Media { id: string; status: string; url: string | null; thumbnail_url: string | null; size_bytes: number; }
 export interface OcrRequest { id: string; error_code?: string | null; provider?: string | null; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; suggestions: { fields?: { brand?: string; model?: string; serial_number?: string } } | null; }
 export interface EquipmentInput { category: string; name?: string | null; brand?: string | null; model?: string | null; serial_number?: string | null; note?: string | null; }
-export interface EquipmentSummary { id: string; name: string | null; category: string; brand: string | null; model: string | null; serial_number: string | null; thumbnail_url: string | null; version: number; }
+export interface CustomerHistoryEvent {
+  id: string; job_id: string | null; job_type: string | null; occurred_at: string; location_id: string; location_label: string | null; note: string | null; performed_by_name: string | null;
+  equipment: { equipment_id: string; name: string | null; category: string; brand: string | null; model: string | null; serial_number?: string | null; service_type: string; outcome: string; work_note: string | null;
+    problem_note: string | null; not_done_reason: string | null; next_due_on: string | null; photos: { photo_type: string; url: string | null; thumbnail_url: string | null }[] }[];
+}
+export interface CustomerHistory { items: CustomerHistoryEvent[]; has_more: boolean; next_offset: number | null; open_jobs: { id: string; status: string; job_type: string; scheduled_start: string | null; location_id: string; location_label: string | null; assignee_name: string | null }[] }
+export interface EquipmentSummary { id: string; name: string | null; category: string; brand: string | null; model: string | null; serial_number: string | null; thumbnail_url: string | null; version: number; next_due_on?: string | null; last_serviced_at?: string | null; }
 export interface Equipment extends EquipmentSummary {
   location_id: string; customer_id: string; note: string | null; installed_on: string | null;
   photos: { id: string; photo_type: string; media_asset_id: string; url: string | null; thumbnail_url: string | null }[];
@@ -242,6 +248,9 @@ export class Api {
   }
   recordAdhoc(organizationId: string, body: ServiceBody & { customer_id: string; location_id: string }) {
     return this.call<ServiceResult>('POST', `/organizations/${organizationId}/service-events`, body);
+  }
+  customerHistory(organizationId: string, customerId: string, locationId?: string, offset = 0, limit = 5) {
+    return this.call<CustomerHistory>('GET', `/organizations/${organizationId}/customers/${customerId}/service-history?limit=${limit}&offset=${offset}${locationId ? `&location_id=${locationId}` : ''}`);
   }
   equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
   stripeCheckout(organizationId: string, invoiceId: string, method: 'card'|'promptpay', requestKey: string, subscribe = false) { return this.call<{id: string; url: string}>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkout`, {method, request_key: requestKey, ...(subscribe ? { subscribe: true } : {})}); }

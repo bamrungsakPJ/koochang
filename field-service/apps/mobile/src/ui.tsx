@@ -155,10 +155,10 @@ export function Avatar({ name, size = 44, tone = 'blue' }: { name: string; size?
 }
 
 /** Tappable or plain row: icon, title, subtitle, trailing content. */
-export function Row({ icon, tone = 'blue', title, subtitle, trailing, onPress, last }: { icon?: IconName | ReactNode; tone?: Tone; title: string; subtitle?: string; trailing?: ReactNode; onPress?: () => void; last?: boolean }) {
+export function Row({ icon, tone = 'blue', title, subtitle, below, trailing, onPress, last }: { icon?: IconName | ReactNode; tone?: Tone; title: string; subtitle?: string; below?: ReactNode; trailing?: ReactNode; onPress?: () => void; last?: boolean }) {
   const body = <>
     {typeof icon === 'string' ? <IconTile icon={icon as IconName} tone={tone} /> : icon}
-    <View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text>{subtitle ? <Text style={styles.rowSub}>{subtitle}</Text> : null}</View>
+    <View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text>{subtitle ? <Text style={styles.rowSub}>{subtitle}</Text> : null}{below ? <View style={{ flexDirection: 'row', marginTop: 4 }}>{below}</View> : null}</View>
     {trailing ? <View style={{ alignSelf: 'center' }}>{trailing}</View> : (onPress ? <Icon name="chevron-forward" size={18} color={colors.faint} /> : null)}
   </>;
   return onPress

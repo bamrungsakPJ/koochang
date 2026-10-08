@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { RequestId, Session, Tenant, type SessionContext, type TenantContext } from '../auth/session.guard.js';
@@ -7,6 +7,7 @@ import { MEDIA_SETTINGS, type MediaSettings } from '../config.js';
 import { DatabaseService } from '../database/database.service.js';
 import { signedFileUrl, type UrlRequest } from '../media/urls.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
+import { pageRows, pagination } from '../shared/pagination.js';
 
 const serviceTypes = ['installation', 'repair', 'inspection', 'maintenance', 'other'];
 const outcomes = ['done', 'not_done', 'deferred'];
@@ -114,6 +115,53 @@ export class ServiceController {
         items: items.map(i => ({ ...i, next_due_on: i.next_due_on ? toDate(i.next_due_on) : null,
           photos: photos.filter(p => p.service_event_equipment_id === i.id).map(p => ({ photo_type: p.photo_type,
             url: signedFileUrl(this.settings, request, p.object_key), thumbnail_url: signedFileUrl(this.settings, request, p.thumbnail_key) })) })),
+      };
+    });
+  }
+
+  /** Customer timeline for planning a new job: open jobs (to avoid duplicates) and committed
+   * service events, newest first, with per-equipment results and photos. location_id narrows
+   * both to one location. */
+  @Get('customers/:customerId/service-history')
+  customerHistory(@Session() session: SessionContext, @Tenant() tenant: TenantContext, @Param('customerId') customerId: string, @Req() request: UrlRequest,
+    @Query('location_id') locationId?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    this.id(customerId); if (locationId) this.id(locationId);
+    const page = pagination(limit, offset, 5, 50);
+    return this.database.withTenant(session.userId, tenant.organizationId, async client => {
+      const customer = (await client.query('SELECT id FROM core.customers WHERE organization_id = $1 AND id = $2', [tenant.organizationId, customerId])).rows[0];
+      if (!customer) throw apiError(404, 'RESOURCE_NOT_FOUND');
+      const location = locationId ?? null;
+      const openJobs = (await client.query(
+        `SELECT j.id, j.status, j.job_type, j.scheduled_start, j.location_id, l.name AS location_label, core.member_name(j.organization_id, j.current_assignee_id) AS assignee_name
+         FROM core.jobs j LEFT JOIN core.customer_locations l ON l.organization_id = j.organization_id AND l.id = j.location_id
+         WHERE j.organization_id = $1 AND j.customer_id = $2 AND ($3::uuid IS NULL OR j.location_id = $3) AND j.status IN ('unassigned','scheduled','in_progress')
+         ORDER BY j.scheduled_start NULLS FIRST, j.created_at LIMIT 20`, [tenant.organizationId, customerId, location])).rows;
+      const events = pageRows((await client.query(
+        `SELECT e.id, e.job_id, j.job_type, e.occurred_at, e.location_id, l.name AS location_label, e.note,
+           core.member_name(e.organization_id, e.performed_by) AS performed_by_name
+         FROM core.service_events e
+         LEFT JOIN core.jobs j ON j.organization_id = e.organization_id AND j.id = e.job_id
+         LEFT JOIN core.customer_locations l ON l.organization_id = e.organization_id AND l.id = e.location_id
+         WHERE e.organization_id = $1 AND e.customer_id = $2 AND ($3::uuid IS NULL OR e.location_id = $3) AND e.status = 'committed'
+         ORDER BY e.occurred_at DESC, e.id DESC LIMIT $4 OFFSET $5`, [tenant.organizationId, customerId, location, page.limit + 1, page.offset])).rows, page);
+      const ids = events.items.map(e => e.id);
+      const items = ids.length ? (await client.query(
+        `SELECT i.id, i.service_event_id, i.equipment_id, q.name, q.equipment_type AS category, q.brand, q.model, i.service_type, i.outcome,
+           i.work_note, i.problem_note, i.not_done_reason, i.next_due_on
+         FROM core.service_event_equipment i JOIN core.equipment q ON q.organization_id = i.organization_id AND q.id = i.equipment_id
+         WHERE i.organization_id = $1 AND i.service_event_id = ANY($2::uuid[]) ORDER BY i.created_at`, [tenant.organizationId, ids])).rows : [];
+      const photos = items.length ? (await client.query(
+        `SELECT p.service_event_equipment_id, p.photo_type, m.object_key, m.thumbnail_key FROM core.service_photos p
+         JOIN core.media_assets m ON m.organization_id = p.organization_id AND m.id = p.media_asset_id
+         WHERE p.organization_id = $1 AND p.service_event_equipment_id = ANY($2::uuid[]) AND m.status = 'ready' ORDER BY p.sort_order`,
+        [tenant.organizationId, items.map(i => i.id)])).rows : [];
+      return {
+        open_jobs: openJobs,
+        ...events,
+        items: events.items.map(e => ({ ...e, equipment: items.filter(i => i.service_event_id === e.id).map(({ id, service_event_id: _event, ...i }) => ({ ...i,
+          next_due_on: i.next_due_on ? toDate(i.next_due_on) : null,
+          photos: photos.filter(p => p.service_event_equipment_id === id).map(p => ({ photo_type: p.photo_type,
+            url: signedFileUrl(this.settings, request, p.object_key), thumbnail_url: signedFileUrl(this.settings, request, p.thumbnail_key) })) })) })),
       };
     });
   }

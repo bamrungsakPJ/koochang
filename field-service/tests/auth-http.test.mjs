@@ -666,6 +666,48 @@ test('service: next round by another technician keeps the first one in history; 
   assert.deepEqual([afterNone.enabled, afterNone.due_date], [false, null]);
 });
 
+test('customer history: open jobs and service timeline per location, paged; search by address; equipment shows due and last service', { skip }, async () => {
+  const s = await serviceSetup('Hist');
+  const token = s.owner.access_token;
+  const withSecond = (await call('POST', `/organizations/${s.shopId}/customers/${s.customer.id}/locations`, { token, body: { request_key: randomUUID(), label: 'สาขา 2', address: 'ซอยประวัติ 99 บางนา' } })).body;
+  const second = withSecond.locations.find(l => l.label === 'สาขา 2').id;
+  const unitA = await s.unit('แอร์ห้องนอน');
+  const unitB = (await call('POST', `/organizations/${s.shopId}/locations/${second}/equipment`, { token, body: { request_key: randomUUID(), category: 'pump' } })).body;
+  const job = await startedJob(s, s.techMember, s.tech.access_token, [unitA.id]);
+  const done = await call('POST', `/organizations/${s.shopId}/jobs/${job.id}/complete`, { token: s.tech.access_token, body: { expected_version: job.version, client_event_id: randomUUID(),
+    occurred_at: '2026-09-01T09:00:00+07:00', items: [{ equipment_id: unitA.id, service_type: 'maintenance', outcome: 'done', problem_note: 'น้ำหยด', next_maintenance: { mode: 'months', interval_months: 6 } }] } });
+  assert.equal(done.status, 201, JSON.stringify(done.body));
+  const adhoc = await call('POST', `/organizations/${s.shopId}/service-events`, { token, body: { client_event_id: randomUUID(), customer_id: s.customer.id, location_id: second,
+    occurred_at: '2026-09-15T10:00:00+07:00', items: [{ equipment_id: unitB.id, service_type: 'repair', outcome: 'done', work_note: 'เปลี่ยนสวิตช์' }] } });
+  assert.equal(adhoc.status, 201, JSON.stringify(adhoc.body));
+  const open = (await call('POST', `/organizations/${s.shopId}/jobs`, { token, body: { request_key: randomUUID(), customer_id: s.customer.id, location_id: s.locationId, job_type: 'repair' } })).body.job;
+
+  const base = `/organizations/${s.shopId}/customers/${s.customer.id}/service-history`;
+  const all = (await call('GET', base, { token })).body;
+  assert.deepEqual(all.open_jobs.map(j => j.id), [open.id], 'open jobs warn before booking the same visit twice');
+  assert.deepEqual(all.items.map(e => e.location_id), [second, s.locationId], 'newest first across locations');
+  assert.equal(all.items[1].performed_by_name, 'Tech Hist');
+  assert.deepEqual([all.items[1].equipment[0].equipment_id, all.items[1].equipment[0].problem_note, all.items[1].equipment[0].next_due_on], [unitA.id, 'น้ำหยด', '2027-03-01']);
+  assert.equal(all.items[0].equipment[0].work_note, 'เปลี่ยนสวิตช์');
+
+  const here = (await call('GET', `${base}?location_id=${second}`, { token })).body;
+  assert.deepEqual([here.items.length, here.items[0].location_id, here.open_jobs.length], [1, second, 0], 'location_id narrows history and open jobs');
+  const paged = (await call('GET', `${base}?limit=1`, { token })).body;
+  assert.deepEqual([paged.items.length, paged.has_more, paged.next_offset], [1, true, 1]);
+
+  const other = await shopWithTechnician('Hist other');
+  assert.equal((await call('GET', `/organizations/${other.shopId}/customers/${s.customer.id}/service-history`, { token: other.owner.access_token })).status, 404, 'another shop sees nothing');
+
+  const found = (await call('GET', `/organizations/${s.shopId}/customers?q=${encodeURIComponent('ซอยประวัติ')}`, { token })).body.items;
+  assert.deepEqual(found.map(c => c.id), [s.customer.id], 'search matches a location address');
+  assert.equal(found[0].first_address, 'บ้าน', 'first location (no address) is shown by its label');
+
+  const units = (await call('GET', `/organizations/${s.shopId}/locations/${s.locationId}/equipment`, { token })).body.items;
+  const a = units.find(u => u.id === unitA.id);
+  assert.equal(a.next_due_on, '2027-03-01');
+  assert.ok(a.last_serviced_at && new Date(a.last_serviced_at).toISOString() === '2026-09-01T02:00:00.000Z');
+});
+
 test('service: ad-hoc on-site work creates a completed job; late submission after expiry only for jobs started before', { skip }, async () => {
   const s = await serviceSetup('Adhoc');
   const own = (await call('POST', `/organizations/${s.shopId}/customers`, { token: s.tech.access_token, body: { request_key: randomUUID(), phone: '0855500022', location: { label: 'ร้าน' } } })).body;
