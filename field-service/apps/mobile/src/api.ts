@@ -79,7 +79,7 @@ export interface Autopay {
 export interface Invoice extends InvoiceSummary {
   due_at: string | null; technician_seats: number; methods?: { transfer: boolean; stripe_card: boolean; stripe_qr: boolean; stripe_test: boolean }; checkouts?: { id: string; method: 'card'|'promptpay'; status: string; reason: string|null; checkout_url: string|null; expires_at: string; mode?: 'payment' | 'subscription' }[]; proofs: { id: string; status: 'pending' | 'accepted' | 'rejected'; reason: string | null; created_at: string; verification_code?: string; verification_at?: string | null }[];
   payment: { amount_minor: string; verified_at: string; refunded_minor: string } | null; period: { start_at: string; end_at: string } | null;
-  pay_to: { bank_name: string; account_name: string; account_number: string; promptpay_id: string | null; reference: string } | null;
+  pay_to: { bank_name: string; account_name: string; account_number: string; promptpay_id: string | null; reference: string; promptpay_qr_png?: string | null } | null;
 }
 export interface SupportOverview {
   tickets: { id: string; subject: string; status: string; created_at: string; last_message_at: string; messages: { id: string; body: string; from_platform: boolean; created_at: string }[] | null }[];

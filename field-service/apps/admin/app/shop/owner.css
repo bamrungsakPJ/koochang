@@ -126,3 +126,20 @@
 .owner-app label.equipment-card.pick.on { border-color:var(--c-primary); box-shadow:0 0 0 2px var(--c-primary); }
 .owner-app label.equipment-card.pick .pill { align-self:flex-start; white-space:normal; }
 .owner-app .muted.small { font-size:12px; }
+/* Invoice: choose payment method (only configured methods are offered). */
+.owner-app .pay-methods { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:6px 0 16px; }
+.owner-app .pay-method { display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px 12px; min-height:88px; border:1.5px solid var(--c-line); border-radius:12px; background:#fff; color:var(--c-ink-2); font-weight:600; cursor:pointer; }
+.owner-app .pay-method:hover:not(:disabled) { border-color:var(--c-primary); }
+.owner-app .pay-method.on { border-color:var(--c-primary); background:var(--c-primary-soft, #eff6ff); color:var(--c-primary); box-shadow:0 0 0 3px var(--c-ring, rgba(37,99,235,.15)); }
+.owner-app .pay-method:disabled { opacity:.5; cursor:not-allowed; }
+.owner-app .pay-qr { display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; }
+.owner-app .pay-qr img { width:240px; height:240px; max-width:100%; border:1px solid var(--c-line); border-radius:12px; background:#fff; }
+.owner-app .pay-qr p { margin:2px 0; }
+.owner-app .pay-slip { border-top:1px solid var(--c-line); margin-top:16px; padding-top:12px; }
+.owner-app .pay-slip h3 { margin:0 0 8px; font-size:16px; }
+.owner-app .pay-charge { border:none; padding:0; margin:8px 0 12px; display:grid; gap:8px; }
+.owner-app .pay-charge legend { font-size:13px; font-weight:600; color:var(--c-ink-2); margin-bottom:6px; padding:0; }
+.owner-app .pay-charge .check { align-items:flex-start; padding:12px; border:1.5px solid var(--c-line); border-radius:12px; margin:0; cursor:pointer; }
+.owner-app .pay-charge .check.on { border-color:var(--c-primary); background:var(--c-primary-soft); }
+.owner-app .pay-charge .check { display:flex; gap:10px; }
+.owner-app .pay-charge .check input[type=radio] { flex:none; width:18px; height:18px; min-height:0; margin:3px 0 0; padding:0; accent-color:var(--c-primary); }

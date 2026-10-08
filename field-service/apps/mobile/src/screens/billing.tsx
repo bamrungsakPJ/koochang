@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatMoney, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Autopay, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
 import { CameraDeniedError, pickPhoto, readPicked, uuid } from '../photos';
@@ -127,6 +127,7 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   const checkoutKeys = useRef<Record<string,string>>({});
   const [subscribe, setSubscribe] = useState(false);
   const [autopayLive, setAutopayLive] = useState(false);
+  const [method, setMethod] = useState<PayMethod | null>(null);
   const active = invoice?.checkouts?.find(c => ['creating','open'].includes(c.status));
   useEffect(() => { api.invoice(org, invoiceId).then(setInvoice, e => setError(errorText(e))); }, [org, invoiceId]);
   useEffect(() => { if (active?.method === 'card') setSubscribe(active.mode === 'subscription'); }, [active?.id]);
@@ -174,6 +175,10 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
 
   if (!invoice) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
   const pending = invoice.proofs.some(p => p.status === 'pending') || Boolean(active);
+  const options: PayMethod[] = invoice.status === 'open' && !autopayLive
+    ? [invoice.pay_to?.promptpay_qr_png ? 'qr' : null, invoice.pay_to ? 'transfer' : null, invoice.methods?.stripe_card || active ? 'card' : null].filter((m): m is PayMethod => !!m) : [];
+  // A checkout in progress keeps the card view (it also shows an older Stripe PromptPay checkout's status).
+  const chosen = active && options.includes('card') ? 'card' : method && options.includes(method) ? method : options[0] ?? null;
   return <Screen onBack={onBack}>
     <Sub>{t('invoice')} {invoice.number}</Sub>
     <View style={styles.amountRow}>
@@ -185,37 +190,58 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
     {invoice.period ? <Banner tone="success" text={t('paidPeriod', { from: formatDate(new Date(invoice.period.start_at), language), to: formatDate(new Date(invoice.period.end_at), language) })} /> : null}
     {invoice.payment && Number(invoice.payment.refunded_minor) > 0 ? <Banner tone="info" text={t('refunded', { amount: money(invoice.payment.refunded_minor, language) })} /> : null}
     {invoice.status==='open'&&autopayLive?<Banner tone="info" text={t('autopay.blocked')}/>:null}
-    {invoice.status==='open'&&!autopayLive&&(invoice.methods?.stripe_card||invoice.methods?.stripe_qr||active)?<>
-      <Section>{t('stripe.title')}</Section><Sub>{t('stripe.hint')}</Sub>
-      {invoice.methods?.stripe_test?<Banner tone="info" text={t('stripe.test')}/>:null}
-      {invoice.methods?.stripe_qr?<Button title={t('stripe.qr')} busy={busy} disabled={Boolean(active&&active.method!=='promptpay')||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('promptpay')}/>:null}
-      {invoice.methods?.stripe_card?<>
-        <Pressable accessibilityRole="checkbox" accessibilityState={{checked:subscribe,disabled:Boolean(active)}} disabled={Boolean(active)} onPress={()=>setSubscribe(!subscribe)} style={styles.check}>
-          <Icon name={subscribe?'checkbox':'square-outline'} size={22} color={colors.primary}/>
-          <View style={{flex:1}}><Text style={styles.featureText}>{t('autopay.subscribe')}</Text><Sub>{t('autopay.consent')}</Sub></View>
-        </Pressable>
-        <Button kind="secondary" title={t('stripe.card')} busy={busy} disabled={Boolean(active&&(active.method!=='card'||(active.mode==='subscription')!==subscribe))||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>
-      </>:null}
-      {active?<><Sub>{t(`stripe.${active.status}` as TranslationKey)}</Sub><Button title={t('stripe.refresh')} busy={busy} onPress={()=>checkoutAction(false)}/>{active.status==='open'?<Button kind="secondary" title={t('stripe.cancel')} busy={busy} onPress={()=>checkoutAction(true)}/>:null}</>:null}
-    </>:null}
-    {invoice.checkouts?.filter(c=>c.reason).map(c=><Banner key={c.id} text={t(`stripe.${c.reason}` as TranslationKey)}/>)}
-
-    {invoice.pay_to && !autopayLive ? <>
-      <Section>{t('payTo')}</Section>
-      <Card padded={false}>
-        <Row icon="business" tone="sky" title={invoice.pay_to.bank_name} subtitle={t('bankName')} />
-        <Row icon="person" tone="blue" title={invoice.pay_to.account_name} subtitle={t('accountName')} />
-        <Row icon="card" tone="violet" title={invoice.pay_to.account_number} subtitle={t('accountNumber')} />
-        {invoice.pay_to.promptpay_id ? <Row icon="qr-code" tone="teal" title={invoice.pay_to.promptpay_id} subtitle={t('promptPay')} /> : null}
-        <Row icon="pricetag" tone="amber" title={invoice.pay_to.reference} subtitle={t('paymentReference')} />
-        <Row icon="cash" tone="green" title={money(invoice.amount_minor, language)} subtitle={t('amountDue')} last />
-      </Card>
-      <Sub>{t('proofHint')}</Sub>
-      {!pending ? <View style={styles.actions}>
-        <View style={{ flex: 1 }}><Button icon="images" title={t('choosePhoto')} busy={busy} onPress={() => send('library')} /></View>
-        <View style={{ flex: 1 }}><Button kind="secondary" icon="camera" title={t('takePhoto')} disabled={busy} onPress={() => send('camera')} /></View>
-      </View> : null}
+    {chosen ? <>
+      {/* Only methods that are set up are offered: own PromptPay QR, bank transfer (both checked by slip), card through Stripe. */}
+      <Section>{t('stripe.title')}</Section>
+      <View style={styles.methods} accessibilityRole="radiogroup">{options.map(m =>
+        <Pressable key={m} accessibilityRole="radio" accessibilityState={{ checked: chosen === m, disabled: Boolean(active) && m !== 'card' }} disabled={Boolean(active) && m !== 'card'}
+          onPress={() => setMethod(m)} style={[styles.method, chosen === m && styles.methodOn, Boolean(active) && m !== 'card' && { opacity: .5 }]}>
+          <Icon name={payIcons[m]} size={24} color={chosen === m ? colors.primary : colors.muted} />
+          <Text style={styles.methodText}>{t(payLabels[m])}</Text>
+        </Pressable>)}</View>
+      {chosen === 'qr' && invoice.pay_to?.promptpay_qr_png ? <Card>
+        <View style={styles.qrBox}>
+          <Image source={{ uri: invoice.pay_to.promptpay_qr_png }} style={styles.qr} accessibilityLabel={t('pay.qr')} />
+          <Title>{money(invoice.amount_minor, language)}</Title>
+          <Sub>{t('pay.payee')}: {invoice.pay_to.account_name}</Sub>
+        </View>
+        <Sub>{t('pay.qrHintApp')}</Sub>
+      </Card> : null}
+      {chosen === 'transfer' && invoice.pay_to ? <>
+        <Sub>{t('pay.transferHint')}</Sub>
+        <Card padded={false}>
+          <Row icon="business" tone="sky" title={invoice.pay_to.bank_name} subtitle={t('bankName')} />
+          <Row icon="person" tone="blue" title={invoice.pay_to.account_name} subtitle={t('accountName')} />
+          <Row icon="card" tone="violet" title={invoice.pay_to.account_number} subtitle={t('accountNumber')} />
+          <Row icon="pricetag" tone="amber" title={invoice.pay_to.reference} subtitle={t('paymentReference')} />
+          <Row icon="cash" tone="green" title={money(invoice.amount_minor, language)} subtitle={t('amountDue')} last />
+        </Card>
+      </> : null}
+      {chosen === 'qr' || chosen === 'transfer' ? <>
+        <Section>{t('sendProof')}</Section>
+        <Sub>{t('proofHint')}</Sub>
+        {!pending ? <View style={styles.actions}>
+          <View style={{ flex: 1 }}><Button icon="images" title={t('choosePhoto')} busy={busy} onPress={() => send('library')} /></View>
+          <View style={{ flex: 1 }}><Button kind="secondary" icon="camera" title={t('takePhoto')} disabled={busy} onPress={() => send('camera')} /></View>
+        </View> : null}
+      </> : null}
+      {chosen === 'card' ? <>
+        <Sub>{t('stripe.hint')}</Sub>
+        {invoice.methods?.stripe_test?<Banner tone="info" text={t('stripe.test')}/>:null}
+        {invoice.methods?.stripe_card?<>
+          <Sub>{t('pay.chargeBy')}</Sub>
+          <View accessibilityRole="radiogroup">{([false, true] as const).map(auto =>
+            <Pressable key={String(auto)} accessibilityRole="radio" accessibilityState={{checked:subscribe===auto,disabled:Boolean(active)}} disabled={Boolean(active)} onPress={()=>setSubscribe(auto)}
+              style={[styles.charge, subscribe===auto && styles.methodOn]}>
+              <Icon name={subscribe===auto?'radio-button-on':'radio-button-off'} size={22} color={colors.primary}/>
+              <View style={{flex:1}}><Text style={styles.featureText}>{t(auto?'pay.cardAuto':'pay.cardOnce')}</Text><Sub>{t(auto?'autopay.consent':'pay.cardOnceHint')}</Sub></View>
+            </Pressable>)}</View>
+          <Button title={t('pay.card')} busy={busy} disabled={Boolean(active&&(active.method!=='card'||(active.mode==='subscription')!==subscribe))||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>
+        </>:null}
+        {active?<><Sub>{t(`stripe.${active.status}` as TranslationKey)}</Sub><Button title={t('stripe.refresh')} busy={busy} onPress={()=>checkoutAction(false)}/>{active.status==='open'?<Button kind="secondary" title={t('stripe.cancel')} busy={busy} onPress={()=>checkoutAction(true)}/>:null}</>:null}
+      </> : null}
     </> : null}
+    {invoice.checkouts?.filter(c=>c.reason).map(c=><Banner key={c.id} text={t(`stripe.${c.reason}` as TranslationKey)}/>)}
     <Banner text={error} />
 
     {invoice.proofs.length ? <>
@@ -229,7 +255,18 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   </Screen>;
 }
 
+type PayMethod = 'qr' | 'transfer' | 'card';
+const payIcons = { qr: 'qr-code', transfer: 'business', card: 'card' } as const;
+const payLabels = { qr: 'pay.qr', transfer: 'pay.transfer', card: 'pay.card' } as const;
+
 const styles = StyleSheet.create({
+  methods: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  method: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 6, borderWidth: 1.5, borderColor: colors.line, borderRadius: 12, backgroundColor: colors.surface },
+  methodOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  methodText: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.ink, textAlign: 'center' },
+  qrBox: { alignItems: 'center', gap: 6, marginBottom: 8 },
+  charge: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, marginBottom: 8, borderWidth: 1.5, borderColor: colors.line, borderRadius: 12, backgroundColor: colors.surface },
+  qr: { width: 260, height: 260, borderRadius: 12, backgroundColor: '#fff' },
   planHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   price: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 26 },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },

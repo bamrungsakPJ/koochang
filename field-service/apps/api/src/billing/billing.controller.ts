@@ -10,6 +10,8 @@ import { OBJECT_STORAGE, type ObjectStorage } from '../media/object-storage.js';
 import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { SlipVerificationService } from './slip-verification.service.js';
 import { StripeService } from './stripe.service.js';
+import { promptPayPayload } from './promptpay.js';
+import QRCode from 'qrcode';
 
 /** Owner bank transfers. EasySlip-confirmed payments activate immediately; exceptional proofs
  * stay in the platform review queue. Technicians never reach the billing routes. */
@@ -187,9 +189,12 @@ export class BillingController {
     const { receiver_snapshot: _receiver, ...publicInvoice } = invoice;
     const checkouts = (await client.query('SELECT id,method,status,reason,created_at,expires_at,checkout_url,mode FROM billing.stripe_checkouts WHERE organization_id=$1 AND invoice_id=$2 ORDER BY created_at DESC',[tenant.organizationId,invoiceId])).rows;
     const methods = {transfer:Boolean(channel),...await this.stripe.methods()};
+    // Thai QR for our own PromptPay account with the amount filled in; the slip is checked like a transfer.
+    const qr = invoice.status === 'open' && channel?.promptPayId ? promptPayPayload(channel.promptPayId, Number(invoice.amount_minor)) : null;
     return { ...publicInvoice, proofs, payment, period, checkouts, methods,
       pay_to: invoice.status === 'open' && channel ? { bank_name: channel.bankName, account_name: channel.accountName, account_number: channel.accountNumber,
-        promptpay_id: channel.promptPayId ?? null, reference: invoice.number } : null };
+        promptpay_id: channel.promptPayId ?? null, reference: invoice.number,
+        promptpay_qr_png: qr ? await QRCode.toDataURL(qr, { errorCorrectionLevel: 'M', margin: 2, width: 480 }) : null } : null };
   }
 
   private id(value: string) { if (!uuidPattern.test(value)) throw apiError(404, 'RESOURCE_NOT_FOUND'); }
