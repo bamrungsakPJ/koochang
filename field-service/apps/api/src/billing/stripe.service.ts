@@ -9,11 +9,13 @@ import { errorCodes, type ErrorCode } from '@field-service/core';
 export interface StripeConfig { id: string; account_id: string; mode: 'test'|'live'; secret_sealed: string; webhook_sealed: string; card_enabled: boolean; qr_enabled: boolean }
 export interface StripeAttempt { id: string; organization_id: string; invoice_id: string; credential_id: string; method: 'card'|'promptpay'; session_id: string|null;
   checkout_url: string|null; expires_at: string; amount_minor: number|string; status: string; number: string; error?: string;
-  save_card?: boolean; autopay_saved?: boolean; customer_id?: string|null }
+  mode?: 'payment'|'subscription'; interval_unit?: 'month'|'year'; plan_name?: string; first_charge_at?: string|null; customer_id?: string|null }
+const subscriptionEvents=['invoice.paid','invoice.payment_failed','customer.subscription.updated','customer.subscription.deleted'];
+const seconds=(value?:number|null)=>value?new Date(value*1000):null;
 
 @Injectable()
 export class StripeService implements OnModuleDestroy {
-  private readonly pool = process.env.PAYMENT_DATABASE_URL ? new Pool({ connectionString: process.env.PAYMENT_DATABASE_URL, max: 5, connectionTimeoutMillis: 3000 }) : undefined;
+  protected pool = process.env.PAYMENT_DATABASE_URL ? new Pool({ connectionString: process.env.PAYMENT_DATABASE_URL, max: 5, connectionTimeoutMillis: 3000 }) : undefined;
   constructor(@Inject(PLATFORM_SETTINGS) private readonly settings: PlatformSettings) {}
   async run<T>(operation: (client: PoolClient)=>Promise<T>):Promise<T> {
     if(!this.pool) throw apiError(503,'TEMPORARILY_UNAVAILABLE');
@@ -45,11 +47,13 @@ export class StripeService implements OnModuleDestroy {
       return {stripe_card:c.card_enabled,stripe_qr:c.qr_enabled,stripe_test:c.mode==='test'};
     }catch{return off;}
   }
-  /** `saveCard` (card only): the owner agreed to automatic renewal; the card is saved for off-session charges. */
-  async checkout(user:string,org:string,invoice:string,method:'card'|'promptpay',requestKey:string,saveCard=false) {
+  /** Worker use: the same service on the worker's own fs_worker pool. */
+  static forPool(settings:PlatformSettings,pool:Pool){const s=new StripeService(settings);void s.pool?.end();s.pool=pool;return s;}
+  /** `subscribe` (card only): Stripe Subscription for automatic renewal instead of a one-time payment. */
+  async checkout(user:string,org:string,invoice:string,method:'card'|'promptpay',requestKey:string,subscribe=false) {
     const available=await this.methods();
     if(!(method==='card'?available.stripe_card:available.stripe_qr)) throw apiError(503,'TEMPORARILY_UNAVAILABLE');
-    const a:StripeAttempt=await this.run(async c=>(await c.query('SELECT worker.prepare_stripe($1,$2,$3,$4,$5,$6) AS value',[user,org,invoice,method,requestKey,saveCard])).rows[0].value);
+    const a:StripeAttempt=await this.run(async c=>(await c.query('SELECT worker.prepare_stripe($1,$2,$3,$4,$5,$6) AS value',[user,org,invoice,method,requestKey,subscribe])).rows[0].value);
     if(a.error)throw apiError(a.error==='RESOURCE_NOT_FOUND'?404:a.error==='TENANT_ACCESS_DENIED'?403:422,errorCodes.includes(a.error as ErrorCode)?a.error as ErrorCode:'INVALID_REQUEST');
     const config=await this.config(a.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
     if(this.settings.production&&config.mode!=='live')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
@@ -59,16 +63,21 @@ export class StripeService implements OnModuleDestroy {
       const result=await this.refresh(a.id);
       if(['expired','failed','manual_review'].includes(result.status))throw apiError(422,'INVALID_STATE_TRANSITION');
       if(result.status==='pending'&&!a.checkout_url)throw apiError(422,'PAYMENT_IN_PROGRESS');
-      return {id:a.id,url:['paid','existing'].includes(result.status)?target.toString():a.checkout_url};
+      return {id:a.id,url:['paid','existing','subscribed'].includes(result.status)?target.toString():a.checkout_url};
     }
     try {
-      const session=await stripe.checkout.sessions.create({
-        mode:'payment',allowed_payment_method_types:[method],client_reference_id:invoice,
-        metadata:{attempt_id:a.id,invoice_id:invoice,organization_id:org,credential_id:config.id},
-        payment_intent_data:{metadata:{invoice_id:invoice,organization_id:org,attempt_id:a.id},...(a.save_card?{setup_future_usage:'off_session' as const}:{})},
-        ...(a.save_card?a.customer_id?{customer:a.customer_id}:{customer_creation:'always' as const}:{}),
+      const metadata={attempt_id:a.id,invoice_id:invoice,organization_id:org,credential_id:config.id};
+      const common={allowed_payment_method_types:[method],client_reference_id:invoice,metadata,
+        success_url:target.toString(),cancel_url:target.toString(),locale:'auto' as const,expires_at:Math.floor(Date.parse(a.expires_at)/1000)};
+      // Stripe keeps the card and charges each period; the first charge waits for time the shop already has.
+      const session=await stripe.checkout.sessions.create(a.mode==='subscription'?{...common,mode:'subscription',
+        ...(a.customer_id?{customer:a.customer_id}:{}),
+        line_items:[{quantity:1,price_data:{currency:'thb',unit_amount:Number(a.amount_minor),recurring:{interval:a.interval_unit==='year'?'year':'month'},
+          product_data:{name:`KooChang ${a.plan_name??''}`.trim()}}}],
+        subscription_data:{metadata,...(a.first_charge_at?{trial_end:Math.floor(Date.parse(a.first_charge_at)/1000)}:{})},
+      }:{...common,mode:'payment',
+        payment_intent_data:{metadata:{invoice_id:invoice,organization_id:org,attempt_id:a.id}},
         line_items:[{quantity:1,price_data:{currency:'thb',unit_amount:Number(a.amount_minor),product_data:{name:a.number}}}],
-        success_url:target.toString(),cancel_url:target.toString(),locale:'auto',expires_at:Math.floor(Date.parse(a.expires_at)/1000),
       },{idempotencyKey:`checkout:${a.id}`});
       if(!session.url||new URL(session.url).origin!=='https://checkout.stripe.com')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
       await this.run(c=>c.query('SELECT worker.attach_stripe($1,$2,$3,$4)',[a.id,session.id,session.url,new Date(session.expires_at*1000)]));
@@ -88,23 +97,21 @@ export class StripeService implements OnModuleDestroy {
   }
   private async fulfill(a:StripeAttempt,config:StripeConfig,s:Stripe.Checkout.Session) {
     if(s.metadata?.attempt_id!==a.id||s.metadata.invoice_id!==a.invoice_id||s.metadata.organization_id!==a.organization_id||s.metadata.credential_id!==config.id||
-      s.client_reference_id!==a.invoice_id||s.livemode!==(config.mode==='live')||s.mode!=='payment')throw apiError(400,'VALIDATION_ERROR');
+      s.client_reference_id!==a.invoice_id||s.livemode!==(config.mode==='live')||s.mode!==(a.mode??'payment'))throw apiError(400,'VALIDATION_ERROR');
     // A test payment must never activate a production entitlement, including callbacks for old keys.
     if(this.settings.production&&!s.livemode)throw apiError(400,'VALIDATION_ERROR');
+    if(s.mode==='subscription'){
+      if(s.status==='expired')
+        return {status:await this.run(async c=>(await c.query("SELECT worker.finish_stripe($1,$2,NULL,0,'thb','expired',NULL) AS value",[a.id,s.id])).rows[0].value)};
+      if(s.status!=='complete'||!s.subscription)return {status:'pending'};
+      await this.syncSubscription(config,typeof s.subscription==='string'?s.subscription:s.subscription.id,a.id);
+      return {status:'subscribed'};
+    }
     const intent=typeof s.payment_intent==='string'?s.payment_intent:s.payment_intent?.id??null;
     const status=s.payment_status==='paid'?'paid':s.status==='expired'?'expired':'pending';
     const outcome=await this.run(async c=>(await c.query('SELECT worker.finish_stripe($1,$2,$3,$4,$5,$6,NULL) AS value',
       [a.id,s.id,intent,s.amount_total,s.currency,status])).rows[0].value);
-    if(a.save_card&&!a.autopay_saved&&intent&&['paid','existing'].includes(outcome))await this.saveCard(a,config,s,intent);
     return {status:outcome};
-  }
-  /** Card from the paid PaymentIntent, retrieved from Stripe. A failure throws so the signed webhook is retried. */
-  private async saveCard(a:StripeAttempt,config:StripeConfig,s:Stripe.Checkout.Session,intentId:string) {
-    const customer=typeof s.customer==='string'?s.customer:s.customer?.id;
-    const intent=await this.client(this.credentials(config).key).paymentIntents.retrieve(intentId,{expand:['payment_method']});
-    const pm=intent.payment_method;
-    if(!customer||intent.metadata?.attempt_id!==a.id||!pm||typeof pm==='string'||!pm.card)return;
-    await this.run(c=>c.query('SELECT worker.save_autopay($1,$2,$3,$4,$5,$6,$7)',[a.id,customer,pm.id,pm.card!.brand,pm.card!.last4,pm.card!.exp_month,pm.card!.exp_year]));
   }
   async cancel(id:string) {
     const a:StripeAttempt|null=await this.run(async c=>(await c.query('SELECT worker.stripe_attempt($1) AS value',[id])).rows[0].value);
@@ -115,12 +122,85 @@ export class StripeService implements OnModuleDestroy {
     const expired=current.status==='expired'?current:await stripe.checkout.sessions.expire(a.session_id);
     return this.fulfill(a,config,expired);
   }
+  /** Canonical subscription from Stripe: attach it to its checkout, store its status, and apply the
+   * latest invoice when paid (covers a missed invoice webhook). Returns our subscription row id. */
+  private async syncSubscription(config:StripeConfig,subscriptionId:string,attemptId?:string):Promise<string> {
+    const stripe=this.client(this.credentials(config).key);
+    const sub=await stripe.subscriptions.retrieve(subscriptionId,{expand:['latest_invoice']});
+    const id=sub.metadata?.attempt_id;
+    if(!id||!uuidPattern.test(id)||(attemptId&&id!==attemptId)||sub.metadata.credential_id!==config.id||sub.livemode!==(config.mode==='live')||(this.settings.production&&!sub.livemode))
+      throw apiError(400,'VALIDATION_ERROR');
+    const a:StripeAttempt|null=await this.run(async c=>(await c.query('SELECT worker.stripe_attempt($1) AS value',[id])).rows[0].value);
+    if(!a||a.mode!=='subscription'||a.credential_id!==config.id||a.organization_id!==sub.metadata.organization_id)throw apiError(400,'VALIDATION_ERROR');
+    const customer=typeof sub.customer==='string'?sub.customer:sub.customer.id,end=seconds(sub.items.data[0]?.current_period_end);
+    const row:string=await this.run(async c=>{
+      const r=(await c.query('SELECT worker.attach_subscription($1,$2,$3,$4,$5,$6) AS id',[a.id,sub.id,customer,sub.status,sub.cancel_at_period_end,end])).rows[0].id;
+      await c.query('SELECT worker.sync_subscription($1,$2,$3,$4)',[sub.id,sub.status,sub.cancel_at_period_end,end]);return r;});
+    const invoice=sub.latest_invoice;
+    if(invoice&&typeof invoice!=='string')await this.applyInvoice(row,invoice);
+    return row;
+  }
+  private async applyInvoice(row:string,invoice:Stripe.Invoice) {
+    if(invoice.status!=='paid'||!invoice.id||invoice.amount_paid<=0)return;
+    const end=seconds(invoice.lines?.data[0]?.period?.end);
+    await this.run(c=>c.query('SELECT worker.apply_subscription_invoice($1,$2,$3,$4,$5)',[row,invoice.id,invoice.amount_paid,invoice.currency,end]));
+  }
+  private async subscriptionEvent(config:StripeConfig,event:Stripe.Event) {
+    if(event.type.startsWith('customer.subscription.')){
+      const sub=event.data.object as Stripe.Subscription;
+      if(sub.metadata?.credential_id!==config.id)return;
+      await this.syncSubscription(config,sub.id);return;
+    }
+    const body=event.data.object as Stripe.Invoice;
+    if(!body.id)return;
+    // Retrieve the canonical invoice; the event body alone is never trusted.
+    const invoice=await this.client(this.credentials(config).key).invoices.retrieve(body.id);
+    const parent=invoice.parent?.subscription_details,sub=parent?.subscription;
+    if(!sub||parent?.metadata?.credential_id!==config.id)return;
+    const row=await this.syncSubscription(config,typeof sub==='string'?sub:sub.id);
+    if(event.type==='invoice.paid')await this.applyInvoice(row,invoice);
+    else await this.run(c=>c.query('SELECT worker.subscription_payment_failed($1,$2)',[row,invoice.id]));
+  }
+
+  /** Owner turns automatic renewal off now; the period already paid is kept, nothing is refunded. */
+  async cancelSubscription(user:string,org:string) {
+    const info=await this.ownerSubscription(user,org);
+    if(!info?.live)throw apiError(404,'RESOURCE_NOT_FOUND');
+    const config=await this.config(info.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
+    await this.run(c=>c.query('SELECT worker.owner_canceled_subscription($1,$2,$3)',[user,org,info.subscription_id]));
+    const sub=await this.client(this.credentials(config).key).subscriptions.cancel(info.subscription_id,{invoice_now:false,prorate:false});
+    await this.run(c=>c.query('SELECT worker.sync_subscription($1,$2,$3,$4)',[sub.id,sub.status,sub.cancel_at_period_end,seconds(sub.items?.data[0]?.current_period_end)]));
+  }
+  /** Stripe's customer portal: the owner changes the card or downloads receipts at Stripe. */
+  async portal(user:string,org:string) {
+    const info=await this.ownerSubscription(user,org);
+    if(!info)throw apiError(404,'RESOURCE_NOT_FOUND');
+    const config=await this.config(info.credential_id);if(!config)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
+    const back=this.base();back.search=new URLSearchParams({section:'billing',organization_id:org}).toString();
+    const session=await this.client(this.credentials(config).key).billingPortal.sessions.create({customer:info.customer_id,return_url:back.toString(),locale:'auto'});
+    if(new URL(session.url).origin!=='https://billing.stripe.com')throw apiError(503,'TEMPORARILY_UNAVAILABLE');
+    return {url:session.url};
+  }
+  private async ownerSubscription(user:string,org:string):Promise<{subscription_id:string;customer_id:string;credential_id:string;live:boolean}|null> {
+    return this.run(async c=>(await c.query('SELECT worker.owner_subscription($1,$2) AS v',[user,org])).rows[0]?.v??null);
+  }
+  /** Copies our "stop renewal" flag (owner, privacy erasure) to live Stripe subscriptions. */
+  async pushRenewalFlags(org?:string):Promise<number> {
+    const rows:{subscription_id:string;credential_id:string;cancel_at_period_end:boolean}[]=(await this.run(async c=>(await c.query('SELECT worker.subscription_flags_to_push($1) AS v',[org??null])).rows)).map(r=>r.v);
+    for(const r of rows){
+      const config=await this.config(r.credential_id);if(!config)continue;
+      const sub=await this.client(this.credentials(config).key).subscriptions.update(r.subscription_id,{cancel_at_period_end:r.cancel_at_period_end});
+      await this.run(c=>c.query('SELECT worker.sync_subscription($1,$2,$3,$4)',[sub.id,sub.status,sub.cancel_at_period_end,seconds(sub.items?.data[0]?.current_period_end)]));
+    }
+    return rows.length;
+  }
   async webhook(credentialId:string,body:Buffer,signature:string) {
     const config=await this.config(credentialId);if(!config)throw apiError(400,'VALIDATION_ERROR');
     if(this.settings.production&&config.mode!=='live')throw apiError(400,'VALIDATION_ERROR');
     const credentials=this.credentials(config),stripe=this.client(credentials.key);
     let event:Stripe.Event;
     try{event=stripe.webhooks.constructEvent(body,signature,credentials.webhook,300);}catch{throw apiError(400,'VALIDATION_ERROR');}
+    if(subscriptionEvents.includes(event.type)){await this.subscriptionEvent(config,event);return {received:true};}
     if(!['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired'].includes(event.type))return {received:true};
     const s=event.data.object as Stripe.Checkout.Session;
     if(s.metadata?.credential_id!==credentialId)return {received:true};

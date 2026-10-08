@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, HttpCode, Optional, Param, Post, UseGuards } from '@nestjs/common';
 import { RuntimeSettingsService } from '../platform/runtime-settings.service.js';
+import { StripeService } from '../billing/stripe.service.js';
 import { randomUUID } from 'node:crypto';
 import { normalizePhone, memberActions, type MemberAction } from '@field-service/core';
 import { RequestId, Session, SessionGuard, Tenant, type SessionContext, type TenantContext } from '../auth/session.guard.js';
@@ -13,7 +14,8 @@ const joinLinkColumns = 'id, status, generation, token_ciphertext, version, upda
 
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly database: DatabaseService, private readonly links: JoinLinksService, @Optional()private readonly runtime?:RuntimeSettingsService) {}
+  constructor(private readonly database: DatabaseService, private readonly links: JoinLinksService, @Optional()private readonly runtime?:RuntimeSettingsService,
+    @Optional() private readonly stripe?: StripeService) {}
 
   /** Creates the shop, the owner membership and the first join link in one transaction.
    * An Idempotency-Key (uuid) makes a retried request return the same shop. */
@@ -122,6 +124,8 @@ export class OrganizationsController {
       [session.userId, tenant.organizationId, action === 'cancel-renewal', requestId])).rows[0]);
     if (row?.outcome === 'not_found') throw apiError(404, 'RESOURCE_NOT_FOUND');
     if (row?.outcome !== 'ok') throw apiError(403, 'TENANT_ACCESS_DENIED');
+    // Tell Stripe now; if it fails the worker retries, and the shop can still turn autopay off.
+    await this.stripe?.pushRenewalFlags(tenant.organizationId).catch(() => 0);
     return this.subscription(session, tenant);
   }
 

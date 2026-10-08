@@ -6,7 +6,7 @@ import { loadMediaSettings, loadPlatformSettings } from './config.js';
 import { createStorage, type ObjectStorage } from './media/object-storage.js';
 import { RuntimeOcrProvider, TemporaryOcrError, type OcrProvider } from './ocr/ocr.provider.js';
 import { createPushSender, TemporaryPushError, type PushSender } from './notifications/push.sender.js';
-import { runAutopay } from './billing/autopay.js';
+import { StripeService } from './billing/stripe.service.js';
 
 /** Background worker: OCR queue, push deliveries, subscription reminders and housekeeping.
  * Connects as fs_worker, which can only call worker.* functions. Every job is claimed with
@@ -118,6 +118,7 @@ async function main() {
   await verifyWorkerRole(pool);
   const platform = loadPlatformSettings();
   const deps: WorkerDeps = { pool, storage: createStorage(loadMediaSettings().mediaDir), ocr: new RuntimeOcrProvider(async () => (await pool.query('SELECT worker.ocr_settings() AS value')).rows[0].value, platform.secretKey), push: createPushSender(), log: console.log };
+  const stripe = StripeService.forPool(platform, pool);
   const registry = process.env.ERASURE_REGISTRY_FILE || undefined;
   if (process.argv.includes('replay-erasure')) {
     const n = await replayErasure(deps, registry);
@@ -136,9 +137,8 @@ async function main() {
       if (registry) await syncErasureRegistry(deps, registry);
       if (Date.now() - lastScheduled > 15 * 60_000) {
         await runScheduled(deps); lastScheduled = Date.now();
-        // Card renewals run after reminders; a Stripe failure must not stop the rest of the loop.
-        await runAutopay({ pool, secretKey: platform.secretKey, production: platform.production, log: console.log })
-          .catch(error => console.error('AUTOPAY_ERROR', error instanceof Error ? error.message.slice(0, 120) : ''));
+        // "Stop renewal" set by the platform (e.g. privacy erasure) must reach Stripe before it charges.
+        await stripe.pushRenewalFlags().catch(error => console.error('STRIPE_RENEWAL_SYNC_ERROR', error instanceof Error ? error.message.slice(0, 120) : ''));
       }
       if (!busy) await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (error) {

@@ -33,7 +33,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
       const invoice = await api.createInvoice(org, plan.price_version_id, keys.current[plan.price_version_id]!);
       onOpenInvoice(invoice.id);
     } catch (e) {
-      setError(e instanceof ApiFailure && e.code === 'SEAT_LIMIT_REACHED' ? t('planTooSmall') : errorText(e));
+      setError(e instanceof ApiFailure && e.code === 'SEAT_LIMIT_REACHED' ? t('planTooSmall') : e instanceof ApiFailure && e.code === 'PAYMENT_IN_PROGRESS' ? t('autopay.blocked') : errorText(e));
     } finally { setBusy(null); }
   }
 
@@ -74,7 +74,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
   </Screen>;
 }
 
-/** Saved card for automatic renewal; turned on while paying by card, turned off here. */
+/** Automatic renewal through Stripe Subscription. Stripe keeps the card; owners change it in Stripe's portal. */
 function AutopayCard({ org }: { org: string }) {
   const t = useT();
   const language = useContext(LanguageContext);
@@ -83,26 +83,27 @@ function AutopayCard({ org }: { org: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { api.autopay(org).then(setState, () => {}); }, [org]);
-  if (!state || (!state.available && !state.card)) return null;
-  const card = state.card, on = card?.status === 'active', last = state.last_charge;
-  async function disable() {
-    if (!await confirm(t('autopay.disableConfirm'), t('autopay.disable'), t('cancel'))) return;
+  if (!state || (!state.available && !state.subscription)) return null;
+  const sub = state.subscription, live = Boolean(sub?.live), date = sub?.current_period_end ? formatDate(new Date(sub.current_period_end), language) : '';
+  async function run(action: () => Promise<void>) {
     setBusy(true); setError(null);
-    try { setState(await api.disableAutopay(org)); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+    try { await action(); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   }
   return <Card>
     <View style={styles.planHead}>
-      <IconTile icon="card" tone={on ? 'green' : 'blue'} size={40} />
+      <IconTile icon="card" tone={live ? 'green' : 'blue'} size={40} />
       <View style={{ flex: 1 }}>
         <Strong>{t('autopay.title')}</Strong>
-        <Sub>{on && card ? t('autopay.on', { brand: (card.brand ?? '').toUpperCase(), last4: card.last4 ?? '', exp: `${card.exp_month ?? ''}/${card.exp_year ?? ''}` })
-          : card?.disabled_reason === 'OWNER' ? t('autopay.ownerStopped') : card ? t('autopay.stopped') : t('autopay.off')}</Sub>
+        <Sub>{live ? t(sub!.cancel_at_period_end ? 'autopay.onStopping' : 'autopay.on', { date })
+          : sub?.canceled_by_owner ? t('autopay.ownerStopped') : sub ? t('autopay.stopped') : t('autopay.off')}</Sub>
       </View>
     </View>
-    {on && !state.available ? <Banner tone="info" text={t('autopay.paused')} /> : null}
-    {last?.status === 'failed' ? <Banner text={last.next_attempt_at && on ? `${t('autopay.lastFailed')} ${t('autopay.retry', { date: formatDate(new Date(last.next_attempt_at), language) })}` : t('autopay.lastFailed')} /> : null}
+    {live && ['past_due', 'unpaid', 'incomplete'].includes(sub!.status) ? <Banner text={t('autopay.pastDue')} /> : null}
     <Banner text={error} />
-    {on ? <Button small kind="secondary" title={t('autopay.disable')} busy={busy} onPress={disable} /> : null}
+    {sub ? <Button small kind="secondary" icon="open-outline" title={t('autopay.manage')} busy={busy}
+      onPress={() => run(async () => { await Linking.openURL((await api.autopayPortal(org)).url); })} /> : null}
+    {live ? <Button small kind="ghost" title={t('autopay.cancel')} busy={busy}
+      onPress={() => run(async () => { if (await confirm(t('autopay.cancelConfirm'), t('autopay.cancel'), t('cancel'))) setState(await api.cancelAutopay(org)); })} /> : null}
   </Card>;
 }
 
@@ -122,10 +123,12 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   const [done, setDone] = useState<string | null>(null);
   const proofId = useRef<string | null>(null);
   const checkoutKeys = useRef<Record<string,string>>({});
-  const [saveCard, setSaveCard] = useState(false);
+  const [subscribe, setSubscribe] = useState(false);
+  const [autopayLive, setAutopayLive] = useState(false);
   const active = invoice?.checkouts?.find(c => ['creating','open'].includes(c.status));
   useEffect(() => { api.invoice(org, invoiceId).then(setInvoice, e => setError(errorText(e))); }, [org, invoiceId]);
-  useEffect(() => { if (active?.method === 'card') setSaveCard(Boolean(active.save_card)); }, [active?.id]);
+  useEffect(() => { if (active?.method === 'card') setSubscribe(active.mode === 'subscription'); }, [active?.id]);
+  useEffect(() => { api.autopay(org).then(r => setAutopayLive(Boolean(r.subscription?.live)), () => {}); }, [org, invoice?.status]);
   useEffect(() => {
     if (!active || active.status !== 'open') return;
     let checking = false;
@@ -137,11 +140,11 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
   async function checkout(method:'card'|'promptpay') {
     setBusy(true);setError(null);
     try{
-      if(!active&&invoice?.checkouts?.some(c=>c.method===method&&['expired','failed'].includes(c.status))){delete checkoutKeys.current[method];delete checkoutKeys.current['card:save'];}
-      // One key per method and choice: ticking "save card" is a different checkout.
-      const save=method==='card'&&saveCard,slot=save?'card:save':method;
+      if(!active&&invoice?.checkouts?.some(c=>c.method===method&&['expired','failed'].includes(c.status))){delete checkoutKeys.current[method];delete checkoutKeys.current['card:subscribe'];}
+      // One key per method and choice: a subscription is a different checkout.
+      const sub=method==='card'&&subscribe,slot=sub?'card:subscribe':method;
       checkoutKeys.current[slot]??=uuid();
-      const result=await api.stripeCheckout(org,invoiceId,method,checkoutKeys.current[slot],save);
+      const result=await api.stripeCheckout(org,invoiceId,method,checkoutKeys.current[slot],sub);
       setInvoice(await api.invoice(org,invoiceId));await Linking.openURL(result.url);
     }catch(e){try{setInvoice(await api.invoice(org,invoiceId));}catch{}setError(errorText(e));}finally{setBusy(false);}
   }
@@ -179,22 +182,23 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
     <Banner tone="success" text={done} />
     {invoice.period ? <Banner tone="success" text={t('paidPeriod', { from: formatDate(new Date(invoice.period.start_at), language), to: formatDate(new Date(invoice.period.end_at), language) })} /> : null}
     {invoice.payment && Number(invoice.payment.refunded_minor) > 0 ? <Banner tone="info" text={t('refunded', { amount: money(invoice.payment.refunded_minor, language) })} /> : null}
-    {invoice.status==='open'&&(invoice.methods?.stripe_card||invoice.methods?.stripe_qr||active)?<>
+    {invoice.status==='open'&&autopayLive?<Banner tone="info" text={t('autopay.blocked')}/>:null}
+    {invoice.status==='open'&&!autopayLive&&(invoice.methods?.stripe_card||invoice.methods?.stripe_qr||active)?<>
       <Section>{t('stripe.title')}</Section><Sub>{t('stripe.hint')}</Sub>
       {invoice.methods?.stripe_test?<Banner tone="info" text={t('stripe.test')}/>:null}
       {invoice.methods?.stripe_qr?<Button title={t('stripe.qr')} busy={busy} disabled={Boolean(active&&active.method!=='promptpay')||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('promptpay')}/>:null}
       {invoice.methods?.stripe_card?<>
-        <Pressable accessibilityRole="checkbox" accessibilityState={{checked:saveCard,disabled:Boolean(active)}} disabled={Boolean(active)} onPress={()=>setSaveCard(!saveCard)} style={styles.check}>
-          <Icon name={(active?active.save_card:saveCard)?'checkbox':'square-outline'} size={22} color={colors.primary}/>
-          <View style={{flex:1}}><Text style={styles.featureText}>{t('autopay.save')}</Text><Sub>{t('autopay.consent')}</Sub></View>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{checked:subscribe,disabled:Boolean(active)}} disabled={Boolean(active)} onPress={()=>setSubscribe(!subscribe)} style={styles.check}>
+          <Icon name={subscribe?'checkbox':'square-outline'} size={22} color={colors.primary}/>
+          <View style={{flex:1}}><Text style={styles.featureText}>{t('autopay.subscribe')}</Text><Sub>{t('autopay.consent')}</Sub></View>
         </Pressable>
-        <Button kind="secondary" title={t('stripe.card')} busy={busy} disabled={Boolean(active&&(active.method!=='card'||Boolean(active.save_card)!==saveCard))||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>
+        <Button kind="secondary" title={t('stripe.card')} busy={busy} disabled={Boolean(active&&(active.method!=='card'||(active.mode==='subscription')!==subscribe))||invoice.proofs.some(p=>p.status==='pending')} onPress={()=>checkout('card')}/>
       </>:null}
       {active?<><Sub>{t(`stripe.${active.status}` as TranslationKey)}</Sub><Button title={t('stripe.refresh')} busy={busy} onPress={()=>checkoutAction(false)}/>{active.status==='open'?<Button kind="secondary" title={t('stripe.cancel')} busy={busy} onPress={()=>checkoutAction(true)}/>:null}</>:null}
     </>:null}
     {invoice.checkouts?.filter(c=>c.reason).map(c=><Banner key={c.id} text={t(`stripe.${c.reason}` as TranslationKey)}/>)}
 
-    {invoice.pay_to ? <>
+    {invoice.pay_to && !autopayLive ? <>
       <Section>{t('payTo')}</Section>
       <Card padded={false}>
         <Row icon="business" tone="sky" title={invoice.pay_to.bank_name} subtitle={t('bankName')} />

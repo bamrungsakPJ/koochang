@@ -91,42 +91,56 @@ are retained so pending sessions can finish after a rotation/account switch. Kee
 endpoint active until those sessions are settled. Changing only the enabled methods retains the
 current endpoint and applies to new checkouts; existing sessions can still finish.
 
-## Automatic card renewal (2026-10-08, migration 029)
+## Automatic card renewal — Stripe Subscription (2026-10-08, migration 029)
 
-Owners paying by card can tick **Save this card and charge it automatically every period**. The
-Checkout then uses `setup_future_usage: off_session` with a Stripe customer for the shop (created on
-the first save, reused while the Stripe account is the same). When that checkout is paid, the API
-retrieves the PaymentIntent and stores only customer/payment-method IDs, brand, last 4 digits and
-expiry in `billing.card_autopay`. PromptPay and transfers stay one-time.
+On an invoice, an owner paying by card can tick **Subscribe: charge my card automatically every
+period**. Checkout then runs in `mode=subscription` with an inline recurring THB price (month/year as
+the invoice). **Stripe keeps the card and charges it; we store no card details** — only the Stripe
+subscription/customer IDs, status, stop-at-period-end flag and current period end
+(`billing.stripe_subscriptions`). PromptPay and transfers stay one-time.
 
-This is deliberately **not** a Stripe Subscription. Our `subscription_periods` remain the only
-schedule, so suspension, cancel-renewal, erasure, plan prices, seat limits and grace keep working
-without syncing a second billing system. The worker (every 15 minutes, needs `PLATFORM_SECRET_KEY`):
+Decisions agreed with the owner of the product (2026-10-08):
+- Time the shop already has (trial or paid, incl. periods paid ahead) is used first: the subscription
+  starts with `trial_end` at that end and Stripe's first charge happens then. Stripe requires that to be
+  at least 48 hours away; with less time left Stripe charges at checkout.
+- While a subscription is live (trialing/active/past_due/unpaid/incomplete/paused) the owner cannot
+  upload a slip, start another checkout or create/replace an invoice (`PAYMENT_IN_PROGRESS`); they
+  cancel automatic renewal first.
+- A subscription keeps the price it started with; a new price applies after cancelling and subscribing again.
+- **Manage card / receipts** opens Stripe's customer portal (`billingPortal.sessions`).
 
-- picks shops whose paid period ends within **1 day** (or is in grace), renewal not cancelled, shop
-  active, next period unpaid, card payments enabled on the platform and the card saved on the
-  current Stripe account (same account ID and mode);
-- creates or reuses the renewal invoice at today's price of the same plan and interval, then sends an
-  off-session, confirmed PaymentIntent with idempotency key `autopay:<charge id>`;
-- on success records the payment (`note=card_autopay`), marks the invoice paid and adds the next
-  period from the old end date in one transaction, then notifies the owner (`payment_confirmed`);
-- on a decline retries a day later, at most **3 attempts** per period, and notifies `autopay_failed`;
-  `authentication_required`, expired/lost/stolen card, removed payment method and similar codes stop
-  automatic renewal immediately (`autopay_stopped`); the owner can still pay the open invoice;
-- leaves a charge `charging` on network errors and resends it with the same idempotency key after 2
-  minutes; `processing` intents are re-checked on each run.
+Flow: each paid Stripe invoice (`invoice.paid`, retrieved again from Stripe before use) pays the
+subscribed invoice while it is open, otherwise a renewal invoice is created at the subscribed price.
+Payment reference is `STRIPE:in_…` (`note=stripe_subscription`) and the period ends at Stripe's line
+period end, continuing without a gap from the previous paid period. Replays are ignored per Stripe
+invoice ID. Wrong amount/currency or a conflicting open invoice is recorded as `manual_review` in
+`billing.stripe_subscription_invoices` with a platform audit entry and does not activate anything.
+`invoice.payment_failed` notifies the owner (`autopay_failed`); Stripe retries on its own schedule.
+`customer.subscription.updated/deleted` sync the status; a cancellation the owner did not request
+(retries exhausted, cancelled in Dashboard) notifies `autopay_stopped`, after which the owner can pay
+another way. Owner **Cancel automatic renewal** cancels in Stripe immediately (`prorate=false`,
+`invoice_now=false`): the paid period stays, nothing is refunded. "Stop renewal"
+(`cancel_at_period_end`) is copied to Stripe immediately from the API and every 15 minutes by the
+worker, which also covers flags set by privacy erasure.
 
-A charge in flight blocks slips and new checkouts for that invoice and keeps it from being replaced.
-The owner turns automatic renewal off in the plan page (web/mobile). A production worker never charges
-with a test key. Seat/plan problems (plan withdrawn, team larger than the plan now allows) record a
-failed attempt and notify the owner instead of charging. No new webhook events are required.
+Stripe Dashboard setup (same account/mode as the saved key):
+1. Webhook endpoint (the existing path): add `invoice.paid`, `invoice.payment_failed`,
+   `customer.subscription.updated`, `customer.subscription.deleted` to the four checkout events.
+2. Billing → Revenue recovery → retries: after all retries fail, choose **cancel the subscription**
+   (recommended), so the shop is released to pay another way. "Mark unpaid" keeps it blocked until the
+   owner cancels.
+3. Customer portal: enable payment-method update and invoice history; turning off cancellation in the
+   portal is recommended, since the app has its own cancel button.
 
-Reminders: renewal reminders now go 7, 3 and **1** day before the end and are skipped when the next
-period is already paid. Shops on automatic renewal get `autopay_upcoming` naming the card instead of
-`renewal_due`. Tapping a subscription notification opens the plan page.
+Reminders: renewal reminders go 7, 3 and **1** day before the end and are skipped when the next period
+is already paid. A shop with a live subscription that is not stopping gets `autopay_upcoming` instead
+of `renewal_due`/`trial_ending`. Tapping a subscription notification opens the plan page.
 
-Not verified with real Stripe yet: saving a card on test Checkout, an off-session charge, decline
-codes from real cards and the 3DS/authentication-required path.
+Not verified with real Stripe yet: subscription Checkout with/without `trial_end`, first charge,
+renewal, declines/retries, portal, Dashboard retry setting, webhook delivery. Not decided yet: whether a
+platform-suspended shop should keep being charged (today Stripe keeps charging; payments are recorded
+but never lift a suspension) and whether `manual_review` subscription payments should appear in the
+console payment queue (today: audit log + table only).
 
 ## Verification and operations
 

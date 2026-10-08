@@ -62,14 +62,13 @@ export interface EquipmentHistory {
 }
 export interface PlanOffer { code: string; name_th: string; name_en: string; technician_seats: number; storage_bytes: string; ocr_per_period: number; price_version_id: string; amount_minor: string; interval_unit: string; }
 export interface InvoiceSummary { id: string; number: string; amount_minor: string; status: 'open' | 'paid' | 'voided'; created_at: string; paid_at: string | null; plan_name_th: string; plan_name_en: string; proof_status: 'pending' | 'accepted' | 'rejected' | null; }
-/** Automatic card renewal: only brand and last digits of the saved card reach the client. */
+/** Automatic card renewal through Stripe Subscription: status only, no card details. */
 export interface Autopay {
   available: boolean;
-  card: { status: 'active' | 'disabled'; brand: string | null; last4: string | null; exp_month: number | null; exp_year: number | null; disabled_reason: string | null; updated_at: string } | null;
-  last_charge: { status: 'charging' | 'processing' | 'paid' | 'failed' | 'manual_review'; reason: string | null; invoice_id: string | null; created_at: string; next_attempt_at: string | null } | null;
+  subscription: { status: string; live: boolean; cancel_at_period_end: boolean; current_period_end: string | null; canceled_by_owner: boolean; updated_at: string } | null;
 }
 export interface Invoice extends InvoiceSummary {
-  due_at: string | null; technician_seats: number; methods?: { transfer: boolean; stripe_card: boolean; stripe_qr: boolean; stripe_test: boolean }; checkouts?: { id: string; method: 'card'|'promptpay'; status: string; reason: string|null; checkout_url: string|null; expires_at: string; save_card?: boolean }[]; proofs: { id: string; status: 'pending' | 'accepted' | 'rejected'; reason: string | null; created_at: string; verification_code?: string; verification_at?: string | null }[];
+  due_at: string | null; technician_seats: number; methods?: { transfer: boolean; stripe_card: boolean; stripe_qr: boolean; stripe_test: boolean }; checkouts?: { id: string; method: 'card'|'promptpay'; status: string; reason: string|null; checkout_url: string|null; expires_at: string; mode?: 'payment' | 'subscription' }[]; proofs: { id: string; status: 'pending' | 'accepted' | 'rejected'; reason: string | null; created_at: string; verification_code?: string; verification_at?: string | null }[];
   payment: { amount_minor: string; verified_at: string; refunded_minor: string } | null; period: { start_at: string; end_at: string } | null;
   pay_to: { bank_name: string; account_name: string; account_number: string; promptpay_id: string | null; reference: string } | null;
 }
@@ -235,9 +234,10 @@ export class Api {
     return this.call<ServiceResult>('POST', `/organizations/${organizationId}/service-events`, body);
   }
   equipmentHistory(organizationId: string, equipmentId: string) { return this.call<EquipmentHistory>('GET', `/organizations/${organizationId}/equipment/${equipmentId}/history`); }
-  stripeCheckout(organizationId: string, invoiceId: string, method: 'card'|'promptpay', requestKey: string, saveCard = false) { return this.call<{id: string; url: string}>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkout`, {method, request_key: requestKey, ...(saveCard ? { save_card: true } : {})}); }
+  stripeCheckout(organizationId: string, invoiceId: string, method: 'card'|'promptpay', requestKey: string, subscribe = false) { return this.call<{id: string; url: string}>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkout`, {method, request_key: requestKey, ...(subscribe ? { subscribe: true } : {})}); }
   autopay(organizationId: string) { return this.call<Autopay>('GET', `/organizations/${organizationId}/billing/autopay`); }
-  disableAutopay(organizationId: string) { return this.call<Autopay>('POST', `/organizations/${organizationId}/billing/autopay/disable`); }
+  cancelAutopay(organizationId: string) { return this.call<Autopay>('POST', `/organizations/${organizationId}/billing/autopay/cancel`); }
+  autopayPortal(organizationId: string) { return this.call<{ url: string }>('POST', `/organizations/${organizationId}/billing/autopay/portal`); }
   refreshCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/refresh`); }
   cancelCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/cancel`); }
   billingPlans(organizationId: string) { return this.call<{ payment_available: boolean; items: PlanOffer[] }>('GET', `/organizations/${organizationId}/billing/plans`); }
