@@ -22,7 +22,7 @@
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
 - **Build Android ในเครื่อง**: ติดตั้ง JDK 17, SDK 36, Build Tools 36.0.0, NDK และ CMake บนไดรฟ์ D แก้ปัญหา dependency/พาธยาว และ build Release APK ล่าสุด **0.2.10 / Build 12** (ไม่มีปุ่มเริ่มงาน, Firebase push, OTP Ref) พร้อมลายเซ็นเดิม (cert SHA-256 4eed9485…) ตรวจ package/version/certificate/API และเนื้อหา bundle แล้ว ไฟล์ `output/builds/apk/KooChang-0.2.10-build12.apk`; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` (ไม่ใช้ `*>` หรือ `cmd /c` เพราะล้มในรอบ 0.2.6) ใช้เวลาประมาณ 1 นาทีเมื่อ cache ครบ ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private) push แล้วทั้ง main และ field-service-a02; field-service-a02 push ล่าสุด 2026-10-08 ถึง `51e56d7` (Claude push เองได้เมื่อผู้ใช้สั่ง)
-- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `51e56d7` (2026-10-08, ไม่มี migration ใหม่หลัง 031), migration 031 (ตัดบัตรอัตโนมัติ, กติกาการระงับ, ปรับแพ็กเกจ, คู่มือ console), มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
+- **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `e448755` (2026-10-08, ไม่มี migration ใหม่หลัง 031), migration 031 (ตัดบัตรอัตโนมัติ, กติกาการระงับ, ปรับแพ็กเกจ, คู่มือ console), มี HTTPS ที่ [console/เว็บร้าน](https://app-staging.koochang.com/console) และ [API](https://api-staging.koochang.com); ตั้งค่า Anthropic key แล้ว มีเว็บไซต์สาธารณะ, OTP Ref และ push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — บันทึกผลบริการ/จบงานโดยไม่ต้องกดเริ่มงาน (APK 0.2.10), push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
 - **ผลตรวจ**: มีผล typecheck/build และชุดทดสอบที่เกี่ยวข้องบันทึกในรายวันและ [VERIFICATION.md](VERIFICATION.md) ตัวเลขทดสอบแต่ละรอบเป็นผล ณ เวลานั้น ไม่ใช่การรันทดสอบทั้งหมดใหม่ในวันที่ 2026-10-07
 
@@ -66,6 +66,14 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-08 — แก้กลับจาก Stripe แล้วไปหน้าเว็บหลัก (deploy staging e448755)
+
+- **ผู้ใช้แจ้ง**: ไปหน้า Stripe แล้วกดย้อนกลับ ไปที่หน้าเว็บหลัก ไม่กลับหน้าร้าน
+- **สาเหตุ**: (1) `OWNER_WEB_URL` บน staging เป็น `https://app-staging.koochang.com` ไม่มี `/shop` → success/cancel URL ของ Checkout และ return URL ของ customer portal ไปหน้า landing (2) ผู้ใช้ใช้งานที่ `koochang.com` แต่ Stripe ส่งกลับ `app-staging` ซึ่ง session ล็อกอินแยกตาม origin จึงต้องล็อกอินใหม่
+- **แก้** (`stripe.service.ts` base(origin)): กลับไป `/shop` บน origin ที่ร้านเริ่มจ่าย ถ้าอยู่ใน `ADMIN_ORIGIN` (ไม่งั้นใช้ OWNER_WEB_URL) และถ้า OWNER_WEB_URL ไม่มี path ให้ใช้ `/shop`; controller ส่ง header Origin ให้ checkout และ portal; แอปมือถือไม่มี Origin จึงใช้ OWNER_WEB_URL เหมือนเดิม; ไม่ต้องแก้ env บน server (แก้ env ผ่าน sudo ถูกบล็อก)
+- **ตรวจ**: build API ผ่าน; stripe / stripe-subscription / plan-changes ผ่าน 24 ไม่ล้ม; deploy staging `e448755` 3 แอป online, /v1/health ok, dist มีโค้ดใหม่; ยังไม่ได้ลองจ่ายจริงแล้วกดกลับ
+- **แพ็กเกจราคาถูกสำหรับทดสอบ**: ผู้ใช้ขอให้เพิ่ม แต่ต้องสร้างในคอนโซล (ต้องล็อกอิน + รหัส 6 หลักของผู้ใช้ Claude ทำแทนไม่ได้) — แนะนำ: แพ็กเกจและราคา → สร้างร่าง: รหัส `test20`, ชนิด ชำระเงิน, 20 บาท/เดือน, ช่าง 1, พื้นที่ 1 GB, เริ่มมีผลตอนนี้ → เผยแพร่ทันที; ทดสอบแล้วคืนเงินในคอนโซลและหยุดขายแพ็กเกจ
 
 ### 2026-10-08 — ตั้งค่า Stripe: ผู้ใช้เลือกโหมดจริง (live) ทันที; บันทึกไม่ผ่านเพราะใช้ restricted key
 
