@@ -14,7 +14,7 @@ import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
 import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens/jobs';
 import { keys, storage } from './src/storage';
 import { Banner, Button, colors, Field, handleScreenBack, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
-import { translate } from '@field-service/i18n';
+import { formatDate, translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PasswordSetup, PasswordSignIn, PhoneForm, Welcome } from './src/screens/onboarding';
 import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
 import { NotificationsScreen } from './src/screens/notifications';
@@ -301,7 +301,9 @@ export default function App() {
       // Tabs only for an active membership; pending/suspended/no shop never show business menus.
       if (route.screen === 'shop' && !membership) content = <NoShop onCreate={() => setRoute({ screen: 'register' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />;
       else if (route.screen === 'shop' && membership && suspended) content = <Screen>
-        <Banner text={translate(language, 'ORGANIZATION_SUSPENDED')} />
+        <Banner text={membership.suspension_kind === 'permanent' ? translate(language, 'suspension.permanent')
+          : membership.suspended_until ? translate(language, 'suspension.temporary', { date: formatDate(new Date(membership.suspended_until), language) })
+          : translate(language, 'ORGANIZATION_SUSPENDED')} />
         {membership.role === 'owner' ? <Button icon="help-buoy" title={translate(language, 'support')} onPress={() => setRoute({ screen: 'support' })} /> : null}
         {several ? <Button kind="secondary" title={translate(language, 'myShops')} onPress={() => setRoute({ screen: 'shops' })} /> : null}
         <Button kind="danger" icon="log-out-outline" title={translate(language, 'signOut')} onPress={signOut} />

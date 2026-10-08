@@ -12,7 +12,7 @@ export class ApiFailure extends Error {
 export interface Page<T> { items: T[]; limit: number; offset: number; has_more: boolean; next_offset: number | null }
 
 export interface Membership {
-  member_id: string; organization_id: string; organization_name: string | null; organization_status: string;
+  member_id: string; organization_id: string; organization_name: string | null; organization_status: string; suspension_kind?: 'temporary' | 'permanent' | null; suspended_until?: string | null;
   role: 'owner' | 'technician'; status: MemberStatus; display_name: string; version: number;
 }
 export interface Me { user: { id: string; display_name: string; phone_e164: string; preferred_language: Language; version: number; password_set: boolean }; memberships: Membership[]; }

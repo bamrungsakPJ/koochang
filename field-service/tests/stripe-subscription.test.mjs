@@ -170,3 +170,56 @@ test('reminders say the card will be charged; test-mode subscriptions never acti
  await assert.rejects(prod.refresh(f.checkout.id),e=>e.getStatus()>=400);
  await assert.rejects(a.one('SELECT worker.apply_subscription_invoice($1,$2,1,$3,now())',[randomUUID(),'in_x','thb']),/permission denied/);
 });
+
+async function asRole(role,sql,params){await db.exec(`BEGIN;SET LOCAL ROLE ${role};`);try{const r=await db.query(sql,params);await db.query('COMMIT');return r;}catch(e){await db.query('ROLLBACK');throw e;}}
+async function platformAccount(role){const aid=(await db.query("INSERT INTO platform.accounts(display_name,email) VALUES('Suspension tester',$1) RETURNING id",[`${randomUUID()}@test.invalid`])).rows[0].id;
+ await db.query('INSERT INTO platform.account_roles(account_id,role_id) SELECT $1,id FROM platform.roles WHERE code=$2',[aid,role]);return aid;}
+const setStatus=(account,org,status)=>asRole('fs_platform','SELECT padmin.set_organization_status($1,$2,$3,$4,$5) AS v',[account,org,status,'test',randomUUID()]).then(r=>r.rows[0].v);
+const scan=at=>asRole('fs_worker','SELECT worker.scan_suspensions($1) AS n',[at]).then(r=>r.rows[0].n);
+
+test('temporary suspension: 14 days, Stripe keeps charging, owners warned 3 and 1 days before; then permanent stops Stripe',async()=>{
+ const f=await subscribed('Sub suspend',{paidUntilHours:24*10});
+ f.fake.complete();await f.provider.refresh(f.checkout.id);
+ const admin=await platformAccount('platform_admin'),root=await platformAccount('super_admin');
+ assert.equal(await setStatus(admin,f.shop.organizationId,'suspended'),'ok');
+ const o=await one('SELECT suspension_kind,suspended_at,suspended_until FROM core.organizations WHERE id=$1',[f.shop.organizationId]);
+ assert.equal(o.suspension_kind,'temporary');assert.equal(o.suspended_until.getTime()-o.suspended_at.getTime(),14*day*1000);
+ const member=await one('SELECT suspension_kind,suspended_until FROM auth.user_memberships($1) WHERE organization_id=$2',[f.shop.owner.userId,f.shop.organizationId]);
+ assert.equal(member.suspension_kind,'temporary');
+ assert.equal(await f.provider.stopSuspendedSubscriptions(),0,'temporary: Stripe keeps charging');
+ const until=o.suspended_until.getTime();
+ await scan(new Date(until-5*day*1000));
+ await scan(new Date(until-2*day*1000));await scan(new Date(until-2*day*1000));
+ await scan(new Date(until-12*3600*1000));
+ const warnings=(await inbox(f.shop)).filter(n=>n==='suspension_warning');
+ assert.equal(warnings.length,2,'3-day and 1-day warnings, once each');
+ await scan(new Date(until+60*1000));
+ assert.equal((await one('SELECT suspension_kind FROM core.organizations WHERE id=$1',[f.shop.organizationId])).suspension_kind,'permanent');
+ assert.ok((await inbox(f.shop)).includes('suspension_permanent'));
+ assert.equal(await f.provider.stopSuspendedSubscriptions(),1);
+ assert.deepEqual(f.fake.calls.at(-1),['cancel',f.fake.sub.id,{invoice_now:false,prorate:false}]);
+ assert.equal((await one('SELECT status FROM billing.stripe_subscriptions WHERE organization_id=$1',[f.shop.organizationId])).status,'canceled');
+ assert.equal(await f.provider.stopSuspendedSubscriptions(),0,'stopped once');
+ assert.ok(!(await inbox(f.shop)).includes('autopay_stopped'),'the permanent-suspension notice already says charges stopped');
+ assert.equal(await setStatus(admin,f.shop.organizationId,'active'),'super_admin_required');
+ assert.equal(await setStatus(root,f.shop.organizationId,'active'),'ok');
+ assert.deepEqual(await one('SELECT status,suspension_kind,suspended_until FROM core.organizations WHERE id=$1',[f.shop.organizationId]),{status:'active',suspension_kind:null,suspended_until:null});
+});
+
+test('a temporary suspension restored in time never becomes permanent; Stripe payments needing review reach the console queue',async()=>{
+ const shop=await a.createShop('Sub restore');
+ const admin=await platformAccount('platform_admin'),operator=await platformAccount('billing_operator');
+ await setStatus(admin,shop.organizationId,'suspended');
+ assert.equal(await setStatus(admin,shop.organizationId,'active'),'ok','platform_admin can lift a temporary suspension');
+ await scan(new Date(Date.now()+20*day*1000));
+ assert.equal((await one('SELECT status FROM core.organizations WHERE id=$1',[shop.organizationId])).status,'active');
+
+ const f=await subscribed('Sub review',{paidUntilHours:24*10});
+ f.fake.complete();await f.provider.refresh(f.checkout.id);
+ const odd=f.fake.charge(now()+20*day,1000),raw=event('invoice.paid',odd);
+ await f.provider.webhook(credential,Buffer.from(raw),sign(raw));
+ const queue=(await asRole('fs_platform','SELECT invoice_id FROM padmin.payment_queue($1,$2,0)',[operator,'pending'])).rows.map(r=>r.invoice_id);
+ assert.ok(queue.includes(f.invoice));
+ const detail=(await asRole('fs_platform','SELECT padmin.invoice_detail($1,$2) AS v',[operator,f.invoice])).rows[0].v;
+ assert.deepEqual(detail.subscription_payments.map(p=>[p.stripe_invoice_id,p.status,p.reason]),[[odd.id,'manual_review','PAYMENT_MISMATCH']]);
+});

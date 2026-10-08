@@ -205,6 +205,8 @@ export class PlatformAdminController {
     check.done();
     const o = await this.one('SELECT padmin.set_organization_status($1,$2,$3,$4,$5) AS v', [a.accountId, id, status, reason, requestId]);
     if (o === 'not_found') throw apiError(404, 'RESOURCE_NOT_FOUND');
+    // A permanent suspension can only be lifted by super_admin.
+    if (o === 'super_admin_required') throw apiError(403, 'PERMISSION_DENIED');
     if (o !== 'ok') throw apiError(422, 'INVALID_STATE_TRANSITION');
     return { ok: true };
   }

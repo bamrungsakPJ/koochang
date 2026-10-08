@@ -121,7 +121,7 @@ export function ShopsView({ onOpen }: { onOpen: (id: string) => void }) {
 }
 
 interface ShopDetail {
-  organization: { id: string; name: string; status: string; timezone: string; created_at: string };
+  organization: { id: string; name: string; status: string; timezone: string; created_at: string; suspension_kind?: 'temporary' | 'permanent' | null; suspended_until?: string | null };
   entitlement: { state: string; plan_code: string | null; technician_seats: number; storage_bytes: number; ocr_per_period: number; period_end: string | null };
   usage: { active_technicians: number; storage_bytes: number; ocr: number };
   team: { name: string; role: string; status: string; phone: string | null; joined_at: string }[];
@@ -154,6 +154,7 @@ export function ShopView({ id, me, onBack }: { id: string; me: Me; onBack: () =>
   return <section>
     <button className="ghost" onClick={onBack}>← {t('back')}</button>
     <h1>{d.organization.name} <Pill group="state" value={e.state} /></h1>
+    {suspended ? <p className="error">{d.organization.suspension_kind === 'permanent' ? t('suspendedPermanent') : t('suspendedTemporary', { date: dateOnly(d.organization.suspended_until ?? null, lang) })}</p> : null}
     <p className="muted">{t('noContent')}</p>
     {notice ? <p className="ok-box">{notice}</p> : null}
     {error ? <p className="error">{error}</p> : null}

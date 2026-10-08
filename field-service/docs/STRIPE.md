@@ -137,10 +137,15 @@ is already paid. A shop with a live subscription that is not stopping gets `auto
 of `renewal_due`/`trial_ending`. Tapping a subscription notification opens the plan page.
 
 Not verified with real Stripe yet: subscription Checkout with/without `trial_end`, first charge,
-renewal, declines/retries, portal, Dashboard retry setting, webhook delivery. Not decided yet: whether a
-platform-suspended shop should keep being charged (today Stripe keeps charging; payments are recorded
-but never lift a suspension) and whether `manual_review` subscription payments should appear in the
-console payment queue (today: audit log + table only).
+renewal, declines/retries, portal, Dashboard retry setting, webhook delivery.
+
+Suspension (migration 030, decided 2026-10-08): a platform suspension is **temporary for 14 days** and
+Stripe keeps charging during it (payments are recorded but never lift the suspension). If the shop is
+not restored by then the worker makes it **permanent** automatically (owners are warned 3 days and 1
+day before by push/notification) and cancels the live Stripe subscription immediately
+(`prorate=false`, `invoice_now=false`). Only **super_admin** can restore a permanent suspension; the
+owner then subscribes again. Subscription payments needing review appear in the console payment queue
+(`pending`) and in the invoice detail (`subscription_payments`).
 
 ## Verification and operations
 

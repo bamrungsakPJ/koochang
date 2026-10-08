@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { BrandMark } from '../brand';
 import { normalizeLanguage, normalizePhone, isThaiMobile, type Language } from '@field-service/core';
-import { errorMessage, translate } from '@field-service/i18n';
+import { errorMessage, formatDate, translate } from '@field-service/i18n';
 import { notifySave } from '../toast';
 import { api, ApiFailure, type Me, type Membership, type Challenge } from './api';
 import { keys, storage } from './storage';
@@ -100,7 +100,7 @@ export function OwnerApp() {
             <div className="top-actions">{languageSelect}</div></header>
           <main className="work" key={org}><ActionState action={a} />
             {!active ? <Panel><Notice error>{tr('MEMBERSHIP_INACTIVE')}</Notice><Button busy={a.busy} onClick={() => a.run(loadMe)}>{tr('checkStatus')}</Button></Panel>
-              : suspended && route.section !== 'support' && route.section !== 'account' ? <Panel><Notice error>{tr('ORGANIZATION_SUSPENDED')}</Notice><Button onClick={() => go({ section: 'support' })}>{tr('support')}</Button></Panel>
+              : suspended && route.section !== 'support' && route.section !== 'account' ? <Panel><Notice error>{membership?.suspension_kind === 'permanent' ? tr('suspension.permanent') : membership?.suspended_until ? translate(language, 'suspension.temporary', { date: formatDate(new Date(membership.suspended_until), language) }) : tr('ORGANIZATION_SUSPENDED')}</Notice><Button onClick={() => go({ section: 'support' })}>{tr('support')}</Button></Panel>
               : <Workspace key={`${org}:${route.section}:${route.id ?? ''}:${route.locationId ?? ''}`} membership={membership} me={me} route={route} go={go} onMe={() => loadMe(org)} />}
           </main></div></div>}
   </div></LanguageContext.Provider>;

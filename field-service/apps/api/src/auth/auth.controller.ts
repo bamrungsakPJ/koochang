@@ -57,7 +57,7 @@ export class MeController {
       const user = (await client.query('SELECT id, display_name, phone_e164, preferred_language, version FROM auth.user_profile($1)', [userId])).rows[0];
       if (!user) throw apiError(401, 'AUTHENTICATION_REQUIRED');
       const memberships = (await client.query(
-        'SELECT member_id, organization_id, organization_name, organization_status, role, status, display_name, version FROM auth.user_memberships($1)', [userId])).rows;
+        'SELECT member_id, organization_id, organization_name, organization_status, role, status, display_name, version, suspension_kind, suspended_until FROM auth.user_memberships($1)', [userId])).rows;
       return { user: { ...user, password_set: password.has_password }, memberships };
     });
   }

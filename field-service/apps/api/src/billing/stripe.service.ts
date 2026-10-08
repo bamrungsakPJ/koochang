@@ -194,6 +194,17 @@ export class StripeService implements OnModuleDestroy {
     }
     return rows.length;
   }
+  /** Permanent suspension: Stripe stops charging now (no refund, no final invoice). */
+  async stopSuspendedSubscriptions():Promise<number> {
+    const rows:{subscription_id:string;credential_id:string}[]=(await this.run(async c=>(await c.query('SELECT worker.subscriptions_to_stop() AS v')).rows)).map(r=>r.v);
+    for(const r of rows){
+      const config=await this.config(r.credential_id);if(!config)continue;
+      await this.run(c=>c.query('SELECT worker.platform_canceling_subscription($1)',[r.subscription_id]));
+      const sub=await this.client(this.credentials(config).key).subscriptions.cancel(r.subscription_id,{invoice_now:false,prorate:false});
+      await this.run(c=>c.query('SELECT worker.sync_subscription($1,$2,$3,$4)',[sub.id,sub.status,sub.cancel_at_period_end,seconds(sub.items?.data[0]?.current_period_end)]));
+    }
+    return rows.length;
+  }
   async webhook(credentialId:string,body:Buffer,signature:string) {
     const config=await this.config(credentialId);if(!config)throw apiError(400,'VALIDATION_ERROR');
     if(this.settings.production&&config.mode!=='live')throw apiError(400,'VALIDATION_ERROR');
