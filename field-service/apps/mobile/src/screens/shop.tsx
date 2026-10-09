@@ -82,9 +82,11 @@ export function MembershipStatus({ membership, onCheck, onSwitch, onSignOut }: {
   </Screen>;
 }
 
-export function NoShop({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
+/** Signed in without any shop (e.g. a new number was registered on this phone): create, join, or sign out to use
+ * another account. */
+export function NoShop({ onCreate, onJoin, onSignOut }: { onCreate: () => void; onJoin: () => void; onSignOut: () => void }) {
   const t = useT();
-  return <Screen>
+  return <Screen footer={<Button title={t('signOut')} kind="ghost" icon="log-out-outline" onPress={onSignOut} />}>
     <StatusIcon icon="storefront" tone="info" />
     <Title>{t('noShopYet')}</Title>
     <Card padded={false}>

@@ -20,7 +20,7 @@
 - **ส่งรูปและ OCR**: แก้การส่งรูปป้าย/รูปงานเป็น native bytes เพิ่มภาพตัวอย่าง สถานะอัปโหลด/อ่านรูป ผลยี่ห้อ/รุ่น/Serial ข้อผิดพลาดและลองใหม่ ป้องกันผลรูปเก่าทับรูปใหม่ และอธิบายกรณีเซิร์ฟเวอร์ยังไม่ตั้งค่า AI; ยังต้องยืนยันบนโทรศัพท์จริง
 - **ลดค่าใช้จ่าย AI**: ใช้ `claude-haiku-4-5-20251001`, จำกัด 512 tokens, ปิด thinking และไม่มี fallback ไปโมเดลแพง Prompt อ่านเฉพาะ brand/model/serial_number คงตัวอักษรและเลขศูนย์ ไม่เดาข้อมูลที่อ่านไม่ได้ และไม่ทำตามคำสั่งในภาพ ทดสอบ Anthropic จริงด้วยภาพสังเคราะห์อ่านตรงครบ 3 ช่องประมาณ 4 วินาที ยังไม่ใช่ผลทดสอบรูปถ่ายจริง
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
-- **Build Android ในเครื่อง**: build จาก D:\kc ด้วย Start-Process (ประมาณ 1 นาที) — APK ล่าสุด **0.2.15 / Build 17** `output/builds/apk/KooChang-0.2.15-build17.apk` (ก่อนหน้า 0.2.13 / Build 15) (API `https://api.koochang.com`, เลือกวิธีชำระเงิน 3 แบบ + จ่ายแล้วกลับเข้าแอป, รวมงาน offline/ปฏิทิน/โหลดเพิ่ม/ล็อกนิ้ว/หน้าสร้างงานใหม่) cert SHA-256 4eed9485… เดิม; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Build Android ในเครื่อง**: build จาก D:\kc ด้วย Start-Process (ประมาณ 1 นาที) — APK ล่าสุด **0.2.16 / Build 18** `output/builds/apk/KooChang-0.2.16-build18.apk` (ก่อนหน้า 0.2.13 / Build 15) (API `https://api.koochang.com`, เลือกวิธีชำระเงิน 3 แบบ + จ่ายแล้วกลับเข้าแอป, รวมงาน offline/ปฏิทิน/โหลดเพิ่ม/ล็อกนิ้ว/หน้าสร้างงานใหม่) cert SHA-256 4eed9485… เดิม; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private); field-service-a02 push ล่าสุด 2026-10-09 ถึง commit บันทึกนี้ (Claude push เองได้เมื่อผู้ใช้สั่ง)
 - **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `71b42f5` (2026-10-08, migration ถึง 032) — **ชื่อถาวร**: เว็บ https://koochang.com (/shop, /console, /join, /pay-return), API https://api.koochang.com (api-staging ถูกลบแล้ว); build เว็บด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` ในโฟลเดอร์ `/opt/field-service/staging/field-service`; env `OWNER_WEB_URL=https://koochang.com/shop`, `JOIN_LINK_BASE_URL=https://koochang.com/join` (ผู้ใช้แก้เอง สำรอง staging.env.bak-20261008); Stripe live credential `db19ee92-…` webhook `https://api.koochang.com/v1/billing/stripe/webhook/db19ee92-33fd-4e51-bdf5-709a77a18c48`; แพ็กเกจ test20 (20 บาท/เดือน) ยังเปิดขาย; ตั้งค่า Anthropic key แล้ว มี push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — บันทึกผลบริการ/จบงานโดยไม่ต้องกดเริ่มงาน (APK 0.2.10), push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
@@ -79,6 +79,13 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-09 — หน้า "ยังไม่ได้อยู่ในร้านใด" ไม่มีปุ่มออกจากระบบ → APK 0.2.16 (build 18)
+
+- **ปัญหา**: ผู้ใช้ทดสอบ SMS ด้วยการสมัครเบอร์ใหม่ (ลงท้าย 9110, 17:42) แอปเข้าสู่ระบบเป็นบัญชีใหม่ที่ไม่มีร้าน → หน้า "ยังไม่ได้อยู่ในร้านใด" มีแค่สร้างร้าน/เข้าร่วมร้าน ไม่มีทางออกจากระบบไปใช้บัญชีเจ้าของร้าน (ลงท้าย 6969 ยังอยู่ครบ)
+- **แก้**: เพิ่มปุ่ม "ออกจากระบบ" ท้ายหน้า NoShop; APK 0.2.16 / build 18 BUILD SUCCESSFUL 3m29s, ตรวจ com.koochang.app 18/0.2.16, cert 4eed9485… เดิม, api.koochang.com → `output/builds/apk/KooChang-0.2.16-build18.apk`
+- **ทางแก้ชั่วคราวบนเครื่องที่ติดอยู่**: ติดตั้ง 0.2.16 ทับ หรือ ตั้งค่า → แอป → KooChang → ที่เก็บข้อมูล → ล้างข้อมูล
+- **สถานะ**: ⏳ ผู้ใช้ติดตั้ง 0.2.16; ยังรอผู้ใช้ขอคืนเงิน INV-2610-000003 เพื่อทดสอบใบลดหนี้
 
 ### 2026-10-09 — staging เปลี่ยนไปส่ง OTP ผ่าน DeeSMSx
 

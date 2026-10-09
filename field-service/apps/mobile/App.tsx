@@ -323,7 +323,7 @@ export default function App() {
       const suspended = membership?.status === 'active' && membership.organization_status === 'suspended';
       const active = membership?.status === 'active' && !suspended;
       // Tabs only for an active membership; pending/suspended/no shop never show business menus.
-      if (route.screen === 'shop' && !membership) content = <NoShop onCreate={() => setRoute({ screen: 'register' })} onJoin={() => setRoute({ screen: 'joinEntry' })} />;
+      if (route.screen === 'shop' && !membership) content = <NoShop onCreate={() => setRoute({ screen: 'register' })} onJoin={() => setRoute({ screen: 'joinEntry' })} onSignOut={signOut} />;
       else if (route.screen === 'shop' && membership && suspended) content = <Screen>
         <Banner text={membership.suspension_kind === 'permanent' ? translate(language, 'suspension.permanent')
           : membership.suspended_until ? translate(language, 'suspension.temporary', { date: formatDate(new Date(membership.suspended_until), language) })
