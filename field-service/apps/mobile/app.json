@@ -2,7 +2,7 @@
   "expo": {
     "name": "คู่ช่าง",
     "slug": "koochang",
-    "version": "0.2.13",
+    "version": "0.2.14",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.koochang.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground.png",
@@ -45,7 +45,7 @@
           "photosPermission": false,
           "savePhotosPermission": "บันทึกรูป QR พร้อมเพย์ลงคลังรูปเมื่อคุณกดบันทึก / Saves the PromptPay QR to your photos when you tap Save.",
           "isAccessMediaLocationEnabled": false,
-          "granularPermissions": ["photo"]
+          "granularPermissions": []
         }
       ],
       [
