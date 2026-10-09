@@ -6,14 +6,23 @@ const digits = (value: unknown) => typeof value === 'string' && /^[\d -]+$/.test
 const minor = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 &&
   Math.abs(value * 100 - Math.round(value * 100)) < 0.000001 ? Math.round(value * 100) : NaN;
 // EasySlip also uses name similarity. Corroborate the visible account digits, not just a matched name.
-// Banks mask differently: KBank keeps the full length (xxx-x-x9956-x), SCB shows only the tail (x-9956), so a
-// shorter mask is compared right-aligned with the end of the account number.
+// Banks mask differently and in different places: full length with some digits shown (xxx-x-x9956-x, 013-x-xxx95-6),
+// or a shortened form where the number of x is not the number of hidden digits (x-9956, 0138-xx, xx-8689-xx).
+// Full length: compare position by position. Otherwise every visible run of digits must appear in the account
+// number in the same order. At least 4 digits must be visible either way.
 export function matchesMasked(value: unknown, expected: string | undefined): boolean {
   if (typeof value !== 'string') return false;
   const actual = value.replace(/[ -]/g, '').toLowerCase(), number = digits(expected);
-  if (!number || !/^[\dx*]+$/.test(actual) || actual.length > number.length || (actual.match(/\d/g)?.length ?? 0) < 4) return false;
-  const offset = number.length - actual.length;
-  return [...actual].every((c, i) => c === 'x' || c === '*' || c === number[offset + i]);
+  if (!number || !/^[\dx*]+$/.test(actual) || (actual.match(/\d/g)?.length ?? 0) < 4) return false;
+  if (actual.length === number.length) return [...actual].every((c, i) => c === 'x' || c === '*' || c === number[i]);
+  if (actual.length > number.length) return false;
+  let from = 0;
+  for (const run of actual.match(/\d+/g) ?? []) {
+    const at = number.indexOf(run, from);
+    if (at < 0) return false;
+    from = at + run.length;
+  }
+  return true;
 }
 
 export class EasySlip {

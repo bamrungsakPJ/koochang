@@ -28,8 +28,11 @@ test('EasySlip uses authenticated v2 multipart amount/account/duplicate checks a
   const result = await provider.verify(Buffer.from('image'),order);
   assert.deepEqual(Object.keys(result).sort(),['amountMinor','code','receivedAt','reference']); assert.equal(result.code,'VERIFIED'); assert.equal(requests,1);
 });
-test('EasySlip accepts the short tail mask some banks print (SCB: x-9956) but not a wrong or too short tail', async () => {
-  for (const [account, code] of [['x-7890', 'VERIFIED'], ['xxx-x-x7890', 'VERIFIED'], ['x-7891', 'RECEIVER_MISMATCH'], ['x-890', 'RECEIVER_MISMATCH'], ['x-1234-567890', 'RECEIVER_MISMATCH']]) {
+test('EasySlip accepts receiver masks in any position (tail, head, middle, shortened) but not wrong or too few digits', async () => {
+  // Account 123-4-56789-0.
+  for (const [account, code] of [['x-7890', 'VERIFIED'], ['xxx-x-x7890', 'VERIFIED'], ['123-x-xxxx9-0', 'VERIFIED'], ['1234-xx', 'VERIFIED'],
+    ['xx-5678-xx', 'VERIFIED'], ['12-xx-890', 'VERIFIED'], ['x-7891', 'RECEIVER_MISMATCH'], ['x-890', 'RECEIVER_MISMATCH'],
+    ['x-1234-567890', 'RECEIVER_MISMATCH'], ['890-xx-12', 'RECEIVER_MISMATCH'], ['xxx-x-x7891-x', 'RECEIVER_MISMATCH']]) {
     const r = valid(); r.data.rawSlip.receiver.account.bank.account = account;
     assert.equal((await verify(r)).code, code, account);
   }
