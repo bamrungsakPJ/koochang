@@ -40,6 +40,15 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "บันทึกรูป QR พร้อมเพย์ลงคลังรูปเมื่อคุณกดบันทึก / Saves the PromptPay QR to your photos when you tap Save.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": ["photo"]
+        }
+      ],
+      [
         "expo-notifications",
         {
           "defaultChannel": "default"

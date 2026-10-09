@@ -3,6 +3,7 @@ import { AppState, Image, Linking, Pressable, StyleSheet, Text, View } from 'rea
 import { formatDate, formatMoney, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Autopay, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
 import { CameraDeniedError, pickPhoto, readPicked, uuid } from '../photos';
+import { GalleryDeniedError, savePngToGallery } from '../gallery';
 import { Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, tones, useErrorText, useT, type Tone } from '../ui';
 
 const invoiceTone = (s: InvoiceSummary['status']) => s === 'paid' ? 'ok' : s === 'open' ? 'warn' : 'neutral';
@@ -205,6 +206,11 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
           <Title>{money(invoice.amount_minor, language)}</Title>
           <Sub>{t('pay.payee')}: {invoice.pay_to.account_name}</Sub>
         </View>
+        <Button kind="secondary" icon="download" title={t('pay.saveQrPhone')} onPress={async () => {
+          setError(null); setDone(null);
+          try { await savePngToGallery(invoice.pay_to!.promptpay_qr_png!, `KooChang-QR-${invoice.number}`); setDone(t('pay.qrSaved')); }
+          catch (e) { setError(e instanceof GalleryDeniedError ? t('pay.galleryDenied') : errorText(e)); }
+        }} />
         <Sub>{t('pay.qrHintApp')}</Sub>
       </Card> : null}
       {chosen === 'transfer' && invoice.pay_to ? <>

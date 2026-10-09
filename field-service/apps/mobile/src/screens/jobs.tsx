@@ -7,6 +7,7 @@ import { addDays, DatePicker } from '../calendar';
 import { uuid } from '../photos';
 import { Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 import { customerTitle, openMaps } from './customers';
+import { MapPreview } from '../map';
 import { categoryIcon, useEquipmentTitle } from './equipment';
 
 const jobTypes = ['maintenance', 'repair', 'installation', 'inspection', 'other'] as const;
@@ -240,6 +241,7 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
     <Title>{t('createJob')}</Title>
     {customer ? <Sub>{customerTitle(customer)}{location ? ` · ${location.label}` : ''}</Sub> : null}
     {location ? <Card>{location.address ? <Text style={styles.historyText}>{location.address}</Text> : null}{location.travel_note ? <Sub>{location.travel_note}</Sub> : null}
+      {location.latitude !== null && location.longitude !== null ? <MapPreview latitude={location.latitude} longitude={location.longitude} onPress={() => openMaps(location)} /> : null}
       {location.latitude !== null ? <View style={styles.actions}><Button small kind="secondary" icon="navigate" title={t('ownerWeb.openInMaps')} onPress={() => openMaps(location)} /></View>
         : <Banner tone="info" text={t('ownerWeb.noCoordinatesHint')} />}</Card> : null}
     {history?.open_jobs.length ? <Banner tone="info" text={t('ownerWeb.openJobsWarning', { n: history.open_jobs.length })} /> : null}
@@ -346,6 +348,8 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
           onPress={() => openMaps({ latitude: job.latitude, longitude: job.longitude, address: job.location_address, label: job.location_label ?? '' })}><IconTile icon="navigate" tone="blue" /></Pressable>} />
       <Row icon="construct" tone="amber" title={job.assignee_name ?? t('unassignedOption')} subtitle={t('assignee')} last />
     </Card>
+    {job.latitude !== null && job.longitude !== null ? <MapPreview latitude={job.latitude} longitude={job.longitude}
+      onPress={() => openMaps({ latitude: job.latitude, longitude: job.longitude, address: job.location_address, label: job.location_label ?? '' })} /> : null}
     <Section>{t('plannedEquipment')}</Section>
     <Card padded={false}>
       {job.equipment.map((e, i) => { const [ei, et] = categoryIcon(e.category); return <Row key={e.id} icon={<IconTile icon={ei} tone={et} />} title={equipmentTitle(e)}

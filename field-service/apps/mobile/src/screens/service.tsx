@@ -39,7 +39,11 @@ function Chip({ label, on, onPress, tone }: { label: string; on: boolean; onPres
 
 /** Where an unsent record belongs, so Home can reopen it. */
 export interface DraftTarget { jobId?: string; customerId: string; locationId: string; title: string }
-interface SavedForm { clientEventId: string; occurredAt: string; drafts: Record<string, Draft>; note: string; target?: DraftTarget }
+interface SavedForm { clientEventId: string; occurredAt: string; drafts: Record<string, Draft>; note: string; target?: DraftTarget; memberId?: string }
+/** Drafts belong to the person who wrote them: on a shared phone each member sees only their own.
+ * Drafts saved before 0.2.14 carry no member; whoever reopens one first takes it over. */
+const draftPrefix = (m: Membership) => `service:${m.organization_id}:m:${m.member_id}:`;
+const legacyDraftKey = (org: string, jobId: string | undefined, locationId: string) => `service:${org}:${jobId ?? `adhoc:${locationId}`}`;
 
 /** Record what was actually done, unit by unit. The client event id is kept with the entries,
  * so sending again after a network error never records twice. Entries are also kept on the
@@ -55,7 +59,8 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   const equipmentTitle = useEquipmentTitle();
   const org = membership.organization_id;
   const locationId = job?.location_id ?? adhoc!.locationId;
-  const draftKey = `service:${org}:${job ? job.id : `adhoc:${locationId}`}`;
+  const draftKey = `${draftPrefix(membership)}${job ? job.id : `adhoc:${locationId}`}`;
+  const legacyKey = legacyDraftKey(org, job?.id, locationId);
   const clientEventId = useRef(uuid());
   const occurredAt = useRef(new Date().toISOString());
   const [restored, setRestored] = useState<boolean | null>(null);
@@ -90,7 +95,11 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   }, []);
   useEffect(() => {
     void (async () => {
-      const saved = await loadDraft<SavedForm>(draftKey);
+      let saved = await loadDraft<SavedForm>(draftKey);
+      if (!saved) {
+        const legacy = await loadDraft<SavedForm>(legacyKey);
+        if (legacy && !legacy.memberId) { saved = legacy; await saveDraft<SavedForm>(draftKey, { ...legacy, memberId: membership.member_id }); await clearDraft(legacyKey); }
+      }
       if (saved && Object.keys(saved.drafts).length) {
         clientEventId.current = saved.clientEventId; occurredAt.current = saved.occurredAt;
         setDrafts(saved.drafts); setNote(saved.note); setRestored(true);
@@ -103,7 +112,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
     if (restored === null) return;
     if (!Object.keys(drafts).length && !note) return;
     const target: DraftTarget = { jobId: job?.id, customerId: job?.customer_id ?? adhoc!.customerId, locationId, title };
-    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note, target });
+    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note, target, memberId: membership.member_id });
   }, [drafts, note, restored, title]);
 
   const toggle = (id: string) => setDrafts(prev => {
@@ -275,9 +284,11 @@ export function UnsentRecords({ membership, onOpen }: { membership: Membership; 
   const language = useContext(LanguageContext);
   const [items, setItems] = useState<{ key: string; savedAt: number; value: SavedForm }[]>([]);
   useEffect(() => {
+    // This member's drafts, plus older drafts that have no owner yet.
     listDrafts<SavedForm>(`service:${membership.organization_id}:`)
-      .then(list => setItems(list.filter(d => d.value.target && Object.keys(d.value.drafts ?? {}).length)), () => {});
-  }, [membership.organization_id]);
+      .then(list => setItems(list.filter(d => d.value.target && Object.keys(d.value.drafts ?? {}).length
+        && (d.value.memberId ? d.value.memberId === membership.member_id && d.key.startsWith(draftPrefix(membership)) : !d.key.includes(':m:')))), () => {});
+  }, [membership.organization_id, membership.member_id]);
   if (!items.length) return null;
   return <><Section>{t('unsentRecords')}</Section>
     <Card padded={false}>{items.map((d, i) => <Row key={d.key} icon="cloud-upload" tone="amber" last={i === items.length - 1}
