@@ -86,7 +86,8 @@
 - **พบ**: ตาราง `Invoice` (PK DocNo), `InvoiceDetail` (PK DocNo+Seq), `Receipt` (PK DocNo) ชี้กันผ่าน `Invoice.ReceiptNo` / `Receipt.InvoiceNo`; เลข `IV`+ปี พ.ศ. 2 หลัก+เดือน+ลำดับ 4 หลัก (IV69100001), `R`+YYMM+4 หลัก ตามเดือนวันรับเงิน, เริ่มใหม่ทุกเดือน; ลูกค้า `C0000165`; VAT 7%; **ไม่มีตัวนับ/sequence/trigger/procedure ออกเลข** โปรแกรมเดิมคิดเลขเอง กันซ้ำได้แค่ PK; ไม่มีตารางใบลดหนี้; `sp_GetUnpaidInvoicesForNotification` เตือน Invoice ที่ยังไม่มี Receipt; ใช้งานน้อย (Invoice 5 / Receipt 1 ใน 90 วัน)
 - **ตัดสินใจ (ผู้ใช้)**: IV = ใบแจ้งหนี้, R = ใบเสร็จรับเงิน ตามระบบเดิม; PDF คู่ช่างสร้างเอง; ใบลดหนี้/คืนเงินต้องเพิ่มใน ITISME (ผู้ใช้จะแก้โปรแกรมเดิมตามทีหลัง); `EmployeeID='KOOCHANG'`, `PaymentType='1'`, `ShowInPayment` ใช้ค่า default 1; ใช้เล่มเลขเดียวกับระบบเดิม (เพื่อให้เลขต่อเนื่อง)
 - **ตัดสินใจเพิ่ม**: R = ใบเสร็จรับเงิน/ใบกำกับภาษี (ฟอร์มเดิมจากสแกน CCF27052568.pdf); **ราคาแพ็กเกจรวม VAT** ถอด VAT แบบระบบเดิม (ยอด×100/107); ร่างแบบอยู่ใน [TAX_DOCUMENTS.md](TAX_DOCUMENTS.md); ผู้ใช้อนุญาตให้ Claude เขียนสคริปต์ SQL ฝั่ง ITISME โดยผู้ใช้ตรวจและรันเองบน ITISME_TEST ก่อน
-- **สถานะ**: ⏳ ผู้ใช้รัน `infra/itisme/00_inspect.sql` (อ่านอย่างเดียว อยู่ที่ /tmp/itisme-inspect.sql บน server2); Claude เขียนสคริปต์ ITISME_TEST + procedure
+- **สถานะ**: ⏳ ผู้ใช้รัน `infra/itisme/00_inspect.sql` (อ่านอย่างเดียว อยู่ที่ /tmp/itisme-inspect.sql บน server2); Claude เขียน `infra/itisme/02_koochang_objects.sql` แล้ว (sp_NextDocNo, KooChangCustomer, CreditNote(+Detail), sp_KC_IssueReceipt, sp_KC_IssueCreditNote, sp_KC_Company); ผลอ่าน 00_inspect: collation Thai_CI_AS, HQ '1'/'0', BranchNo '0000', PaymentCond ส่วนใหญ่ว่าง, Ref ว่างทุกใบ, DocDate เที่ยงคืน
+- **ปัญหา**: แม้ผู้ใช้เพิ่มกฎ Write/Edit `infra/itisme/**` แล้ว ระบบตรวจสิทธิ์ยังบล็อกการเขียนสคริปต์สร้างฐาน ITISME_TEST (01) และสร้าง SQL login (03) — รอผู้ใช้ตัดสินใจ
 
 ### 2026-10-09 — คืนเงิน Stripe แล้วยอด balance ติดลบเท่าค่าธรรมเนียม (ตัดสินใจ: ยอมรับเป็นต้นทุน)
 
