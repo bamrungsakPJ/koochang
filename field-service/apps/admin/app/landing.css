@@ -15,3 +15,5 @@
 .lp-cta .lp-desc{margin:0 0 22px}
 @media(max-width:680px){.lp-nav nav>a[href='#screens']{display:none}.landing .lp-nav-cta{padding:7px 12px}.lp-badge{font-size:12px}.lp-pricing .lp-trial{grid-template-columns:auto 1fr;padding:18px;gap:14px}.lp-trial-days{width:64px;height:64px}.lp-trial-days b{font-size:28px}.lp-trial-text h3{font-size:17px}.lp-trial .lp-primary{grid-column:1/-1}.lp-assure{font-size:12px;gap:4px 14px}}
 .lp-nowrap{white-space:nowrap}
+
+.lp-play{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}.lp-cta .lp-play{justify-content:center}.lp-play img{display:block;height:53px;width:auto}.lp-play-soon{opacity:.55;filter:grayscale(.3)}.lp-play small{font-size:12px;color:var(--lp-muted)}

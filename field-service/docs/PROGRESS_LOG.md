@@ -80,6 +80,17 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-09 — มือถือ: บันทึก QR ลงเครื่อง, แผนที่ในแอป, ร่างผลบริการแยกตามผู้ใช้ (b7a49f9) + ป้าย Google Play บนหน้าแรก
+
+- **บันทึก QR พร้อมเพย์**: ปุ่ม "บันทึก QR ลงเครื่อง" ในใบแจ้งหนี้ (expo-media-library ~57.0.5, ขอสิทธิ์เพิ่มรูปอย่างเดียว ไม่อ่านคลังรูป); เว็บดาวน์โหลดไฟล์แทน; ปุ่มจะเห็นเมื่อ QR แสดง (ตอนนี้ยังซ่อนเพราะยังไม่มี PromptPay ID ของบริษัท)
+- **แผนที่ในแอป** (react-native-maps 1.27.2, Google Maps lite mode): แผนที่เล็กพร้อมหมุดที่สถานที่ลูกค้า, ตอนกดใช้ตำแหน่งปัจจุบัน (ดูก่อนบันทึก), หน้ารายละเอียดงาน และหน้าสร้างงาน; แตะแผนที่ = เปิด Google Maps นำทาง; ใช้ API key จาก `GOOGLE_MAPS_ANDROID_API_KEY` หรือ Android key ของ Firebase ใน google-services.json (ไม่ commit) — ไม่มี key = ไม่แสดงแผนที่ (Google Maps จะทำแอปปิดเอง)
+  - **ผู้ใช้ต้องทำ**: Google Cloud Console โปรเจกต์ koochang-e55ff → เปิด "Maps SDK for Android" และตรวจว่า API key (Android key ของ Firebase) ไม่ถูกจำกัดจนไม่รวม Maps SDK — ไม่งั้นแผนที่เป็นสีเทา (แอปไม่ปิด); Maps SDK for Android แบบ native ไม่มีค่าใช้จ่าย
+- **ร่างผลบริการแยกตามผู้ใช้**: key เป็น `service:<org>:m:<member_id>:…` แต่ละคนเห็นเฉพาะร่างของตัวเองบนโทรศัพท์ที่ใช้ร่วมกัน (รวมรูปรอส่ง เพราะส่งจากฟอร์มของร่างนั้น); ร่างเก่าก่อน 0.2.14 ที่ไม่มีเจ้าของ คนแรกที่เปิดจะรับไป
+- **ป้าย Google Play บนหน้าแรก** (hero + กล่องท้ายหน้า): ใช้รูปป้ายทางการภาษาไทยจาก Google ไม่ดัดแปลง; ยังไม่มีลิงก์ แสดงจางพร้อม "แอปช่างบน Google Play เร็ว ๆ นี้" จนกว่าจะตั้ง `NEXT_PUBLIC_PLAY_STORE_URL` (เช่น `https://play.google.com/store/apps/details?id=com.koochang.app`) ตอน build เว็บหลังแอปขึ้นร้านแล้ว; ตรวจในเบราว์เซอร์ทั้งจอใหญ่และมือถือ 375px ไม่ล้นจอ
+- **ปัญหา/แก้**: key i18n `pay.saveQr` มีอยู่แล้ว (เว็บใช้) → ใช้ `pay.saveQrPhone`; test `mobile-client` ยังล้มแบบเดิม (โหลด `./cache` ใน harness ไม่ได้ ไม่เกี่ยวกับงานนี้)
+- **ตรวจ**: typecheck มือถือผ่าน, i18n ผ่าน, `expo config` มีปลั๊กอิน media-library + maps และ mapsEnabled=true
+- **ยังไม่ทำ**: build APK 0.2.14 — เพิ่ม native module ใหม่ ต้อง prebuild ใน D:\kc ใหม่และตรวจ release signing อีกรอบ; deploy เว็บ
+
 ### 2026-10-09 — คืนเงินผ่าน Stripe อัตโนมัติเมื่ออนุมัติ (commit af3503d, migration 033; ยังไม่ deploy)
 
 - **ทำ**: อนุมัติคืนเงินของ payment ที่มาจาก Stripe (`STRIPE:pi_…` จ่ายครั้งเดียว หรือ `STRIPE:in_…` Subscription) → API สร้าง refund ใน Stripe ทันที แล้วบันทึกสำเร็จพร้อม `STRIPE:re_…`; ถ้า Stripe ปฏิเสธ → บันทึก "ไม่สำเร็จ" (ขอคืนใหม่ได้) + audit เก็บรหัส error; ถ้าติดต่อ Stripe ไม่ได้ → ค้างสถานะอนุมัติ ในคอนโซลมีปุ่ม "คืนเงินผ่าน Stripe" ให้กดซ้ำ (endpoint `POST /platform/billing/refunds/:id/stripe`, สิทธิ์ refund.approve)
