@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 — staging `580f874` (migration 034) ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, APK 0.2.14 build 16; รอ DeeSMSx อนุมัติ sender)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 — staging `580f874` (migration 034) ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, APK 0.2.14 build 16; DeeSMSx ส่ง OTP จริงแล้ว)
 
 ### งานที่ทำและแก้ไขแล้ว
 
@@ -83,7 +83,7 @@
 ### 2026-10-09 — staging เปลี่ยนไปส่ง OTP ผ่าน DeeSMSx
 
 - ผู้ใช้สั่งให้ Claude แก้เอง: สำรอง `/etc/field-service/staging.env` → `staging.env.bak-20261009` แล้วลบบรรทัด `SMS_PROVIDER=thsms` → pm2 restart api/worker (โหลด `--env-file` ใหม่) → API online, /v1/health 200; ตอนนี้ OTP ใช้ค่าในคอนโซล (DeeSMSx, sender `KooChang`)
-- **สถานะ**: ⏳ ผู้ใช้ทดสอบ OTP จริง (สมัคร/ลืมรหัสผ่าน) ว่าได้ SMS จาก KooChang พร้อม Ref
+- **สถานะ**: ✅ ผู้ใช้ทดสอบ OTP จริงแล้ว ได้ SMS ถูกต้อง (2026-10-09) — เลิกใช้ THSMS
 
 ### 2026-10-09 — หัวกระดาษใบเสร็จ: ข้อมูลผู้ขาย + โลโก้จากคอนโซล (migration 036, 0fdc095)
 
