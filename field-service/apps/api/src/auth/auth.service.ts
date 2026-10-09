@@ -17,7 +17,9 @@ export function passwordProblem(value: unknown): string | null {
 
 /** ASCII SMS in either UI language; reference identifies this request, never the OTP. */
 export const otpReference = (challengeId: string) => challengeId.replaceAll('-', '').slice(0, 6).toUpperCase();
-export const otpSmsText = (code: string, reference: string) => `Your OTP For KooChang is ${code}, Ref: ${reference}`;
+// Thai SMS is sent as UCS-2: keep it within 70 characters so it stays one billable segment.
+export const otpSmsText = (code: string, reference: string, ttlSeconds = 300) =>
+  `คู่ช่าง : รหัส OTP ${code} (Ref: ${reference}) ใช้ได้ ${Math.max(1, Math.round(ttlSeconds / 60))} นาที ห้ามบอกผู้อื่น`;
 
 @Injectable()
 export class AuthService {
@@ -45,7 +47,7 @@ export class AuthService {
         s.otpTtlSeconds, s.otpMaxAttempts, s.otpCooldownSeconds, s.otpPhoneHourlyLimit, s.otpClientHourlyLimit])).rows[0]);
     if (!row?.challenge_id) throw apiError(429, 'RATE_LIMITED', { retry_after: row?.retry_after_seconds ?? s.otpCooldownSeconds });
     const reference = otpReference(challengeId);
-    try { await sms.send(phone!, otpSmsText(code, reference)); }
+    try { await sms.send(phone!, otpSmsText(code, reference, s.otpTtlSeconds)); }
     catch { throw apiError(503, 'TEMPORARILY_UNAVAILABLE'); }
     return { challenge_id: challengeId, reference, expires_at: row.expires_at, resend_after: s.otpCooldownSeconds, delivery: sms.delivery };
   }

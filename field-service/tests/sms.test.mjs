@@ -48,13 +48,13 @@ test('OTP service uses DeeSMSx acknowledgment and maps provider failure to gener
   const service=new AuthService(database,settings,createSmsSender(env));
   const result=await service.requestOtp({phone:'0912345678'},'127.0.0.1','th');
   assert.equal(result.delivery,'sms');assert.equal(result.code,undefined);
-  assert.equal(messages[0].to,'66912345678');assert.match(messages[0].msg,/^Your OTP For KooChang is \d{6}, Ref: [A-F0-9]{6}$/);
+  assert.equal(messages[0].to,'66912345678');assert.match(messages[0].msg,/^คู่ช่าง : รหัส OTP \d{6} \(Ref: [A-F0-9]{6}\) ใช้ได้ \d+ นาที ห้ามบอกผู้อื่น$/);
   assert.equal(result.reference,result.challenge_id.replaceAll('-','').slice(0,6).toUpperCase());
-  assert.ok(messages[0].msg.endsWith(`Ref: ${result.reference}`));
+  assert.ok(messages[0].msg.includes(`(Ref: ${result.reference})`));assert.ok(messages[0].msg.length<=70);
   assert.notEqual(stored[0][2],messages[0].msg.match(/\d{6}/)[0]);
   status=400;
   await assert.rejects(service.requestOtp({phone:'0912345678'},'127.0.0.1','en'),error=>error.getStatus()===503&&error.getResponse().code==='TEMPORARILY_UNAVAILABLE');
-  assert.match(messages[1].msg,/^Your OTP For KooChang is \d{6}, Ref: [A-F0-9]{6}$/);
+  assert.match(messages[1].msg,/^คู่ช่าง : รหัส OTP \d{6} \(Ref: [A-F0-9]{6}\) ใช้ได้ \d+ นาที ห้ามบอกผู้อื่น$/);
 });
 
 const thsmsEnv = { NODE_ENV:'production', SMS_PROVIDER:'thsms', THSMS_TOKEN:'synthetic-token', THSMS_SENDER:'TestSender' };
