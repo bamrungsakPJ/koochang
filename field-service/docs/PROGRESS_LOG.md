@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 ค่ำ — staging migration 036 ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, DeeSMSx OTP จริง, ใบเสร็จ ITISME_Test, APK 0.2.16 build 18)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 ค่ำ — staging migration 036 ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, DeeSMSx OTP จริง, ใบเสร็จ ITISME_Test, APK 0.2.17 build 19)
 
 ### งานที่ทำและแก้ไขแล้ว
 
@@ -20,7 +20,7 @@
 - **ส่งรูปและ OCR**: แก้การส่งรูปป้าย/รูปงานเป็น native bytes เพิ่มภาพตัวอย่าง สถานะอัปโหลด/อ่านรูป ผลยี่ห้อ/รุ่น/Serial ข้อผิดพลาดและลองใหม่ ป้องกันผลรูปเก่าทับรูปใหม่ และอธิบายกรณีเซิร์ฟเวอร์ยังไม่ตั้งค่า AI; ยังต้องยืนยันบนโทรศัพท์จริง
 - **ลดค่าใช้จ่าย AI**: ใช้ `claude-haiku-4-5-20251001`, จำกัด 512 tokens, ปิด thinking และไม่มี fallback ไปโมเดลแพง Prompt อ่านเฉพาะ brand/model/serial_number คงตัวอักษรและเลขศูนย์ ไม่เดาข้อมูลที่อ่านไม่ได้ และไม่ทำตามคำสั่งในภาพ ทดสอบ Anthropic จริงด้วยภาพสังเคราะห์อ่านตรงครบ 3 ช่องประมาณ 4 วินาที ยังไม่ใช่ผลทดสอบรูปถ่ายจริง
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
-- **Build Android ในเครื่อง**: build จาก D:\kc ด้วย Start-Process (ประมาณ 1 นาที) — APK ล่าสุด **0.2.16 / Build 18** `output/builds/apk/KooChang-0.2.16-build18.apk` (ก่อนหน้า 0.2.13 / Build 15) (API `https://api.koochang.com`, เลือกวิธีชำระเงิน 3 แบบ + จ่ายแล้วกลับเข้าแอป, รวมงาน offline/ปฏิทิน/โหลดเพิ่ม/ล็อกนิ้ว/หน้าสร้างงานใหม่) cert SHA-256 4eed9485… เดิม; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Build Android ในเครื่อง**: build จาก D:\kc ด้วย Start-Process (ประมาณ 1 นาที) — APK ล่าสุด **0.2.17 / Build 19** `output/builds/apk/KooChang-0.2.17-build19.apk` (ก่อนหน้า 0.2.16 / Build 18) (API `https://api.koochang.com`, เลือกวิธีชำระเงิน 3 แบบ + จ่ายแล้วกลับเข้าแอป, รวมงาน offline/ปฏิทิน/โหลดเพิ่ม/ล็อกนิ้ว/หน้าสร้างงานใหม่) cert SHA-256 4eed9485… เดิม; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private); field-service-a02 push ล่าสุด 2026-10-09 ถึง commit บันทึกนี้ (Claude push เองได้เมื่อผู้ใช้สั่ง)
 - **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `71b42f5` (2026-10-08, migration ถึง 032) — **ชื่อถาวร**: เว็บ https://koochang.com (/shop, /console, /join, /pay-return), API https://api.koochang.com (api-staging ถูกลบแล้ว); build เว็บด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` ในโฟลเดอร์ `/opt/field-service/staging/field-service`; env `OWNER_WEB_URL=https://koochang.com/shop`, `JOIN_LINK_BASE_URL=https://koochang.com/join` (ผู้ใช้แก้เอง สำรอง staging.env.bak-20261008); Stripe live credential `db19ee92-…` webhook `https://api.koochang.com/v1/billing/stripe/webhook/db19ee92-33fd-4e51-bdf5-709a77a18c48`; แพ็กเกจ test20 (20 บาท/เดือน) ยังเปิดขาย; ตั้งค่า Anthropic key แล้ว มี push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — บันทึกผลบริการ/จบงานโดยไม่ต้องกดเริ่มงาน (APK 0.2.10), push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
@@ -31,7 +31,7 @@
 ข้อที่ปิดแล้วจึงตัดออกจากรายการ: OTP จริงผ่าน DeeSMSx, บันทึกรูป QR ลงเครื่อง + ร่างผลบริการแยกตามผู้ใช้ (0.2.14), test mobile-client, คืนเงิน 20 บาท (INV-2610-000002), หัวกระดาษใบเสร็จ (ใช้ค่าผู้ขายจากคอนโซลแทนตาราง Company)
 
 **1. ผู้ใช้ทำเอง**
-- ทดสอบบนโทรศัพท์ (APK 0.2.16 build 18): จ่ายจากแอป → กลับเข้าแอป, โอน + สลิป, หน้าแพ็กเกจ/ใบเสร็จ PDF, บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามคน, ออฟไลน์ (โหมดเครื่องบิน), ปฏิทินนัด, โหลดเพิ่ม, re-lock, หน้าสร้างงานใหม่, หน้าเกี่ยวกับแอป, session หลังเปิดใหม่/อัปเดต, keyboard/ขนาดตัวอักษร
+- ทดสอบบนโทรศัพท์ (APK 0.2.17 build 19 — มีงาน redesign: เมนูจัดการร้าน, ลูกค้าใหม่ไปต่อสร้างงาน/บันทึกบริการ, OCR เติมค่าทันที): จ่ายจากแอป → กลับเข้าแอป, โอน + สลิป, หน้าแพ็กเกจ/ใบเสร็จ PDF, บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามคน, ออฟไลน์ (โหมดเครื่องบิน), ปฏิทินนัด, โหลดเพิ่ม, re-lock, หน้าสร้างงานใหม่, หน้าเกี่ยวกับแอป, session หลังเปิดใหม่/อัปเดต, keyboard/ขนาดตัวอักษร
 - ITISME: ขอคืนเงิน INV-2610-000003 เพื่อทดสอบใบลดหนี้; แก้ตาราง Company ใน ITISME จริง (ชื่ออังกฤษ/เลขผู้เสียภาษีผิด); เปลี่ยนคอนโซลจาก `ITISME_Test` → `ITISME` เมื่อพร้อม
 - Stripe Dashboard: Send test event (ต้อง 200), Manage failed payments → Cancel subscription, Customer portal (เปิดอัปเดตบัตร + ประวัติ, ปิดยกเลิก/Switch plans/Update quantities); ทดสอบเสร็จหยุดขาย test20
 - server2: ลบ `/opt/field-service/staging/pnpm-workspace.yaml`; ภายหลังลบ hostname app-staging + เอาออกจาก ADMIN_ORIGIN
@@ -49,7 +49,7 @@
 - แผนที่ฝังในแอป (เอาออกตามที่ผู้ใช้เลือก; ถ้าทำ: react-native-maps + Maps SDK ผูก billing)
 - อนาคต: Omise, iOS (build + push), production, backup นอกเครื่อง, CI
 
-**หมายเหตุ working tree**: มีโค้ดมือถือแนว redesign ที่ยังไม่ commit (ShopManagement, customer-flow, ocr-fields, 9 หน้าจอ) ไม่ได้มาจากงานที่บันทึกไว้ — ผู้ใช้เลือกไม่รวมใน APK (2026-10-09) จึงยังค้างใน working tree; ไฟล์ service account Firebase ที่ root repo ห้าม commit
+**หมายเหตุ**: ไฟล์ service account Firebase ที่ root repo ห้าม commit
 
 รายวันด้านล่างเก็บประวัติตามเวลา จึงอาจมีสถานะเก่าที่ถูกแก้แล้ว (ผลตรวจมือถือเดิมอยู่ใน [MOBILE_STATUS_2026-10-07.md](MOBILE_STATUS_2026-10-07.md))
 
@@ -76,6 +76,14 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-09 (ดึก) — APK 0.2.17 (build 19): รวมงาน redesign มือถือ (b3f5b39)
+
+- ผู้ใช้แจ้งว่า redesign ทำแล้ว ให้รวมโค้ดที่ค้างใน working tree แล้ว build ใหม่
+- **ในรุ่นนี้**: เมนู "จัดการร้าน" (ShopManagement: ทีม/รอบดูแล/แพ็กเกจ/บัญชี/สลับร้าน/ช่วยเหลือ) แยกจากหน้าแรก; เพิ่มลูกค้าใหม่แล้วไปต่อที่สร้างงาน/บันทึกบริการตามที่ตั้งใจ (`customer-flow.ts`, ลูกค้าหลายสถานที่ให้เลือกสถานที่ก่อน); OCR เติมค่าที่อ่านได้ทันทีโดยไม่ทับค่าที่ผู้ใช้แก้เอง (`ocr-fields.ts`); ปุ่ม "บันทึกและเริ่มบริการ/สร้างงาน", ข้อความร่างเก็บในเครื่อง/บันทึกร่างไม่ได้, ส่งรูปซ้ำ; ตัวกรองรายการงาน (วันนี้/ถัดไป/ยังไม่มอบหมาย)
+- ตรวจแล้ว: typecheck มือถือผ่าน; test mobile-redesign + mobile-client + i18n 14/14 ผ่าน
+- **Build**: ไม่มี native ใหม่จึงไม่ prebuild; BUILD SUCCESSFUL 10m02s (ช้ากว่าปกติ — JS bundle ใหม่ทั้งชุด; รอบแรกล้มเพราะลืมส่ง `-JavaPath/-SdkPath` ให้ `android-build-env.ps1`); ตรวจ com.koochang.app 19/0.2.17, cert SHA-256 4eed9485… เดิม, bundle มี api.koochang.com และ ShopManagement → `output/builds/apk/KooChang-0.2.17-build19.apk` (76 MB)
+- **สถานะ**: ⏳ ผู้ใช้ติดตั้ง 0.2.17 และทดสอบ; ยังไม่ได้ทดสอบบนโทรศัพท์
 
 ### 2026-10-09 (ค่ำ) — ทบทวนรายการงานค้าง; APK ใหม่ไม่จำเป็น
 
