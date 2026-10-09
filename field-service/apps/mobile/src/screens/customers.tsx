@@ -5,7 +5,6 @@ import { formatPhone, normalizePhone } from '@field-service/core';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Customer, type CustomerLocation, type CustomerSummary, type Membership } from '../api';
 import { LocationEquipment } from './equipment';
-import { MapPreview } from '../map';
 import { Avatar, Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconButton, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -145,7 +144,6 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     <Button kind="secondary" icon="locate" title={t('useCurrentLocation')} busy={capture.state === 'reading'} disabled={busy} onPress={readLocation} />
     <Sub>{t('captureHint')}</Sub>
     {capture.state === 'preview' ? <View style={styles.preview}>
-      <MapPreview latitude={capture.latitude} longitude={capture.longitude} />
       <Text style={styles.coords}>{capture.latitude.toFixed(6)}, {capture.longitude.toFixed(6)}</Text>
       <Sub>{t('capturedPreview', { meters: capture.accuracy === null ? '?' : Math.round(capture.accuracy) })}</Sub>
       {capture.accuracy !== null && capture.accuracy > 50 ? <Banner tone="info" text={t('lowAccuracy')} /> : null}
@@ -240,13 +238,12 @@ function LocationCard({ membership, location, onChanged, onEdit, onAddEquipment,
       <IconButton icon="create-outline" label={t('edit')} onPress={onEdit} />
     </View>
     <Badge text={located ? t('hasCoordinates') : t('noCoordinates')} tone={located ? 'ok' : 'neutral'} />
-    {!located ? <Sub>{t('addressOnly')}</Sub> : <MapPreview latitude={location.latitude!} longitude={location.longitude!} onPress={() => openMaps(location)} />}
+    {!located ? <Sub>{t('addressOnly')}</Sub> : null}
     <View style={styles.actions}>
       <View style={{ flex: 1 }}><Button small kind="secondary" icon="navigate" title={t('navigate')} onPress={() => openMaps(location)} /></View>
       <View style={{ flex: 1 }}><Button small kind="secondary" icon="locate" title={t('captureLocation')} busy={capture.state === 'reading'} onPress={read} /></View>
     </View>
     {capture.state === 'preview' ? <View style={styles.preview}>
-      <MapPreview latitude={capture.latitude} longitude={capture.longitude} />
       <Text style={styles.locationText}>{t('capturedPreview', { meters: capture.accuracy !== null ? Math.round(capture.accuracy) : '?' })}</Text>
       <Text style={styles.coords}>{capture.latitude.toFixed(6)}, {capture.longitude.toFixed(6)}</Text>
       {capture.accuracy !== null && capture.accuracy > 50 ? <Banner tone="info" text={t('lowAccuracy')} /> : null}

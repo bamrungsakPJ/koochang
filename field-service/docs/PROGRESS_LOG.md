@@ -34,7 +34,7 @@
   - รับ webhook `charge.refunded` / `refund.updated` เพื่อรู้ว่าการคืนเงินที่ Stripe ตอบ pending ล้มเหลวภายหลัง
   - มือถือ: ปุ่มบันทึกรูป QR พร้อมเพย์ลงเครื่อง (expo-media-library)
   - แยกร่างผลบริการตามผู้ใช้ (โทรศัพท์ใช้ร่วมกัน)
-  - แผนที่ฝังในแอปมือถือ (ตอนนี้ใช้ปุ่มเปิด Google Maps) — ต้องเพิ่ม native module
+  - แผนที่ฝังในแอปมือถือ — ทำแล้วใน b7a49f9 แต่ผู้ใช้เลือกเอาออกก่อน (2026-10-09) ใช้ปุ่มเปิด Google Maps ไปก่อน; ถ้าจะกลับมาทำ: react-native-maps + เปิด Maps SDK for Android (ฟรีแบบ native แต่ต้องผูก billing account)
   - ข้อความ error เมื่อใส่ Stripe `rk_` key / รองรับ restricted key ถ้าจำเป็น
   - Omise (Opn Payments) เป็นทางเลือกจ่ายบัตร; QR พร้อมเพย์ของบริษัทเมื่อได้ PromptPay ID
   - iOS (build + push), Play Store (รอ D-U-N-S), production + CI
@@ -80,15 +80,15 @@
 
 ## บันทึกรายวัน
 
-### 2026-10-09 — มือถือ: บันทึก QR ลงเครื่อง, แผนที่ในแอป, ร่างผลบริการแยกตามผู้ใช้ (b7a49f9) + ป้าย Google Play บนหน้าแรก
+### 2026-10-09 — มือถือ: บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามผู้ใช้ (b7a49f9) + ป้าย Google Play บนหน้าแรก
 
 - **บันทึก QR พร้อมเพย์**: ปุ่ม "บันทึก QR ลงเครื่อง" ในใบแจ้งหนี้ (expo-media-library ~57.0.5, ขอสิทธิ์เพิ่มรูปอย่างเดียว ไม่อ่านคลังรูป); เว็บดาวน์โหลดไฟล์แทน; ปุ่มจะเห็นเมื่อ QR แสดง (ตอนนี้ยังซ่อนเพราะยังไม่มี PromptPay ID ของบริษัท)
-- **แผนที่ในแอป** (react-native-maps 1.27.2, Google Maps lite mode): แผนที่เล็กพร้อมหมุดที่สถานที่ลูกค้า, ตอนกดใช้ตำแหน่งปัจจุบัน (ดูก่อนบันทึก), หน้ารายละเอียดงาน และหน้าสร้างงาน; แตะแผนที่ = เปิด Google Maps นำทาง; ใช้ API key จาก `GOOGLE_MAPS_ANDROID_API_KEY` หรือ Android key ของ Firebase ใน google-services.json (ไม่ commit) — ไม่มี key = ไม่แสดงแผนที่ (Google Maps จะทำแอปปิดเอง)
-  - **ผู้ใช้ต้องทำ**: Google Cloud Console โปรเจกต์ koochang-e55ff → เปิด "Maps SDK for Android" และตรวจว่า API key (Android key ของ Firebase) ไม่ถูกจำกัดจนไม่รวม Maps SDK — ไม่งั้นแผนที่เป็นสีเทา (แอปไม่ปิด); Maps SDK for Android แบบ native ไม่มีค่าใช้จ่าย
+- **แผนที่ในแอป** — ทำใน b7a49f9 (react-native-maps, Google Maps lite mode) แล้ว **ผู้ใช้เลือกเอาออกก่อน**: ช่วงแรกใช้ปุ่มกดเปิด Google Maps อย่างเดียว (ไม่ต้องผูก billing account ของ Google Cloud); เอา react-native-maps, MapPreview และ key ใน app.config.js ออกแล้ว หน้าจอกลับเป็นแบบเดิม — โค้ดเก่าดูได้ใน b7a49f9
+  - ไว้ตัดสินใจภายหลัง: Maps SDK for Android แบบ native ไม่มีค่าใช้จ่าย ไม่จำกัด แต่ Google บังคับผูก billing account; ควรตั้ง budget alert และจำกัด key ให้ com.koochang.app + SHA-1
 - **ร่างผลบริการแยกตามผู้ใช้**: key เป็น `service:<org>:m:<member_id>:…` แต่ละคนเห็นเฉพาะร่างของตัวเองบนโทรศัพท์ที่ใช้ร่วมกัน (รวมรูปรอส่ง เพราะส่งจากฟอร์มของร่างนั้น); ร่างเก่าก่อน 0.2.14 ที่ไม่มีเจ้าของ คนแรกที่เปิดจะรับไป
 - **ป้าย Google Play บนหน้าแรก** (hero + กล่องท้ายหน้า): ใช้รูปป้ายทางการภาษาไทยจาก Google ไม่ดัดแปลง; ยังไม่มีลิงก์ แสดงจางพร้อม "แอปช่างบน Google Play เร็ว ๆ นี้" จนกว่าจะตั้ง `NEXT_PUBLIC_PLAY_STORE_URL` (เช่น `https://play.google.com/store/apps/details?id=com.koochang.app`) ตอน build เว็บหลังแอปขึ้นร้านแล้ว; ตรวจในเบราว์เซอร์ทั้งจอใหญ่และมือถือ 375px ไม่ล้นจอ
 - **ปัญหา/แก้**: key i18n `pay.saveQr` มีอยู่แล้ว (เว็บใช้) → ใช้ `pay.saveQrPhone`; test `mobile-client` ยังล้มแบบเดิม (โหลด `./cache` ใน harness ไม่ได้ ไม่เกี่ยวกับงานนี้)
-- **ตรวจ**: typecheck มือถือผ่าน, i18n ผ่าน, `expo config` มีปลั๊กอิน media-library + maps และ mapsEnabled=true
+- **ตรวจ**: typecheck มือถือผ่าน, i18n ผ่าน, `expo config` มีปลั๊กอิน media-library (หลังเอาแผนที่ออก ไม่มี maps)
 - **ยังไม่ทำ**: build APK 0.2.14 — เพิ่ม native module ใหม่ ต้อง prebuild ใน D:\kc ใหม่และตรวจ release signing อีกรอบ; deploy เว็บ
 
 ### 2026-10-09 — คืนเงินผ่าน Stripe อัตโนมัติเมื่ออนุมัติ (commit af3503d, migration 033; ยังไม่ deploy)
