@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 — staging `0016865` (migration 033) ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, APK 0.2.14 build 16; รอ DeeSMSx อนุมัติ sender)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 — staging `580f874` (migration 034) ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, APK 0.2.14 build 16; รอ DeeSMSx อนุมัติ sender)
 
 ### งานที่ทำและแก้ไขแล้ว
 
@@ -79,6 +79,13 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-09 — Deploy staging ถึง 580f874 (migration 034 ใบเสร็จ ITISME)
+
+- **ทำ** (ผู้ใช้สั่ง push + ทำต่อ): รันชุดทดสอบทั้งหมดใหม่ ผ่าน 189 ล้ม 1 (mobile-client ล้มอยู่ก่อนแล้ว); push origin; git bundle → server2 fetch/reset `580f874` → pnpm install → build (NEXT_PUBLIC_API_URL=https://api.koochang.com) → migrate (Applied 034_tax_documents) → pm2 restart
+- **ผล**: 3 แอป online, /v1/health 200, `/v1/platform/billing/tax-documents` 401 ไม่มี token (มี route), `/v1/documents/<token ผิด>` 404, /console 200, build เว็บมีหน้า tax-documents, worker ไม่มี error (ITISME ยังไม่ได้ตั้งค่า จึงไม่หยิบงาน — เอกสารของการจ่ายเงินหลังจากนี้จะรอในคิว)
+- วาง `/tmp/02_koochang_objects.sql` ไว้บน server2 ให้ผู้ใช้รันกับ ITISME_TEST
+- **สถานะ**: ⏳ ผู้ใช้: สร้าง ITISME_TEST + login `koochang_billing` → รัน 02 → คอนโซล ตั้งค่าแพลตฟอร์ม → ใบเสร็จ ITISME → จ่ายเงินทดสอบ (test20) → ตรวจเอกสาร/PDF
 
 ### 2026-10-09 — ใบเสร็จ/ใบกำกับภาษี/ใบลดหนี้อัตโนมัติผ่าน ITISME: ฝั่งคู่ช่างเสร็จ (migration 034)
 
