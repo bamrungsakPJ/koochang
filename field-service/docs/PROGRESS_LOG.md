@@ -80,6 +80,11 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-09 — staging เปลี่ยนไปส่ง OTP ผ่าน DeeSMSx
+
+- ผู้ใช้สั่งให้ Claude แก้เอง: สำรอง `/etc/field-service/staging.env` → `staging.env.bak-20261009` แล้วลบบรรทัด `SMS_PROVIDER=thsms` → pm2 restart api/worker (โหลด `--env-file` ใหม่) → API online, /v1/health 200; ตอนนี้ OTP ใช้ค่าในคอนโซล (DeeSMSx, sender `KooChang`)
+- **สถานะ**: ⏳ ผู้ใช้ทดสอบ OTP จริง (สมัคร/ลืมรหัสผ่าน) ว่าได้ SMS จาก KooChang พร้อม Ref
+
 ### 2026-10-09 — หัวกระดาษใบเสร็จ: ข้อมูลผู้ขาย + โลโก้จากคอนโซล (migration 036, 0fdc095)
 
 - **ปัญหา**: ใบ R69100001 ขึ้นชื่ออังกฤษ "P.WATTANA KARNCHANG" และเลขผู้เสียภาษี 0105551456362 ต่างจากใบกำกับจริง และไม่มีโลโก้
