@@ -5,12 +5,16 @@ import { decrypt } from '../shared/crypto.js';
  * ITISME through its sp_KC_* procedures (infra/itisme/02_koochang_objects.sql). ITISME gives the numbers so they
  * continue the legacy books; the same Ref never issues twice, so a retry after a lost reply is safe. */
 
-export interface ItismeSettings { enabled: boolean; server?: string; port?: number; database?: string; user?: string; passwordSealed?: string }
+/** Seller details kept in the console. Filled fields replace the ITISME Company row on the document header:
+ * the legacy program prints its header from a fixed form, so that row is not reliable (2026-10-09 it held a wrong
+ * English name and tax id). */
+export interface SellerOverride { name_th?: string; name_en?: string; tax_id?: string; branch_no?: string; address_th?: string; address_en?: string; phone?: string }
+export interface ItismeSettings { enabled: boolean; server?: string; port?: number; database?: string; user?: string; passwordSealed?: string; seller?: SellerOverride; logo?: string }
 export interface Buyer { name: string; tax_id?: string; branch_no?: string; address?: string; phone?: string; email?: string }
 export interface Seller {
   CompanyName: string; CompanyNameEng?: string | null; TaxID?: string | null; HQ?: string | null; BranchNo?: string | null;
   Address?: string | null; Road?: string | null; District?: string | null; Aumpher?: string | null; Province?: string | null; Zipcode?: string | null;
-  Phone?: string | null; Fax?: string | null; AddressEng?: string | null; RoadEng?: string | null; DistrictEng?: string | null; AumpherEng?: string | null; ProvinceEng?: string | null;
+  Phone?: string | null; Fax?: string | null; Logo?: string | null; AddressEng?: string | null; RoadEng?: string | null; DistrictEng?: string | null; AumpherEng?: string | null; ProvinceEng?: string | null;
 }
 export interface ReceiptRequest { organizationId: string; ref: string; docDate: string; buyer: Buyer; itemName: string; grossMinor: bigint; remark: string; receiptRemark: string }
 export interface ReceiptResult { invoiceNo: string; receiptNo: string; customerId: string; subtotalMinor: bigint; vatMinor: bigint; existing: boolean }
@@ -55,6 +59,22 @@ export function receiptItem(job: Pick<TaxJob, 'plan_name_th' | 'interval_unit' |
 }
 
 /** Dates come as text from PostgreSQL and as UTC-midnight Date objects from mssql (useUTC). */
+export function applySeller(company: Seller, o: SellerOverride | undefined, logo?: string): Seller {
+  if (logo) company = { ...company, Logo: logo };
+  if (!o) return company;
+  const v = (x: string | undefined) => x?.trim() || undefined;
+  const out: Seller = { ...company };
+  if (v(o.name_th)) out.CompanyName = v(o.name_th)!;
+  if (v(o.name_en)) out.CompanyNameEng = v(o.name_en)!;
+  if (v(o.tax_id)) out.TaxID = v(o.tax_id)!;
+  if (v(o.branch_no)) { out.HQ = o.branch_no === '00000' ? '1' : '0'; out.BranchNo = o.branch_no === '00000' ? '0000' : o.branch_no!; }
+  // A whole address replaces the split legacy fields.
+  if (v(o.address_th)) Object.assign(out, { Address: v(o.address_th), Road: null, District: null, Aumpher: null, Province: null, Zipcode: null });
+  if (v(o.address_en)) Object.assign(out, { AddressEng: v(o.address_en), RoadEng: null, DistrictEng: null, AumpherEng: null, ProvinceEng: null });
+  if (v(o.phone)) Object.assign(out, { Phone: v(o.phone), Fax: null });
+  return out;
+}
+
 const isoDate = (value: Date | string) => typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 
 /** Legacy ITISME keeps HQ '1' with BranchNo '0000', a branch as HQ '0' with its number; no tax id → both empty. */
@@ -67,7 +87,7 @@ function retrySeconds(attempts: number) { return Math.min(60 * 2 ** Math.max(att
 
 export interface TaxDeps {
   pool: Pool; secretKey?: Buffer;
-  connect?: (settings: Required<Omit<ItismeSettings, 'enabled' | 'passwordSealed'>> & { password: string }) => Promise<ItismeClient>;
+  connect?: (settings: { server: string; port: number; database: string; user: string; password: string }) => Promise<ItismeClient>;
   log?: (message: string) => void;
 }
 
@@ -81,7 +101,7 @@ export async function runTaxDocuments(deps: TaxDeps, limit = 5): Promise<number>
   try {
     client = await (deps.connect ?? connectItisme)({ server: settings.server, port: settings.port ?? 1433, database: settings.database,
       user: settings.user, password: decrypt(deps.secretKey, settings.passwordSealed) });
-    seller = await client.company();
+    seller = applySeller(await client.company(), settings.seller, settings.logo);
   } catch (error) { connectError = error; }
   try {
     for (const job of jobs) {

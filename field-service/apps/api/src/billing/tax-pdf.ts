@@ -63,7 +63,7 @@ const join = (...parts: (string | null | undefined)[]) => parts.map(p => p?.trim
 export function sellerLines(s: Seller) {
   return {
     th: join(s.Address, s.Road, s.District, s.Aumpher, s.Province, s.Zipcode),
-    en: join(s.AddressEng, s.RoadEng, s.DistrictEng, s.AumpherEng, s.ProvinceEng, s.Zipcode),
+    en: s.AddressEng && !s.RoadEng && !s.DistrictEng && !s.ProvinceEng ? s.AddressEng.trim() : join(s.AddressEng, s.RoadEng, s.DistrictEng, s.AumpherEng, s.ProvinceEng, s.Zipcode),
     branch: s.HQ === '1' || !s.BranchNo || /^0+$/.test(s.BranchNo) ? 'สำนักงานใหญ่' : `สาขาที่ ${s.BranchNo}`,
   };
 }
@@ -86,9 +86,13 @@ export function renderTaxPdf(row: TaxDocumentRow, copy: 'original' | 'copy' = 'o
   const text = (font: 'r' | 'b', size: number, value: string, x: number, y: number, options: PDFKit.Mixins.TextOptions = {}) =>
     doc.font(font).fontSize(size).text(value, x, y, { lineBreak: false, ...options });
 
-  // Header: seller (left), copy mark + branch + tax id (right).
-  text('b', 17, seller.CompanyName, L, 36);
-  if (seller.CompanyNameEng) text('b', 12, seller.CompanyNameEng, L, 60);
+  // Header: logo + seller names (left, as on the legacy form), copy mark + branch + tax id (right).
+  let nameX = L;
+  if (seller.Logo) {
+    try { doc.image(Buffer.from(seller.Logo, 'base64'), L, 30, { fit: [130, 57] }); nameX = L + 142; } catch { /* unreadable logo: names only */ }
+  }
+  text('b', 17, seller.CompanyName, nameX, 36);
+  if (seller.CompanyNameEng) text('b', 12, seller.CompanyNameEng, nameX, 60);
   text('b', 13, copy === 'original' ? 'ต้นฉบับ' : 'สำเนา', R - 160, 36, { width: 160, align: 'right' });
   text('r', 9.5, copy === 'original' ? 'สำหรับลูกค้า' : 'สำหรับบริษัท', R - 160, 54, { width: 160, align: 'right' });
   text('r', 9.5, `สาขาที่ออกใบกำกับภาษี : ${lines.branch}`, R - 260, 70, { width: 260, align: 'right' });

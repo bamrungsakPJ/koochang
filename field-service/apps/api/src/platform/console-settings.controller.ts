@@ -51,6 +51,20 @@ export class ConsoleSettingsController {
      value.database=check.text('database',body.database,{required:true,max:128});
      if(value.database&&!/^[A-Za-z0-9_]+$/.test(String(value.database)))check.fail('database','field.required');
      value.user=check.text('user',body.user,{required:true,max:128});
+     const seller=(body.seller&&typeof body.seller==='object'?body.seller:{}) as Record<string,unknown>,out:Record<string,string>={};
+     for(const [k,max] of [['name_th',300],['name_en',300],['tax_id',13],['branch_no',5],['address_th',500],['address_en',500],['phone',60]] as const){
+       const x=check.text(`seller.${k}`,seller[k],{required:false,max});if(x)out[k]=x;}
+     if(out.tax_id&&!/^\d{13}$/.test(out.tax_id))check.fail('seller.tax_id','field.taxId');
+     if(out.branch_no&&!/^\d{5}$/.test(out.branch_no))check.fail('seller.branch_no','field.branchNo');
+     value.seller=out;
+     // Header logo: PNG or JPEG as base64, at most 300 KB. Empty string removes it; absent keeps the saved one.
+     if(typeof body.logo==='string'){
+       const data=body.logo.replace(/^data:image\/(png|jpeg);base64,/,'');
+       if(data){const bytes=Buffer.from(data,'base64');
+         const png=bytes.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])),jpeg=bytes[0]===0xff&&bytes[1]===0xd8;
+         if(!(png||jpeg)||bytes.length>300_000)check.fail('logo','field.image');else value.logo=bytes.toString('base64');}
+       else value.logo='';
+     }
      const password=check.text('password',body.password,{required:false,max:200});
      if(password){if(!this.settings.secretKey)throw apiError(503,'TEMPORARILY_UNAVAILABLE');value.passwordSealed=encrypt(this.settings.secretKey,password);}
    }else if(section==='easyslip'||section==='ocr'){

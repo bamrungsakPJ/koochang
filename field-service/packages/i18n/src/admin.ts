@@ -188,6 +188,10 @@ const th = {
   stepUpPolicyTitle: 'ยืนยันรหัสจากแอป Authenticator ก่อนทำรายการสำคัญ', stepUpEnabled: 'ถามรหัส 6 หลักก่อนรายการสำคัญ', stepUpMinutes: 'ยืนยันครั้งหนึ่งใช้ได้ (นาที, 5–720)', stepUpMinutesValue: 'ครั้งละ {n} นาที',
   stepUpPolicyHint: 'รายการสำคัญ ได้แก่ ยืนยันรับเงิน คืนเงิน กุญแจ/บัญชีรับเงิน ทีมงาน ระงับร้าน และข้อมูลส่วนบุคคล เวลานับใหม่ทุกครั้งที่ทำรายการ จึงถามครั้งเดียวระหว่างทำงานต่อเนื่อง ตอนเข้าสู่ระบบยังต้องใช้รหัสเสมอ',
   stepUpOffHint: 'ปิดแล้ว: เข้าสู่ระบบด้วยรหัส 6 หลักครั้งเดียว แล้วทำรายการสำคัญได้โดยไม่ถามซ้ำ ถ้าเครื่องถูกใช้ต่อโดยคนอื่น จะยืนยันเงินหรือเปลี่ยนกุญแจได้ทันที ควรออกจากระบบทุกครั้งที่ลุกจากเครื่อง',
+  itismeSellerTitle: 'หัวกระดาษใบเสร็จ / ใบกำกับภาษี', itismeSellerHint: 'ช่องที่กรอกจะใช้แทนข้อมูลในตาราง Company ของ ITISME (ว่าง = ใช้ค่าจาก ITISME) มีผลกับเอกสารที่ออกหลังบันทึก',
+  'itismeSeller.name_th': 'ชื่อบริษัท (ไทย)', 'itismeSeller.name_en': 'ชื่อบริษัท (อังกฤษ)', 'itismeSeller.tax_id': 'เลขประจำตัวผู้เสียภาษี 13 หลัก', 'itismeSeller.branch_no': 'สาขา 5 หลัก (สำนักงานใหญ่ 00000)',
+  'itismeSeller.phone': 'โทรศัพท์', 'itismeSeller.address_th': 'ที่อยู่ (ไทย)', 'itismeSeller.address_en': 'ที่อยู่ (อังกฤษ)',
+  itismeLogo: 'โลโก้ (PNG/JPG ไม่เกิน 300 KB)', itismeLogoRemove: 'เอาโลโก้ออก', itismeLogoTooBig: 'ไฟล์โลโก้ใหญ่เกิน 300 KB',
   'itisme.server': 'เซิร์ฟเวอร์', 'itisme.port': 'พอร์ต', 'itisme.database': 'ฐานข้อมูล', 'itisme.user': 'ผู้ใช้ SQL', 'itisme.password': 'รหัสผ่าน SQL (เว้นว่างเพื่อใช้ค่าเดิม)',
 };
 type AdminCatalog = { [K in keyof typeof th]: string };
@@ -379,6 +383,10 @@ const en: AdminCatalog = {
   stepUpPolicyTitle: 'Authenticator code before important actions', stepUpEnabled: 'Ask for the 6-digit code before important actions', stepUpMinutes: 'One confirmation lasts (minutes, 5–720)', stepUpMinutesValue: '{n} minutes each',
   stepUpPolicyHint: 'Important actions: confirming money, refunds, keys and receiving accounts, staff, suspending shops and personal data. The time restarts on every action, so steady work is asked once. Sign-in always needs the code.',
   stepUpOffHint: 'Off: the code is needed once at sign-in, then important actions are not asked again. Anyone using an unattended signed-in device can confirm money or change keys, so always sign out when leaving it.',
+  itismeSellerTitle: 'Receipt / tax invoice header', itismeSellerHint: 'Filled fields replace the ITISME Company row (blank = use ITISME). Applies to documents issued after saving.',
+  'itismeSeller.name_th': 'Company name (Thai)', 'itismeSeller.name_en': 'Company name (English)', 'itismeSeller.tax_id': '13-digit tax ID', 'itismeSeller.branch_no': 'Branch, 5 digits (head office 00000)',
+  'itismeSeller.phone': 'Phone', 'itismeSeller.address_th': 'Address (Thai)', 'itismeSeller.address_en': 'Address (English)',
+  itismeLogo: 'Logo (PNG/JPG, up to 300 KB)', itismeLogoRemove: 'Remove logo', itismeLogoTooBig: 'The logo file is larger than 300 KB',
   'itisme.server': 'Server', 'itisme.port': 'Port', 'itisme.database': 'Database', 'itisme.user': 'SQL user', 'itisme.password': 'SQL password (leave blank to keep)',
 };
 export type AdminKey = keyof AdminCatalog;

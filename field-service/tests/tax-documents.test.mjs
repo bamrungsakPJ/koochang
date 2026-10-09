@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { openTestDatabase } from './support/database.mjs';
 import { actors } from './support/actors.mjs';
-import { runTaxDocuments, receiptItem, legacyBranch, PermanentItismeError, toMinor, fromMinor } from '../apps/api/dist/billing/tax-documents.js';
+import { runTaxDocuments, receiptItem, legacyBranch, applySeller, PermanentItismeError, toMinor, fromMinor } from '../apps/api/dist/billing/tax-documents.js';
 import { renderTaxPdf, bahtText, thaiLongDate } from '../apps/api/dist/billing/tax-pdf.js';
 import { encrypt } from '../apps/api/dist/shared/crypto.js';
 
@@ -186,4 +186,13 @@ test('item text, VAT split, branch codes and the PDF', async () => {
     subtotal_minor: 27103, vat_minor: 1897, original_minor: null, correct_minor: null, seller });
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   await assert.rejects(() => renderTaxPdf({ kind: 'receipt', status: 'queued', seller: null }), /NOT_ISSUED/);
+  // Console seller details replace the ITISME Company row; blanks keep it.
+  const fixed = applySeller({ ...seller, CompanyNameEng: 'P.WATTANA KARNCHANG', TaxID: '0105551456362', Road: 'x' },
+    { name_en: 'IT IS ME Company Limited', tax_id: '0105554156362', name_th: ' ', address_th: '99/111 หมู่ 11 นนทบุรี 11110' }, 'iVBORw0KGgo=');
+  assert.deepEqual([fixed.CompanyName, fixed.CompanyNameEng, fixed.TaxID, fixed.Address, fixed.Road, fixed.Logo],
+    [seller.CompanyName, 'IT IS ME Company Limited', '0105554156362', '99/111 หมู่ 11 นนทบุรี 11110', null, 'iVBORw0KGgo=']);
+  const withBadLogo = await renderTaxPdf({ kind: 'receipt', status: 'issued', ref: 'INV-2610-000001', doc_date: '2026-10-09', gross_minor: 29000, buyer: { name: 'ร้านทดสอบ' },
+    item_name: 'ค่าบริการ', customer_id: 'C0000166', invoice_no: 'IV69100002', receipt_no: 'R69100002', credit_note_no: null, receipt_date: '2026-10-09',
+    subtotal_minor: 27103, vat_minor: 1897, original_minor: null, correct_minor: null, seller: { ...seller, Logo: 'bm90IGFuIGltYWdl' } });
+  assert.equal(withBadLogo.subarray(0, 5).toString(), '%PDF-', 'an unreadable logo leaves the names only');
 });

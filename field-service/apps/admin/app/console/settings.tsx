@@ -7,20 +7,21 @@ interface Config {
  ocr:{enabled:boolean;key_configured:boolean;model:string};ocr_worker_ready:boolean;version:number;server_ready:boolean;slip_worker_ready:boolean;
  bank:{enabled:boolean;bankName:string;bankCode:string;accountName:string;accountNumber:string;promptPayId?:string}|null;
  sms:{enabled:boolean;sender:string;key_configured:boolean};easyslip:{enabled:boolean;key_configured:boolean};
- itisme:{enabled:boolean;server:string;port:number;database:string;user:string;key_configured:boolean};
+ itisme:{enabled:boolean;server:string;port:number;database:string;user:string;key_configured:boolean;seller?:Record<string,string>;logo?:string};
 }
 export function PlatformSettingsView(){
  const t=useText(),step=useStepUp();
  const [data,setData]=useState<Config|null>(null),[section,setSection]=useState<Section>('bank');
  const [enabled,setEnabled]=useState(false),[values,setValues]=useState<Record<string,string>>({}),[key,setKey]=useState(''),[secret,setSecret]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState('');
+ const [seller,setSeller]=useState<Record<string,string>>({}),[logo,setLogo]=useState<string|undefined>(undefined);
  const load=()=>call<Config>('GET','/platform/settings').then(setData,e=>setError(e instanceof Error?e.message:t('settingsError')));
  useEffect(()=>{void load();},[]);
- useEffect(()=>{if(!data)return;const selected=data[section];setEnabled(Boolean(selected?.enabled));setKey('');setSecret('');
+ useEffect(()=>{if(!data)return;const selected=data[section];setEnabled(Boolean(selected?.enabled));setKey('');setSecret('');setSeller(data.itisme?.seller??{});setLogo(undefined);
    setValues(section==='bank'?{bankName:data.bank?.bankName??'',bankCode:data.bank?.bankCode??'',accountName:data.bank?.accountName??'',accountNumber:data.bank?.accountNumber??'',promptPayId:data.bank?.promptPayId??''}:section==='ocr'?{model:data.ocr.model}:section==='itisme'?{server:data.itisme.server,port:String(data.itisme.port),database:data.itisme.database,user:data.itisme.user}:{sender:data.sms.sender});
  },[data,section]);
  async function save(e:FormEvent){e.preventDefault();if(!data||busy)return;setBusy(true);setError('');setDone('');
-   try{setData(await step(()=>call<Config>('POST','/platform/settings',section==='itisme'?{version:data.version,section,enabled,...values,port:Number(values.port),password:key||undefined}:{version:data.version,section,enabled,...values,api_key:key||undefined,secret_key:secret||undefined})));setDone(t('saved'));}
+   try{setData(await step(()=>call<Config>('POST','/platform/settings',section==='itisme'?{version:data.version,section,enabled,...values,port:Number(values.port),password:key||undefined,seller,logo}:{version:data.version,section,enabled,...values,api_key:key||undefined,secret_key:secret||undefined})));setDone(t('saved'));}
    catch(e){setError(e instanceof ConsoleError&&e.code==='VALIDATION_ERROR'?t('settingsReview'):e instanceof Error?e.message:t('settingsError'));}finally{setBusy(false);}
  }
  const configured=section==='sms'?data?.sms.key_configured:section==='ocr'?data?.ocr.key_configured:section==='itisme'?data?.itisme.key_configured:data?.easyslip.key_configured;
@@ -34,6 +35,11 @@ export function PlatformSettingsView(){
  {section==='itisme'?<><p className="muted">{t('itismeHint')}</p><p>{t(configured?'itismePasswordSet':'itismePasswordMissing')}</p>
  <div className="grid2">{(['server','port','database','user'] as const).map(name=><label key={name}>{t(`itisme.${name}`)}<input value={values[name]??''} required onChange={e=>setValues({...values,[name]:e.target.value})} maxLength={name==='port'?5:128} inputMode={name==='port'?'numeric':undefined}/></label>)}</div>
  <label>{t('itisme.password')}<input type="password" autoComplete="new-password" value={key} onChange={e=>setKey(e.target.value)} required={enabled&&!configured} maxLength={200}/></label>
+ <h3>{t('itismeSellerTitle')}</h3><p className="muted">{t('itismeSellerHint')}</p>
+ <div className="grid2">{(['name_th','name_en','tax_id','branch_no','phone'] as const).map(name=><label key={name}>{t(`itismeSeller.${name}`)}<input value={seller[name]??''} maxLength={name==='tax_id'?13:name==='branch_no'?5:300} inputMode={name==='tax_id'||name==='branch_no'?'numeric':undefined} onChange={e=>setSeller({...seller,[name]:e.target.value})}/></label>)}</div>
+ {(['address_th','address_en'] as const).map(name=><label key={name}>{t(`itismeSeller.${name}`)}<textarea rows={2} maxLength={500} value={seller[name]??''} onChange={e=>setSeller({...seller,[name]:e.target.value})}/></label>)}
+ <label>{t('itismeLogo')}<input type="file" accept="image/png,image/jpeg" onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>300_000){setError(t('itismeLogoTooBig'));return;}const r=new FileReader();r.onload=()=>setLogo(String(r.result));r.readAsDataURL(f);}}/></label>
+ {(logo??(data.itisme.logo?`data:image/png;base64,${data.itisme.logo}`:''))?<div className="actions"><img alt={t('itismeLogo')} src={logo??`data:image/png;base64,${data.itisme.logo}`} style={{maxHeight:60,background:'#fff',padding:4,borderRadius:6}}/><button type="button" className="ghost" onClick={()=>setLogo('')}>{t('itismeLogoRemove')}</button></div>:null}
  <p className="muted">{t('keepProviderKeys')}</p>{!data.server_ready?<p className="error">{t('settingsEncryptionMissing')}</p>:null}</>
  :section==='bank'?<><div className="grid2">{(['bankName','bankCode','accountName','accountNumber','promptPayId'] as const).map(name=><label key={name}>{t(name)}<input value={values[name]??''} onChange={e=>setValues({...values,[name]:e.target.value})} required={enabled&&name!=='promptPayId'} maxLength={name==='bankCode'?3:name==='promptPayId'?20:150} inputMode={['bankCode','accountNumber','promptPayId'].includes(name)?'numeric':undefined}/></label>)}</div><p className="muted">{t('bankSnapshotHint')}</p></>:<>
  <p>{t(configured?'providerConfigured':'providerMissing')}</p>
