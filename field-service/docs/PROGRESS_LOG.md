@@ -80,6 +80,12 @@
 
 ## บันทึกรายวัน
 
+### 2026-10-09 — Deploy staging ถึง 0016865 (migration 033) + build APK 0.2.14 (build 16)
+
+- **Deploy** (ผู้ใช้สั่ง): git bundle → server2 fetch/reset `0016865` → pnpm install → build (NEXT_PUBLIC_API_URL=https://api.koochang.com) → migrate (Applied 033_stripe_refunds) → pm2 restart; 3 แอป online, /v1/health ok, koochang.com 200 มีป้าย Google Play, `POST /platform/billing/refunds/:id/stripe` ตอบ 401 (มี route แล้ว) — รายการคืน 20 บาท (INV-2610-000002) ตอนนี้มีปุ่ม "คืนเงินผ่าน Stripe" ในคอนโซลแล้ว ให้ผู้ใช้กดเอง
+- **APK 0.2.14 / build 16**: app.json 0.2.14/16; คัดลอก gallery.ts(.web), billing.tsx, service.tsx, i18n, app.json, package.json, lockfile ไป D:\kc → pnpm install (expo-media-library) → build i18n → `expo prebuild --platform android --no-install` (มี native module ใหม่)
+- **ปัญหา/แก้**: (1) prebuild รีเซ็ต release signing เป็น debug key ตามที่เตือนไว้ → ใส่ block release (อ่าน credentials.json ของ EAS) กลับ แล้ว diff กับสำรอง `D:\Android\temp\build.gradle.before-0.2.14` ต่างแค่ลำดับ block และ version (2) ปลั๊กอิน media-library ใส่ `READ_MEDIA_IMAGES` (ติดนโยบายรูปภาพของ Play) → ตั้ง `granularPermissions: []` เพราะบันทึกรูปบน Android 13+ ไม่ต้องขอสิทธิ์ ต่ำกว่านั้นใช้ WRITE_EXTERNAL_STORAGE (maxSdk 32) ที่ไลบรารีประกาศเอง; ยังมี `READ_MEDIA_VISUAL_USER_SELECTED` จาก manifest ของไลบรารี (ตรวจอีกครั้งก่อนส่ง Play)
+
 ### 2026-10-09 — มือถือ: บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามผู้ใช้ (b7a49f9) + ป้าย Google Play บนหน้าแรก
 
 - **บันทึก QR พร้อมเพย์**: ปุ่ม "บันทึก QR ลงเครื่อง" ในใบแจ้งหนี้ (expo-media-library ~57.0.5, ขอสิทธิ์เพิ่มรูปอย่างเดียว ไม่อ่านคลังรูป); เว็บดาวน์โหลดไฟล์แทน; ปุ่มจะเห็นเมื่อ QR แสดง (ตอนนี้ยังซ่อนเพราะยังไม่มี PromptPay ID ของบริษัท)
