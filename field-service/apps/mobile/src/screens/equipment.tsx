@@ -4,7 +4,8 @@ import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Equipment, type EquipmentSummary, type Media, type Membership } from '../api';
 import { CameraDeniedError, pickPhoto, uploadPhoto, uuid, type Picked } from '../photos';
 import { EquipmentHistoryView } from './service';
-import { Banner, Button, Card, colors, Field, fonts, Icon, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
+import { applyOcrFields, type OcrField } from '../ocr-fields';
+import { Banner, Button, Card, colors, Disclosure, Field, fonts, Icon, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
 export const categories = ['air_conditioner', 'water_filter', 'cctv', 'solar', 'pump', 'refrigeration', 'other'] as const;
 const categoryLook: Record<string, [IconName, Tone]> = {
@@ -43,10 +44,9 @@ function PhotoSlot({ title, hint, photo, onPick, onRetry, children }: { children
   </Card>;
 }
 
-/** Camera first: nameplate → (OCR in the background) → equipment photo → fields. Nothing waits
- * for OCR; suggestions are shown next to the fields and used only when the person taps them. */
-export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenExisting }: {
-  membership: Membership; locationId: string; onBack: () => void; onDone: () => void; onOpenExisting: (id: string) => void;
+/** Camera first; OCR fills readable fields automatically without overwriting manual edits. */
+export function EquipmentForm({ membership, locationId, returnToService, onBack, onDone, onOpenExisting }: {
+  membership: Membership; locationId: string; returnToService?: boolean; onBack: () => void; onDone: () => void; onOpenExisting: (id: string) => void;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -58,6 +58,11 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
   const [ocr, setOcr] = useState<Ocr>({ state: 'none' });
   const [category, setCategory] = useState<string>('air_conditioner');
   const [values, setValues] = useState({ name: '', brand: '', model: '', serial_number: '' });
+  const manual = useRef<Partial<Record<OcrField, boolean>>>({});
+  const edit = (field: OcrField, value: string) => {
+    manual.current[field] = true;
+    setValues(prev => ({ ...prev, [field]: value }));
+  };
   const [failure, setFailure] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<ApiFailure['candidates']>([]);
   const [saved, setSaved] = useState<Equipment | null>(null);
@@ -71,15 +76,17 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
   useEffect(() => {
     if (ocr.state !== 'reading') return;
     const id = ocr.id;
+    const token = generation.current;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const started = Date.now();
     async function poll() {
       try {
         const r = await api.ocr(org, id);
-        if (cancelled) return;
+        if (cancelled || token !== generation.current) return;
         if (r.status === 'succeeded') {
           const fields = Object.fromEntries(Object.entries(r.suggestions?.fields ?? {}).filter(([k, v]) => ['brand', 'model', 'serial_number'].includes(k) && typeof v === 'string' && v.trim())) as Record<string, string>;
+          setValues(prev => applyOcrFields(prev, fields, manual.current));
           setOcr(Object.keys(fields).length ? { state: 'done', id, fields } : { state: 'empty', id });
           return;
         }
@@ -88,7 +95,7 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
           return;
         }
       } catch (e) {
-        if (cancelled) return;
+        if (cancelled || token !== generation.current) return;
         setOcr({ state: 'failed', id, message: errorText(e) });
         return;
       }
@@ -143,10 +150,6 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
     }
   }
 
-  const suggestions = ocr.state === 'done' ? ocr.fields : {};
-  function useSuggestion(field: keyof typeof values) { const v = suggestions[field]; if (v) setValues(prev => ({ ...prev, [field]: v })); }
-  function useAll() { setValues(prev => ({ ...prev, ...Object.fromEntries((['brand', 'model', 'serial_number'] as const).filter(k => !prev[k] && suggestions[k]).map(k => [k, suggestions[k]!])) })); }
-
   async function save(confirmDuplicate = false) {
     setBusy(true); setFailure(null);
     try {
@@ -163,36 +166,31 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
     } finally { setBusy(false); }
   }
   function another() {
+    manual.current = {};
     pendingPhotos.current = {}; generation.current++; key.current = uuid(); setRound(round + 1); setSaved(null); setNameplate({ state: 'empty' }); setUnitPhoto({ state: 'empty' }); setOcr({ state: 'none' });
     setValues({ name: '', brand: '', model: '', serial_number: '' }); setDuplicates([]); setFailure(null);
   }
   const title = useEquipmentTitle();
 
   if (saved) return <Screen footer={<>
-    <Button icon="add" title={t('addAnother')} onPress={another} />
-    <Button kind="ghost" title={t('done')} onPress={onDone} />
+    <Button icon="checkmark" title={t(returnToService ? 'backToService' : 'done')} onPress={onDone} />
+    <Button kind="secondary" icon="add" title={t('addAnother')} onPress={another} />
   </>}>
     <IconTile icon="checkmark-circle" tone="green" size={64} />
     <Title>{t('equipmentSaved')}</Title>
     <Sub>{title(saved)}</Sub>
   </Screen>;
 
-  const suggestionLine = (field: keyof typeof values) => suggestions[field] && suggestions[field] !== values[field]
-    ? <Pressable accessibilityRole="button" onPress={() => useSuggestion(field)} style={styles.suggestion}>
-        <Icon name="sparkles" size={16} color={colors.primary} />
-        <Text style={styles.suggestionText}>{t('suggestion', { value: suggestions[field]! })}</Text>
-        <Text style={styles.suggestionUse}>{t('useSuggestion')}</Text>
-      </Pressable> : null;
-
   return <Screen key={round} onBack={onBack} footer={<Button title={t('saveEquipment')} icon="checkmark" busy={busy} disabled={nameplate.state === 'uploading' || unitPhoto.state === 'uploading'} onPress={() => save()} />}>
     <Title>{t('addEquipment')}</Title>
+    <Disclosure title={`${t('category')}: ${t(`category.${category}` as TranslationKey)}`}>
+      <View style={styles.chips}>{categories.map(c => <Button key={c} small kind={c === category ? 'primary' : 'secondary'} title={t(`category.${c}` as TranslationKey)} onPress={() => setCategory(c)} />)}</View>
+    </Disclosure>
     <PhotoSlot title={t('nameplatePhoto')} hint={t('nameplateHint')} photo={nameplate} onPick={source => pick('nameplate', source)}
       onRetry={() => sendPhoto('nameplate')}>
       {ocr.state === 'submitting' || ocr.state === 'reading' ? <Banner tone="info" text={t(ocr.state === 'submitting' ? 'ocrSubmitting' : 'ocrReading')} /> : null}
       {ocr.state === 'done' ? <>
         <Banner tone="success" text={t('ocrDone')} />
-        {(['brand', 'model', 'serial_number'] as const).map(field => <Sub key={field}>{t(field === 'serial_number' ? 'serial' : field)}: {ocr.fields[field] || t('ocrNotRead')}</Sub>)}
-        <Button small kind="secondary" icon="sparkles" title={t('useAllSuggestions')} onPress={useAll} />
       </> : null}
       {ocr.state === 'empty' ? <Banner tone="info" text={t('ocrEmpty')} /> : null}
       {ocr.state === 'failed' ? <Banner tone="info" text={ocr.message} /> : null}
@@ -202,26 +200,15 @@ export function EquipmentForm({ membership, locationId, onBack, onDone, onOpenEx
         else void startReading(nameplate.media, ocr.state === 'empty' || (ocr.state === 'failed' && !!ocr.terminal));
       }} /> : null}
     </PhotoSlot>
+    <Card>
+      <Field label={t('brand')} value={values.brand} onChangeText={v => edit('brand', v)} maxLength={80} />
+      <Field label={t('model')} value={values.model} onChangeText={v => edit('model', v)} autoCapitalize="characters" maxLength={80} />
+      <Field label={t('serial')} value={values.serial_number} onChangeText={v => edit('serial_number', v)} autoCapitalize="characters" autoCorrect={false} maxLength={80} />
+    </Card>
     <PhotoSlot title={t('equipmentPhoto')} photo={unitPhoto} onPick={source => pick('equipment', source)} onRetry={() => sendPhoto('equipment')} />
-
-    <Section>{t('category')}</Section>
-    <View style={styles.chips}>
-      {categories.map(c => {
-        const [icon, tone] = categoryIcon(c);
-        const on = c === category;
-        return <Pressable key={c} accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={() => setCategory(c)} style={[styles.chip, on && styles.chipOn]}>
-          <Icon name={icon} size={16} color={on ? colors.onPrimary : colors.muted} />
-          <Text style={[styles.chipText, on && styles.chipTextOn]}>{t(`category.${c}` as TranslationKey)}</Text>
-        </Pressable>;
-      })}
-    </View>
-    <Field label={t('equipmentName')} icon="pricetag-outline" value={values.name} onChangeText={v => setValues({ ...values, name: v })} hint={t('equipmentNameHint')} maxLength={80} />
-    <Field label={t('brand')} value={values.brand} onChangeText={v => setValues({ ...values, brand: v })} maxLength={80} />
-    {suggestionLine('brand')}
-    <Field label={t('model')} value={values.model} onChangeText={v => setValues({ ...values, model: v })} autoCapitalize="characters" maxLength={80} />
-    {suggestionLine('model')}
-    <Field label={t('serial')} value={values.serial_number} onChangeText={v => setValues({ ...values, serial_number: v })} autoCapitalize="characters" autoCorrect={false} hint={t('serialHint')} maxLength={80} />
-    {suggestionLine('serial_number')}
+    <Disclosure title={t('optionalDetails')}>
+      <Field label={t('equipmentName')} icon="pricetag-outline" value={values.name} onChangeText={v => setValues(prev => ({ ...prev, name: v }))} hint={t('equipmentNameHint')} maxLength={80} />
+    </Disclosure>
     <Banner text={failure} />
     {duplicates.length ? <Card>
       <Strong>{t('duplicateEquipmentTitle')}</Strong>

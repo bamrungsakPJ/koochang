@@ -1,5 +1,8 @@
 export type Language = 'th' | 'en';
 const th = {
+  shopWorkspace: 'ร้าน', workOnSite: 'ทำงานหน้างาน', optionalDetails: 'รายละเอียดเพิ่มเติม', serviceDetails: 'รายละเอียดบริการและรอบบำรุง',
+  saveAndService: 'บันทึกและเริ่มบริการ', saveAndJob: 'บันทึกและสร้างงาน', backToService: 'กลับไปบันทึกบริการ', yesterday: 'เมื่อวาน',
+  draftOnDevice: 'เก็บร่างในเครื่องแล้ว · ยังไม่ได้ส่งบริการ', draftSaveFailed: 'ยังเก็บร่างในเครื่องไม่ได้ กรุณาตรวจพื้นที่จัดเก็บก่อนออกจากหน้านี้', retryPhotos: 'ลองส่งรูปอีกครั้ง',
   biometricUnlock: 'สแกนเพื่อเข้าแอป', biometricHint: 'ใช้ลายนิ้วมือหรือใบหน้าเมื่อเปิดแอปบนเครื่องนี้', biometricUnavailable: 'กรุณาตั้งค่าลายนิ้วมือหรือใบหน้าบนเครื่องก่อน', biometricPrompt: 'ยืนยันตัวตนเพื่อเข้า คู่ช่าง', biometricLocked: 'ยืนยันตัวตนเพื่อเข้าใช้งาน', usePassword: 'ใช้รหัสผ่านแทน',
   sessionStorageUnavailable: 'บันทึกการเข้าสู่ระบบในเครื่องไม่ได้ กรุณาตรวจพื้นที่จัดเก็บและลองใหม่', uploadInvalidImage: 'ส่งรูปไม่สำเร็จ กรุณาเลือกรูป JPEG หรือ PNG แล้วลองใหม่', uploadTooLarge: 'รูปมีขนาดเกินที่รับได้ กรุณาใช้รูปที่เล็กลง', uploadNotReceived: 'ส่งรูปไม่ครบ กรุณาลองส่งอีกครั้ง ยังไม่ได้เริ่มอ่านป้ายเครื่อง',
 
@@ -225,7 +228,7 @@ const th = {
   equipmentPhoto: 'รูปตัวเครื่อง', takePhoto: 'ถ่ายรูป', choosePhoto: 'เลือกรูป', skip: 'ข้าม', uploading: 'กำลังอัปโหลดรูป…',
   uploadFailed: 'อัปโหลดรูปไม่สำเร็จ ลองใหม่หรือข้ามได้', cameraDenied: 'ไม่ได้รับสิทธิ์ใช้กล้อง เลือกรูปจากคลังหรือข้ามได้',
   ocrConfigurationError: 'อ่านรูปไม่ได้ การตั้งค่าบริการ AI มีปัญหา กรุณาแจ้งผู้ดูแลตรวจ API key และโมเดล', ocrSubmitting: 'กำลังส่งรูปไปอ่านข้อมูล…', ocrUnavailable: 'บริการอ่านรูปยังไม่พร้อมใช้งาน กรุณาลองใหม่หรือกรอกเอง', ocrNotRead: 'อ่านไม่ได้', ocrWaiting: 'ยังไม่ได้รับผลการตรวจสอบ กดตรวจสอบอีกครั้งเพื่อดูผล กรอกเองต่อได้', ocrRetry: 'ตรวจสอบอีกครั้ง',
-  ocrReading: 'กำลังอ่านป้ายเครื่อง… กรอกต่อได้เลยไม่ต้องรอ', ocrDone: 'อ่านป้ายแล้ว ตรวจค่าที่แนะนำก่อนใช้',
+  ocrReading: 'กำลังอ่านป้ายเครื่อง… กรอกต่อได้เลยไม่ต้องรอ', ocrDone: 'AI เติมค่าที่อ่านได้ให้แล้ว · แตะแก้ไขได้',
   ocrEmpty: 'อ่านค่าจากป้ายไม่ได้ กรอกเองได้', ocrFailed: 'อ่านป้ายไม่สำเร็จ กรอกเองได้',
   suggestion: 'ค่าที่อ่านได้: {value}', useSuggestion: 'ใช้ค่านี้', useAllSuggestions: 'ใช้ค่าที่อ่านได้ในช่องที่ว่าง',
   category: 'ประเภท', equipmentName: 'ชื่อเรียก', equipmentNameHint: 'เช่น แอร์ห้องนอน', brand: 'ยี่ห้อ', model: 'รุ่น', serial: 'Serial',
@@ -247,7 +250,7 @@ const th = {
   'notify.job_assigned': 'คุณได้รับงานใหม่ {when}', 'notify.job_unassigned': 'งานหนึ่งถูกย้ายไปให้ช่างคนอื่น',
   'notify.job_rescheduled': 'งานของคุณเลื่อนเป็น {when}', 'notify.job_cancelled': 'งานของคุณถูกยกเลิก',
   IDEMPOTENCY_MISMATCH: 'รายการนี้ถูกส่งไปแล้วด้วยข้อมูลต่างกัน กรุณาโหลดข้อมูลล่าสุด', 'field.noneDone': 'ต้องมีอย่างน้อยหนึ่งเครื่องที่ทำเสร็จ ถ้าไม่ได้ทำเลยให้เลื่อนหรือยกเลิกงาน',
-  recordService: 'บันทึกผลบริการ', recordAdhoc: 'บันทึกงานหน้างาน', adhocHint: 'งานที่ไม่ได้นัดล่วงหน้า ระบบจะสร้างงานให้อัตโนมัติ',
+  recordService: 'บันทึกผลบริการ', recordAdhoc: 'บันทึกบริการหน้างาน', adhocHint: 'งานที่ไม่ได้นัดล่วงหน้า ระบบจะสร้างงานให้อัตโนมัติ',
   serviceType: 'บริการที่ทำจริง', outcome: 'ผล', 'outcome.done': 'ทำแล้ว', 'outcome.not_done': 'ไม่ได้ทำ', 'outcome.deferred': 'เลื่อนไปก่อน',
   notDoneReason: 'เหตุผลที่ไม่ได้ทำ', workNote: 'สิ่งที่ทำ', problemNote: 'สิ่งที่พบ / อาการ', beforePhoto: 'รูปก่อนทำ', afterPhoto: 'รูปหลังทำ',
   nextMaintenance: 'ดูแลครั้งถัดไป', keepSchedule: 'ใช้รอบเดิม', months: '{n} เดือน', noReminder: 'ไม่ต้องเตือน', nextDue: 'ครั้งถัดไป {date}',
@@ -344,6 +347,9 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
+  shopWorkspace: 'Shop', workOnSite: 'On-site work', optionalDetails: 'More details', serviceDetails: 'Service details and maintenance',
+  saveAndService: 'Save and record service', saveAndJob: 'Save and create job', backToService: 'Back to service', yesterday: 'Yesterday',
+  draftOnDevice: 'Draft saved on this device · service not sent yet', draftSaveFailed: 'Could not save the draft on this device. Check available storage before leaving this screen.', retryPhotos: 'Retry photo uploads',
   biometricUnlock: 'Unlock with biometrics', biometricHint: 'Use fingerprint or face recognition when opening this app on this device', biometricUnavailable: 'Set up fingerprint or face recognition on this device first', biometricPrompt: 'Verify your identity to open KooChang', biometricLocked: 'Verify your identity to continue', usePassword: 'Use password instead',
   sessionStorageUnavailable: 'Your sign-in could not be saved on this device. Check available storage and retry.', uploadInvalidImage: 'The image could not be uploaded. Select a JPEG or PNG image and retry.', uploadTooLarge: 'The image is too large. Select a smaller image.', uploadNotReceived: 'The image was not received completely. Retry uploading; nameplate reading has not started.',
 
@@ -568,7 +574,7 @@ const en: Catalog = {
   equipmentPhoto: 'Equipment photo', takePhoto: 'Take photo', choosePhoto: 'Choose photo', skip: 'Skip', uploading: 'Uploading photo…',
   uploadFailed: 'The photo could not be uploaded. Try again or skip.', cameraDenied: 'Camera permission was not given. Choose a photo or skip.',
   ocrConfigurationError: 'Reading failed because of the AI service configuration. Ask the administrator to check the API key and model.', ocrSubmitting: 'Sending the photo for reading…', ocrUnavailable: 'Image reading is unavailable. Retry or enter the details manually.', ocrNotRead: 'Not readable', ocrWaiting: 'The result is still pending. Check again to retrieve it or continue manually.', ocrRetry: 'Check again',
-  ocrReading: 'Reading the nameplate… keep filling in, no need to wait.', ocrDone: 'Nameplate read. Check the suggestions before using them.',
+  ocrReading: 'Reading the nameplate… keep filling in, no need to wait.', ocrDone: 'AI filled in the readable details · tap to edit.',
   ocrEmpty: 'Nothing could be read from the nameplate. Type it in.', ocrFailed: 'The nameplate could not be read. Type it in.',
   suggestion: 'Read: {value}', useSuggestion: 'Use this', useAllSuggestions: 'Use what was read in empty fields',
   category: 'Type', equipmentName: 'Nickname', equipmentNameHint: 'e.g. Bedroom air conditioner', brand: 'Brand', model: 'Model', serial: 'Serial',

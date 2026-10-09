@@ -165,46 +165,64 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
   </Card>;
 }
 
-export function Home({ me, membership, onTeam, onNotifications, onAccount, onOpenJob, onOpenDraft, onRecordAdhoc, onMaintenance, onBilling }: { me: Me; membership: Membership; onTeam: () => void; onNotifications: () => void; onAccount: () => void;
-  onOpenJob: (id: string) => void; onOpenDraft: (target: DraftTarget) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onBilling: () => void }) {
+export function Home({ me, membership, onNotifications, onAccount, onOpenJob, onOpenDraft, onRecordAdhoc, onMaintenance, onCreateJob, onUnassigned }: { me: Me; membership: Membership; onNotifications: () => void; onAccount: () => void;
+  onOpenJob: (id: string) => void; onOpenDraft: (target: DraftTarget) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onCreateJob: () => void; onUnassigned: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
   const owner = membership.role === 'owner';
-  const [team, setTeam] = useState<Team | null>(null);
   const [sub, setSub] = useState<Subscription | null>(null);
-  useEffect(() => {
-    api.subscription(membership.organization_id).then(setSub, () => setSub(null));
-    if (owner) api.team(membership.organization_id).then(setTeam, () => setTeam(null));
-  }, [owner, membership.organization_id]);
-  const pending = team?.members.filter(m => m.status === 'pending').length ?? 0;
-  const solo = team !== null && team.seats.active_technicians === 0 && pending === 0;
+  useEffect(() => { setSub(null); api.subscription(membership.organization_id).then(setSub, () => {}); }, [membership.organization_id]);
   return <Screen>
-    <View style={styles.hero}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.heroShop}>{membership.organization_name}</Text>
-        <Text style={styles.heroTitle}>{owner ? t('shopOverview') : t('today')}</Text>
-        <Text style={styles.heroSub}>{t(`role.${membership.role}`)}</Text>
-      </View>
+    <View style={styles.brandHead}>
+      <View style={styles.brandMark}><Icon name="build" color={colors.accent} size={18} /></View>
+      <Text style={styles.brandName}>{t('appName')}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t('notifications')} ${unread}`} onPress={onNotifications} style={styles.bell} hitSlop={8}>
-        <Icon name="notifications" size={22} color="#FFFFFF" />
+        <Icon name="notifications-outline" size={22} color={colors.primary} />
         {unread ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View> : null}
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={t('account')} onPress={onAccount} hitSlop={8}
         style={({ pressed }) => [styles.heroAvatar, pressed && { opacity: 0.7 }]}><Avatar name={me.user.display_name} /></Pressable>
     </View>
+    <Title>{t('today')}</Title><Sub>{membership.organization_name} · {t(`role.${membership.role}`)}</Sub>
     {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
-    <UnsentRecords membership={membership} onOpen={onOpenDraft} />
+    <Section>{t('workOnSite')}</Section>
     <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
-    <Section>{t('myJobs')}</Section><MyJobs membership={membership} onOpen={onOpenJob} />
+    <Section action={owner ? <Button small icon="add" title={t('createJob')} onPress={onCreateJob} /> : undefined}>{t('myJobs')}</Section>
+    <MyJobs membership={membership} onOpen={onOpenJob} />
+    <UnsentRecords membership={membership} onOpen={onOpenDraft} />
     {owner ? <>
-      {solo ? null : <View style={styles.stats}>
-        <Stat icon="people" tone="teal" label={t('activeTechnicians')} value={team ? `${team.seats.active_technicians}/${team.seats.seat_limit}` : '–'} />
-        <Stat icon="time" label={t('pendingCount')} value={team ? String(pending) : '–'} tone={pending ? 'rose' : 'amber'} />
-      </View>}
+      <Button kind="secondary" icon="person-add-outline" title={t('filterUnassigned')} onPress={onUnassigned} />
       <MaintenanceCard membership={membership} onOpen={onMaintenance} />
-      <Card padded={false}><Row icon="people" tone="blue" title={solo ? t('inviteTechnician') : t('manageTeam')} subtitle={solo ? t('soloTeamHint') : t('joinLinkHint')} onPress={onTeam} last /></Card>
-      {sub ? <><Section>{t('plan')}</Section><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} onBilling={onBilling} /></> : null}
     </> : null}
+  </Screen>;
+}
+
+/** Owner administration belongs here, never in the daily agenda. */
+export function ShopManagement({ membership, onTeam, onMaintenance, onBilling, onAccount, onSwitch, onSupport }: {
+  membership: Membership; onTeam: () => void; onMaintenance: () => void; onBilling: () => void; onAccount: () => void; onSwitch: () => void; onSupport: () => void;
+}) {
+  const t = useT();
+  const errorText = useErrorText();
+  const [sub, setSub] = useState<Subscription | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = () => api.subscription(membership.organization_id).then(setSub, e => setError(errorText(e)));
+  useEffect(() => { void load(); }, [membership.organization_id]);
+  return <Screen>
+    <Title>{t('shopWorkspace')}</Title><Sub>{membership.organization_name}</Sub>
+    <Card padded={false}>
+      <Row icon="people-outline" title={t('manageTeam')} onPress={onTeam} />
+      <Row icon="calendar-outline" title={t('maintenance')} onPress={onMaintenance} last />
+    </Card>
+    <Section>{t('plan')}</Section>
+    {sub ? <><SubscriptionBanner sub={sub} owner /><PlanCard sub={sub} organizationId={membership.organization_id} onChanged={setSub} onBilling={onBilling} /></> : null}
+    <Banner text={error} />
+    {error ? <Button kind="secondary" title={t('retry')} onPress={() => { setError(null); void load(); }} /> : null}
+    <Card padded={false}>
+      <Row icon="card-outline" title={t('renewOrChange')} onPress={onBilling} />
+      <Row icon="person-circle-outline" title={t('account')} onPress={onAccount} />
+      <Row icon="swap-horizontal" title={t('myShops')} onPress={onSwitch} />
+      <Row icon="help-buoy-outline" title={t('support')} onPress={onSupport} last />
+    </Card>
   </Screen>;
 }
 
@@ -337,6 +355,9 @@ export function TeamScreen({ membership }: { membership: Membership }) {
 }
 
 const styles = StyleSheet.create({
+  brandHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
+  brandMark: { width: 30, height: 30, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  brandName: { flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink },
   versionHint: { fontFamily: fonts.regular, fontSize: 13, color: colors.faint },
   linkHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   linkBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, backgroundColor: colors.bg, borderRadius: 12, padding: 8, paddingLeft: 12 },
@@ -353,10 +374,10 @@ const styles = StyleSheet.create({
   heroShop: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.accent },
   heroTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: '#FFFFFF' },
   heroSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: '#C7D2FE' },
-  bell: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  bellBadge: { position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#F43F5E', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  bellBadgeText: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, color: '#FFFFFF' },
-  heroAvatar: { borderRadius: 26, borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)' },
+  bell: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  bellBadgeText: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, color: colors.primary },
+  heroAvatar: { borderRadius: 24 },
   statValue: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 36, color: colors.ink },
   statLabel: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 14 },

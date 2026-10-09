@@ -16,12 +16,13 @@ import { keys, storage } from './src/storage';
 import { Banner, Button, colors, Field, fonts, handleScreenBack, Icon, LanguageContext, Loading, Screen, Sub, TabBar, Title, useErrorText, useT } from './src/ui';
 import { formatDate, formatDateTime, translate } from '@field-service/i18n';
 import { JoinEntry, JoinName, JoinPreview, OtpForm, PasswordSetup, PasswordSignIn, PhoneForm, Welcome } from './src/screens/onboarding';
-import { Account, Home, MembershipStatus, NoShop, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
+import { Account, Home, MembershipStatus, NoShop, ShopManagement, ShopPicker, ShopReady, TeamScreen } from './src/screens/shop';
 import { NotificationsScreen } from './src/screens/notifications';
 import { MaintenanceDetail, MaintenanceScreen } from './src/screens/maintenance';
 import { BillingScreen, InvoiceScreen } from './src/screens/billing';
 import { SupportScreen } from './src/screens/support';
 import { listenForPush, registerPush, unregisterPush, type PushTarget } from './src/push';
+import { customerDestination } from './src/customer-flow';
 
 type Next =
   | { kind: 'register'; shopName: string; idempotencyKey: string }
@@ -35,13 +36,14 @@ type Route =
   | { screen: 'joinPhone'; token: string; shopName: string } | { screen: 'joinName'; token: string; shopName: string }
   | { screen: 'otp'; phone: string; challenge: Challenge; next: Next; back: Route }
   | { screen: 'shopReady'; shopName: string; link: JoinLink | null }
-  | { screen: 'shop' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' }
-  | { screen: 'customers' } | { screen: 'customer'; id: string } | { screen: 'customerNew'; search: string; then?: 'jobNew' | 'serviceAdhoc' }
+  | { screen: 'shop' } | { screen: 'manage' } | { screen: 'shops' } | { screen: 'team' } | { screen: 'account' } | { screen: 'notifications' } | { screen: 'offline' }
+  | { screen: 'customerLocationPick'; customer: Customer; then: 'jobNew' | 'serviceAdhoc' }
+  | { screen: 'customers' } | { screen: 'customer'; id: string; back?: Route } | { screen: 'customerNew'; search: string; then?: 'jobNew' | 'serviceAdhoc' }
   | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
   | { screen: 'equipmentNew'; customerId: string; locationId: string; returnTo?: Route } | { screen: 'equipment'; customerId: string; id: string }
   | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
   | { screen: 'serviceDone'; result: ServiceResult; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
-  | { screen: 'jobs' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
+  | { screen: 'jobs'; filter?: 'today' | 'upcoming' | 'unassigned' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
 // The native splash is hidden only once the start screen below has drawn, so there is no blank frame.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -70,7 +72,7 @@ export default function App() {
       if (lockedNow.current) return false;
       if (handleScreenBack()) return true;
       const screen = routeNow.current.screen;
-      if (screen === 'jobs' || screen === 'customers' || screen === 'team' || screen === 'account') { setRoute({ screen: 'shop' }); return true; }
+      if (screen === 'jobs' || screen === 'customers' || screen === 'manage' || screen === 'team' || screen === 'account') { setRoute({ screen: 'shop' }); return true; }
       if (Date.now() - lastBack.current < 2000) return false;
       lastBack.current = Date.now();
       ToastAndroid.show(translate(languageNow.current, 'pressBackAgain'), ToastAndroid.SHORT);
@@ -199,8 +201,7 @@ export default function App() {
   /** After adding (or picking an existing) customer from a job/ad-hoc picker: continue that flow
    * when there is one place, otherwise open the customer to choose a place there. */
   function continueWithCustomer(then: 'jobNew' | 'serviceAdhoc' | undefined, customer: Customer) {
-    const only = customer.locations.length === 1 ? customer.locations[0]! : null;
-    setRoute(then && only ? { screen: then, customerId: customer.id, locationId: only.id } : { screen: 'customer', id: customer.id });
+    setRoute(customerDestination(then, customer));
   }
   let content;
   switch (route.screen) {
@@ -266,7 +267,7 @@ export default function App() {
           : item.target_type === 'subscription' && membership.role === 'owner' ? { screen: 'billing' }
           : { screen: item.template_key === 'join_request' && membership.role === 'owner' ? 'team' : 'shop' })} /> : <Loading />; break;
     case 'customer': content = membership?.status === 'active'
-      ? <CustomerDetail key={route.id} membership={membership} customerId={route.id} onBack={() => setRoute({ screen: 'customers' })}
+      ? <CustomerDetail key={route.id} membership={membership} customerId={route.id} onBack={() => setRoute(route.back ?? { screen: 'customers' })}
         onAddLocation={() => setRoute({ screen: 'locationNew', customerId: route.id })}
         onEditLocation={location => setRoute({ screen: 'locationEdit', customerId: route.id, location })}
         onAddEquipment={locationId => setRoute({ screen: 'equipmentNew', customerId: route.id, locationId })}
@@ -275,6 +276,11 @@ export default function App() {
     case 'jobPick': content = membership?.status === 'active'
       ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'jobs' })} onPicked={(customerId, locationId) => setRoute({ screen: 'jobNew', customerId, locationId })}
         onCreate={search => setRoute({ screen: 'customerNew', search, then: 'jobNew' })} /> : <Loading />; break;
+    case 'customerLocationPick': content = membership?.status === 'active'
+      ? <JobCustomerPicker key={route.customer.id} membership={membership} initialCustomer={route.customer}
+        onBack={() => setRoute({ screen: route.then === 'jobNew' ? 'jobPick' : 'adhocPick' })}
+        onPicked={(customerId, locationId) => setRoute({ screen: route.then, customerId, locationId })}
+        onCreate={search => setRoute({ screen: 'customerNew', search, then: route.then })} /> : <Loading />; break;
     case 'jobNew': content = membership?.status === 'active'
       ? <JobForm membership={membership} me={{ memberId: membership.member_id }} customerId={route.customerId} locationId={route.locationId}
         onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onCreated={(id, conflicts) => setRoute({ screen: 'job', id, conflicts })} /> : <Loading />; break;
@@ -283,13 +289,14 @@ export default function App() {
         onBack={() => setRoute({ screen: membership.role === 'owner' ? 'jobs' : 'shop' })} onOpenCustomer={id => setRoute({ screen: 'customer', id })}
         onRecordService={job => setRoute({ screen: 'service', job })} /> : <Loading />; break;
     case 'equipmentNew': content = membership?.status === 'active'
-      ? <EquipmentForm membership={membership} locationId={route.locationId} onBack={() => setRoute(route.returnTo ?? { screen: 'customer', id: route.customerId })}
+      ? <EquipmentForm membership={membership} locationId={route.locationId} returnToService={route.returnTo?.screen === 'service' || route.returnTo?.screen === 'serviceAdhoc'} onBack={() => setRoute(route.returnTo ?? { screen: 'customer', id: route.customerId })}
         onDone={() => setRoute(route.returnTo ?? { screen: 'customer', id: route.customerId })} onOpenExisting={id => setRoute({ screen: 'equipment', customerId: route.customerId, id })} /> : <Loading />; break;
     case 'service': case 'serviceAdhoc': content = membership?.status === 'active'
       ? <ServiceForm key={route.screen === 'service' ? route.job.id : route.locationId} membership={membership}
         job={route.screen === 'service' ? route.job : undefined} adhoc={route.screen === 'serviceAdhoc' ? { customerId: route.customerId, locationId: route.locationId } : undefined}
         onBack={() => setRoute(route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' })}
         onAddEquipment={locationId => setRoute({ screen: 'equipmentNew', customerId: route.screen === 'service' ? route.job.customer_id : route.customerId, locationId, returnTo: route })}
+        onOpenLocation={() => setRoute({ screen: 'customer', id: route.screen === 'service' ? route.job.customer_id : route.customerId, back: route })}
         onDone={result => setRoute({ screen: 'serviceDone', result, back: route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' } })} /> : <Loading />; break;
     case 'maintenance': content = membership?.status === 'active' && membership.role === 'owner'
       ? <MaintenanceScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })} onOpen={item => setRoute({ screen: 'maintenanceItem', item })} /> : <Loading />; break;
@@ -297,7 +304,7 @@ export default function App() {
       ? <MaintenanceDetail key={route.item.id} membership={membership} item={route.item} onBack={() => setRoute({ screen: 'maintenance' })}
         onOpenJob={id => setRoute({ screen: 'job', id })} onOpenCustomer={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
     case 'billing': content = membership?.status === 'active' && membership.role === 'owner'
-      ? <BillingScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })} onOpenInvoice={id => setRoute({ screen: 'invoice', id })} /> : <Loading />; break;
+      ? <BillingScreen membership={membership} onBack={() => setRoute({ screen: 'manage' })} onOpenInvoice={id => setRoute({ screen: 'invoice', id })} /> : <Loading />; break;
     case 'invoice': content = membership?.status === 'active' && membership.role === 'owner'
       ? <InvoiceScreen key={route.id} membership={membership} invoiceId={route.id} onBack={() => setRoute({ screen: 'billing' })} /> : <Loading />; break;
     case 'support': content = membership?.status === 'active' && membership.role === 'owner'
@@ -309,7 +316,7 @@ export default function App() {
     case 'equipment': content = membership?.status === 'active'
       ? <EquipmentDetail key={route.id} membership={membership} equipmentId={route.id} onBack={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;
     case 'customerNew': content = membership?.status === 'active'
-      ? <CustomerForm membership={membership} initialSearch={route.search}
+      ? <CustomerForm membership={membership} initialSearch={route.search} intent={route.then}
         onBack={() => setRoute(route.then === 'jobNew' ? { screen: 'jobPick' } : route.then === 'serviceAdhoc' ? { screen: 'adhocPick' } : { screen: 'customers' })}
         onSaved={c => continueWithCustomer(route.then, c)}
         onOpenExisting={id => { if (route.then) void api.customer(membership.organization_id, id).then(c => continueWithCustomer(route.then, c), () => setRoute({ screen: 'customer', id })); else setRoute({ screen: 'customer', id }); }} /> : <Loading />; break;
@@ -318,7 +325,7 @@ export default function App() {
         onBack={() => setRoute({ screen: 'customer', id: route.customerId })} onSaved={() => setRoute({ screen: 'customer', id: route.customerId })} /> : <Loading />; break;
     case 'shops': content = me ? <ShopPicker me={me} onBack={() => setRoute({ screen: 'shop' })} onCreate={() => setRoute({ screen: 'register' })}
       onJoin={() => setRoute({ screen: 'joinEntry' })} onPick={async id => { await selectOrganization(id); setRoute({ screen: 'shop' }); }} /> : <Loading />; break;
-    case 'shop': case 'team': case 'account': case 'customers': case 'jobs': {
+    case 'shop': case 'manage': case 'team': case 'account': case 'customers': case 'jobs': {
       if (!me) { content = <Loading />; break; }
       const suspended = membership?.status === 'active' && membership.organization_status === 'suspended';
       const active = membership?.status === 'active' && !suspended;
@@ -335,7 +342,10 @@ export default function App() {
       else if (route.screen === 'shop' && membership && !active) content = <MembershipStatus membership={membership} onCheck={async () => { await loadMe(membership.organization_id); }}
         onSwitch={several ? () => setRoute({ screen: 'shops' }) : undefined} onSignOut={signOut} />;
       else if (route.screen === 'team' && membership?.role === 'owner' && active) content = <TeamScreen membership={membership} />;
-      else if (route.screen === 'jobs' && membership?.role === 'owner' && active) content = <JobsScreen membership={membership}
+      else if (route.screen === 'manage' && membership?.role === 'owner' && active) content = <ShopManagement membership={membership}
+        onTeam={() => setRoute({ screen: 'team' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })}
+        onAccount={() => setRoute({ screen: 'account' })} onSwitch={() => setRoute({ screen: 'shops' })} onSupport={() => setRoute({ screen: 'support' })} />;
+      else if (route.screen === 'jobs' && membership?.role === 'owner' && active) content = <JobsScreen membership={membership} initialFilter={route.filter}
         onOpen={id => setRoute({ screen: 'job', id })} onCreate={() => setRoute({ screen: 'jobPick' })} />;
       else if (route.screen === 'customers' && membership && active) content = <CustomersScreen membership={membership}
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
@@ -343,19 +353,20 @@ export default function App() {
         onChangePassword={() => setRoute({ screen: 'changePassword' })} onAbout={() => setRoute({ screen: 'about', back: { screen: 'account' } })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onTeam={() => setRoute({ screen: 'team' })} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })}
-        onOpenDraft={d => setRoute(d.jobId ? { screen: 'job', id: d.jobId } : { screen: 'serviceAdhoc', customerId: d.customerId, locationId: d.locationId })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })} />;
+      else if (membership && active) content = <Home me={me} membership={membership} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })}
+        onOpenDraft={d => setRoute(d.jobId ? { screen: 'job', id: d.jobId } : { screen: 'serviceAdhoc', customerId: d.customerId, locationId: d.locationId })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })}
+        onCreateJob={() => setRoute({ screen: 'jobPick' })} onUnassigned={() => setRoute({ screen: 'jobs', filter: 'unassigned' })} />;
       else content = <Loading />;
       if (membership && active) {
         const tr = (key: Parameters<typeof translate>[1]) => translate(language, key);
         const tabs = [
-          { key: 'shop' as const, label: membership.role === 'owner' ? tr('home') : tr('today'), icon: 'home' as const },
+          { key: 'shop' as const, label: tr('today'), icon: 'calendar' as const },
           ...(membership.role === 'owner' ? [{ key: 'jobs' as const, label: tr('jobs'), icon: 'briefcase' as const }] : []),
           { key: 'customers' as const, label: tr('customers'), icon: 'person' as const },
-          ...(membership.role === 'owner' ? [{ key: 'team' as const, label: tr('team'), icon: 'people' as const }] : []),
-          { key: 'account' as const, label: tr('account'), icon: 'person-circle' as const },
+          ...(membership.role === 'owner' ? [{ key: 'manage' as const, label: tr('shopWorkspace'), icon: 'storefront' as const }]
+            : [{ key: 'account' as const, label: tr('account'), icon: 'person-circle' as const }]),
         ];
-        content = <View style={styles.root}><View style={styles.root}>{content}</View><TabBar tabs={tabs} active={route.screen} onChange={screen => setRoute({ screen })} /></View>;
+        content = <View style={styles.root}><View style={styles.root}>{content}</View><TabBar tabs={tabs} active={membership.role === 'owner' && (route.screen === 'team' || route.screen === 'account') ? 'manage' : route.screen} onChange={screen => setRoute({ screen })} /></View>;
       }
       break;
     }

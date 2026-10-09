@@ -5,7 +5,7 @@ import { formatPhone, normalizePhone } from '@field-service/core';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Customer, type CustomerLocation, type CustomerSummary, type Membership } from '../api';
 import { LocationEquipment } from './equipment';
-import { Avatar, Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconButton, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
+import { Avatar, Badge, Banner, Button, Card, colors, confirm, Disclosure, Field, fonts, Icon, IconButton, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
@@ -72,8 +72,8 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
 
 /** Phone first, name optional, first place in the same step. Retry-safe via a request key
  * kept for the whole form; a known phone shows the existing customers to pick from. */
-export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpenExisting }: {
-  membership: Membership; initialSearch: string; onBack: () => void; onSaved: (customer: Customer) => void; onOpenExisting: (id: string) => void;
+export function CustomerForm({ membership, initialSearch, intent, onBack, onSaved, onOpenExisting }: {
+  membership: Membership; initialSearch: string; intent?: 'jobNew' | 'serviceAdhoc'; onBack: () => void; onSaved: (customer: Customer) => void; onOpenExisting: (id: string) => void;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -128,7 +128,7 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     finally { captureReading.current = false; }
   }
 
-  return <Screen onBack={onBack} footer={<Button title={t('saveCustomer')} icon="checkmark" busy={busy} disabled={capture.state === 'reading'} onPress={() => save()} />}>
+  return <Screen onBack={onBack} footer={<Button title={t(intent === 'serviceAdhoc' ? 'saveAndService' : intent === 'jobNew' ? 'saveAndJob' : 'saveCustomer')} icon="checkmark" busy={busy} disabled={capture.state === 'reading'} onPress={() => save()} />}>
     <Title>{t('addCustomer')}</Title>
     <Sub>{t('requiredFieldsHint')}</Sub>
     <Sub>{t('customerIdentityHint')}</Sub>
@@ -140,7 +140,10 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
     </Pressable>
     <Section>{t('firstLocation')}</Section>
     <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={errors.label} hint={t('locationLabelHint')} maxLength={80} />
-    <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
+    <Disclosure title={t('optionalDetails')}>
+      <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
+      <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
+    </Disclosure>
     <Button kind="secondary" icon="locate" title={t('useCurrentLocation')} busy={capture.state === 'reading'} disabled={busy} onPress={readLocation} />
     <Sub>{t('captureHint')}</Sub>
     {capture.state === 'preview' ? <View style={styles.preview}>
@@ -150,7 +153,6 @@ export function CustomerForm({ membership, initialSearch, onBack, onSaved, onOpe
       <Button small kind="ghost" title={t('removeCapturedLocation')} disabled={busy} onPress={() => setCapture({ state: 'idle' })} />
     </View> : null}
     {capture.state === 'error' ? <Banner tone="info" text={capture.message} /> : null}
-    <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
     <Banner text={failure} />
     {duplicates.length ? <Card>
       <Strong>{t('duplicateTitle')}</Strong>

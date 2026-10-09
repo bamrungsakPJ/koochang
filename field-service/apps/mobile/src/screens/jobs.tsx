@@ -79,10 +79,10 @@ function JobRow({ job, onPress, last }: { job: JobSummary; onPress: () => void; 
 }
 
 /** Owner job board: today, upcoming, or waiting for a technician. */
-export function JobsScreen({ membership, onOpen, onCreate }: { membership: Membership; onOpen: (id: string) => void; onCreate: () => void }) {
+export function JobsScreen({ membership, initialFilter = 'today', onOpen, onCreate }: { membership: Membership; initialFilter?: 'today' | 'upcoming' | 'unassigned'; onOpen: (id: string) => void; onCreate: () => void }) {
   const t = useT();
   const errorText = useErrorText();
-  const [filter, setFilter] = useState<'today' | 'upcoming' | 'unassigned'>('today');
+  const [filter, setFilter] = useState<'today' | 'upcoming' | 'unassigned'>(initialFilter);
   const [items, setItems] = useState<JobSummary[] | null>(null);
   const [next, setNext] = useState<number | null>(null);
   const [more, setMore] = useState(false);
@@ -125,25 +125,46 @@ export function JobsScreen({ membership, onOpen, onCreate }: { membership: Membe
 /** Technician "today": own jobs today and next days, in appointment order. */
 export function MyJobs({ membership, onOpen }: { membership: Membership; onOpen: (id: string) => void }) {
   const t = useT();
+  const language = useContext(LanguageContext);
+  const errorText = useErrorText();
   const [items, setItems] = useState<JobSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = () => {
+    setError(null);
+    return api.jobs(membership.organization_id, { from: atBangkok(bangkokDay(-1), '00:00'), to: atBangkok(bangkokDay(14), '00:00'), assignee: membership.member_id })
+      .then(r => setItems(r.items), e => setError(errorText(e)));
+  };
   useEffect(() => {
-    api.jobs(membership.organization_id, { from: atBangkok(bangkokDay(-1), '00:00'), to: atBangkok(bangkokDay(14), '00:00'), assignee: membership.member_id })
-      .then(r => setItems(r.items), () => setItems([]));
-  }, [membership.organization_id]);
+    void load();
+  }, [membership.organization_id, membership.member_id]);
+  if (error) return <><Banner text={error} /><Button kind="secondary" title={t('retry')} onPress={() => { void load(); }} /></>;
   if (!items) return <Loading />;
-  return items.length === 0 ? <Card><Sub>{t('noJobs')}</Sub></Card>
-    : <Card padded={false}>{items.map((j, i) => <JobRow key={j.id} job={j} last={i === items.length - 1} onPress={() => onOpen(j.id)} />)}</Card>;
+  const groups = new Map<string, JobSummary[]>();
+  for (const job of [...items].sort((a, b) => (a.scheduled_start ?? '').localeCompare(b.scheduled_start ?? ''))) {
+    const day = job.scheduled_start ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(job.scheduled_start)) : '';
+    groups.set(day, [...(groups.get(day) ?? []), job]);
+  }
+  return items.length === 0 ? <Card><Sub>{t('noJobs')}</Sub></Card> : <>
+    {[...groups].map(([day, jobs]) => <View key={day}>
+      <Section>{day === bangkokDay(0) ? t('today') : day === bangkokDay(1) ? t('tomorrow') : day === bangkokDay(-1) ? t('yesterday') : day ? formatDate(new Date(`${day}T12:00:00+07:00`), language) : t('notScheduled')}</Section>
+      <Card padded={false}>{jobs.map((j, i) => <Pressable key={j.id} accessibilityRole="button" onPress={() => onOpen(j.id)} style={[styles.agendaRow, i !== jobs.length - 1 && styles.agendaLine]}>
+        <Text style={styles.agendaTime}>{j.scheduled_start ? new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(j.scheduled_start)) : '—'}</Text>
+        <View style={{ flex: 1 }}><Strong>{customerTitle({ name: j.customer_name, phone_normalized: j.customer_phone })}</Strong><Sub>{t(`jobType.${j.job_type}` as TranslationKey)} · {j.location_label}</Sub><Badge text={t(`status.${j.status}` as TranslationKey)} tone={statusTone(j.status)} /></View>
+        <Icon name="chevron-forward" size={18} color={colors.faint} />
+      </Pressable>)}</Card>
+    </View>)}
+  </>;
 }
 
 /** Pick the customer (search) and, when there are several, the location. A number that is
  * not found yet goes straight to "add customer", carrying the search over. */
-export function JobCustomerPicker({ membership, onBack, onPicked, onCreate }: {
-  membership: Membership; onBack: () => void; onPicked: (customerId: string, locationId: string) => void; onCreate: (search: string) => void;
+export function JobCustomerPicker({ membership, initialCustomer, onBack, onPicked, onCreate }: {
+  membership: Membership; initialCustomer?: Customer; onBack: () => void; onPicked: (customerId: string, locationId: string) => void; onCreate: (search: string) => void;
 }) {
   const t = useT();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<CustomerSummary[] | null>(null);
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(initialCustomer ?? null);
   const [next, setNext] = useState<number | null>(null);
   const [more, setMore] = useState(false);
   const seq = useRef(0);
@@ -389,6 +410,9 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
 }
 
 const styles = StyleSheet.create({
+  agendaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 17, paddingHorizontal: 16 },
+  agendaLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
+  agendaTime: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 24, color: colors.ink, minWidth: 45 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'space-between' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },

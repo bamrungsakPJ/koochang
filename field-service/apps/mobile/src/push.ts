@@ -29,9 +29,11 @@ export async function registerPush(language: Language): Promise<void> {
     const Notifications = await notifications();
     await Notifications.setNotificationChannelAsync('default', {
       name: translate(language, 'notifications'), importance: Notifications.AndroidImportance.HIGH });
-    let { granted } = await Notifications.getPermissionsAsync();
-    if (!granted) ({ granted } = await Notifications.requestPermissionsAsync());
-    if (!granted) return;
+    // Check the native response explicitly; some SDK declarations omit inherited permission fields.
+    const granted = (permission: object) => 'granted' in permission && permission.granted === true;
+    let permission = await Notifications.getPermissionsAsync();
+    if (!granted(permission)) permission = await Notifications.requestPermissionsAsync();
+    if (!granted(permission)) return;
     const device = await Notifications.getDevicePushTokenAsync();
     if (typeof device.data === 'string') await send(device.data);
   } catch { /* no Firebase config in this build, or offline: retried on next start */ }

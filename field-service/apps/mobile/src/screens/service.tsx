@@ -4,7 +4,7 @@ import { formatDate, formatDateTime, type TranslationKey } from '@field-service/
 import { api, ApiFailure, type EquipmentHistory, type EquipmentSummary, type Job, type Membership, type NextMaintenance, type ServiceItemInput, type ServiceResult } from '../api';
 import { CameraDeniedError, dropKeptPhoto, keepPhoto, pickPhoto, uploadPhoto, uuid } from '../photos';
 import { clearDraft, listDrafts, loadDraft, saveDraft } from '../drafts';
-import { Badge, Banner, Button, Card, colors, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
+import { Badge, Banner, Button, Card, colors, Disclosure, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
 import { customerTitle } from './customers';
 import { categoryIcon, useEquipmentTitle } from './equipment';
 
@@ -49,9 +49,9 @@ const legacyDraftKey = (org: string, jobId: string | undefined, locationId: stri
  * so sending again after a network error never records twice. Entries are also kept on the
  * device until the server confirms, so closing the app or losing signal loses nothing; reopening
  * the same job restores them with the same client event id. Nothing here reads the location. */
-export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, onDone }: {
+export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, onOpenLocation, onDone }: {
   membership: Membership; job?: Job; adhoc?: { customerId: string; locationId: string };
-  onBack: () => void; onAddEquipment: (locationId: string) => void; onDone: (result: ServiceResult) => void;
+  onBack: () => void; onAddEquipment: (locationId: string) => void; onOpenLocation: () => void; onDone: (result: ServiceResult) => void;
 }) {
   const t = useT();
   const errorText = useErrorText();
@@ -64,6 +64,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   const clientEventId = useRef(uuid());
   const occurredAt = useRef(new Date().toISOString());
   const [restored, setRestored] = useState<boolean | null>(null);
+  const [draftSaved, setDraftSaved] = useState<boolean | null>(null);
   const [units, setUnits] = useState<EquipmentSummary[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [note, setNote] = useState('');
@@ -100,7 +101,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
         const legacy = await loadDraft<SavedForm>(legacyKey);
         if (legacy && !legacy.memberId) { saved = legacy; await saveDraft<SavedForm>(draftKey, { ...legacy, memberId: membership.member_id }); await clearDraft(legacyKey); }
       }
-      if (saved && Object.keys(saved.drafts).length) {
+      if (saved && (Object.keys(saved.drafts).length || saved.note)) {
         clientEventId.current = saved.clientEventId; occurredAt.current = saved.occurredAt;
         setDrafts(saved.drafts); setNote(saved.note); setRestored(true);
       } else setRestored(false);
@@ -110,10 +111,21 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   // Keep the device copy current (uploaded photo ids included) while the form is open.
   useEffect(() => {
     if (restored === null) return;
-    if (!Object.keys(drafts).length && !note) return;
+    let cancelled = false;
+    setDraftSaved(null);
+    if (!Object.keys(drafts).length && !note) { void clearDraft(draftKey); return; }
     const target: DraftTarget = { jobId: job?.id, customerId: job?.customer_id ?? adhoc!.customerId, locationId, title };
-    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note, target, memberId: membership.member_id });
+    void saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts, note, target, memberId: membership.member_id })
+      .then(saved => { if (!cancelled) setDraftSaved(saved); });
+    return () => { cancelled = true; };
   }, [drafts, note, restored, title]);
+
+  async function leaveWithDraft(next: () => void) {
+    const target: DraftTarget = { jobId: job?.id, customerId: job?.customer_id ?? adhoc!.customerId, locationId, title };
+    const saved = await saveDraft<SavedForm>(draftKey, { clientEventId: clientEventId.current, occurredAt: occurredAt.current, drafts: draftsNow.current, note, target, memberId: membership.member_id });
+    setDraftSaved(saved);
+    if (saved) next();
+  }
 
   const toggle = (id: string) => setDrafts(prev => {
     const next = { ...prev };
@@ -221,12 +233,17 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
 
   if (!units || restored === null) return failure ? <Screen onBack={onBack}><Banner text={failure} /></Screen> : <Loading />;
   const today = todayBangkok();
-  return <Screen onBack={onBack} footer={<Button icon="checkmark-done" title={job ? t('finishJob') : t('recordService')} busy={busy} onPress={submit} />}>
+  return <Screen onBack={onBack} footer={<>
+    {waiting ? <Sub>{t('photosWaiting', { n: waiting })}</Sub> : null}
+    {waiting ? <Button small kind="ghost" icon="cloud-upload-outline" title={t('retryPhotos')} busy={busy || uploading !== null} onPress={() => { void flushPhotos(); }} /> : null}
+    <Button icon="checkmark-done" title={job ? t('finishJob') : t('recordService')} busy={busy} disabled={waiting > 0 || uploading !== null} onPress={submit} />
+  </>}>
     <Title>{job ? t('recordService') : t('recordAdhoc')}</Title>
+    <Button kind="secondary" icon="location-outline" title={t('ownerWeb.location_coordinates')} disabled={busy || uploading !== null || restored === null} onPress={() => { void leaveWithDraft(onOpenLocation); }} />
     {title ? <Sub>{title}</Sub> : null}
     {job ? null : <Sub>{t('adhocHint')}</Sub>}
     {restored ? <Banner tone="info" text={t('draftRestored')} /> : null}
-    <Section action={<Button small kind="ghost" icon="add" title={t('addEquipment')} onPress={() => onAddEquipment(locationId)} />}>{t('selectEquipment')}</Section>
+    <Section action={<Button small kind="ghost" icon="add" title={t('addEquipment')} disabled={busy || uploading !== null || restored === null} onPress={() => { void leaveWithDraft(() => onAddEquipment(locationId)); }} />}>{t('selectEquipment')}</Section>
     {units.map(unit => {
       const d = drafts[unit.id];
       const [icon, tone] = categoryIcon(unit.category);
@@ -237,14 +254,10 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
           <Icon name={d ? 'checkbox' : 'square-outline'} size={24} color={d ? colors.primary : colors.faint} />
         </Pressable>
         {d ? <View style={styles.unitBody}>
-          <Text style={styles.label}>{t('serviceType')}</Text>
-          <View style={styles.chips}>{serviceTypes.map(s => <Chip key={s} label={t(`jobType.${s}` as TranslationKey)} on={d.service_type === s} onPress={() => update(unit.id, { service_type: s })} />)}</View>
           <Text style={styles.label}>{t('outcome')}</Text>
           <View style={styles.chips}>{(['done', 'not_done', 'deferred'] as const).map(o => <Chip key={o} label={t(`outcome.${o}`)} on={d.outcome === o}
-            tone={o === 'done' ? '#16A34A' : o === 'not_done' ? '#DC2626' : '#B45309'} onPress={() => update(unit.id, { outcome: o })} />)}</View>
-          {d.outcome !== 'done' ? <Field label={t('notDoneReason')} value={d.not_done_reason} onChangeText={v => update(unit.id, { not_done_reason: v })} maxLength={500} /> : null}
-          <Field label={t('problemNote')} value={d.problem_note} onChangeText={v => update(unit.id, { problem_note: v })} multiline maxLength={2000} />
-          {d.outcome === 'done' ? <Field label={t('workNote')} value={d.work_note} onChangeText={v => update(unit.id, { work_note: v })} multiline maxLength={2000} /> : null}
+            onPress={() => update(unit.id, { outcome: o })} />)}</View>
+          {d.outcome !== 'done' ? <Field required label={t('notDoneReason')} value={d.not_done_reason} onChangeText={v => update(unit.id, { not_done_reason: v })} error={failure && !d.not_done_reason.trim() ? t('field.required') : undefined} maxLength={500} /> : null}
           <View style={styles.photos}>
             {(['before', 'after'] as const).map(kind => <View key={kind} style={{ flex: 1 }}>
               <Text style={styles.label}>{t(kind === 'before' ? 'beforePhoto' : 'afterPhoto')}</Text>
@@ -259,19 +272,26 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
               </View>
             </View>)}
           </View>
-          {d.outcome === 'done' ? <>
+          <Disclosure title={`${t(`jobType.${d.service_type}` as TranslationKey)} · ${t('serviceDetails')}`}>
+            <Text style={styles.label}>{t('serviceType')}</Text>
+            <View style={styles.chips}>{serviceTypes.map(s => <Chip key={s} label={t(`jobType.${s}` as TranslationKey)} on={d.service_type === s} onPress={() => update(unit.id, { service_type: s })} />)}</View>
+            <Field label={t('problemNote')} value={d.problem_note} onChangeText={v => update(unit.id, { problem_note: v })} multiline maxLength={2000} />
+            {d.outcome === 'done' ? <Field label={t('workNote')} value={d.work_note} onChangeText={v => update(unit.id, { work_note: v })} multiline maxLength={2000} /> : null}
+            {d.outcome === 'done' ? <>
             <Text style={styles.label}>{t('nextMaintenance')}</Text>
             <View style={styles.chips}>
               {(['keep', 3, 6, 12, 'none'] as const).map(n => <Chip key={String(n)} on={d.next === n} onPress={() => update(unit.id, { next: n })}
                 label={n === 'keep' ? t('keepSchedule') : n === 'none' ? t('noReminder') : t('months', { n })} />)}
             </View>
             {typeof d.next === 'number' ? <Sub>{t('nextDue', { date: formatDate(new Date(`${addMonths(today, d.next)}T12:00:00+07:00`), language) })}</Sub> : null}
-          </> : null}
+            </> : null}
+          </Disclosure>
         </View> : null}
       </Card>;
     })}
-    <Field label={t('serviceNote')} value={note} onChangeText={setNote} multiline maxLength={2000} />
-    {waiting ? <Sub>{t('photosWaiting', { n: waiting })}</Sub> : null}
+    <Disclosure title={t('serviceNote')}><Field label={t('serviceNote')} value={note} onChangeText={setNote} multiline maxLength={2000} /></Disclosure>
+    {draftSaved === true ? <Sub>{t('draftOnDevice')}</Sub> : null}
+    {draftSaved === false ? <Banner text={t('draftSaveFailed')} /> : null}
     <Banner tone="info" text={notice} />
     <Banner text={failure} />
     <Text style={styles.hint}>{formatDateTime(new Date(occurredAt.current), language)}</Text>
@@ -341,7 +361,7 @@ const styles = StyleSheet.create({
   unitBody: { marginTop: 8 },
   label: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: 12, marginBottom: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   chipText: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.ink },
   photos: { flexDirection: 'row', gap: 12 },
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },

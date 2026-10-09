@@ -1,15 +1,15 @@
-import { createContext, useContext, useEffect, useRef, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Language } from '@field-service/core';
 import { translate, type TranslationKey } from '@field-service/i18n';
 import { ApiFailure } from './api';
 
 export const colors = {
-  bg: '#F5F7FB', surface: '#FFFFFF', ink: '#0F172A', muted: '#64748B', faint: '#94A3B8', line: '#E2E8F0',
+  bg: '#F6F7F9', surface: '#FFFFFF', ink: '#14263B', muted: '#657080', faint: '#7C8898', line: '#E8EBEF',
   // KooChang brand (branding/koochang): navy actions, amber accent.
-  primary: '#12243A', primaryPressed: '#0B1828', primarySoft: '#EDF1F6', onPrimary: '#FFFFFF',
-  accent: '#F5A623', accentSoft: '#FEF3DC',
+  primary: '#14263B', primaryPressed: '#0B1828', primarySoft: '#EDF1F6', onPrimary: '#FFFFFF',
+  accent: '#F6AF37', accentSoft: '#FFF1D9',
   success: '#16A34A', successSoft: '#DCFCE7', warn: '#B45309', warnSoft: '#FEF3C7',
   danger: '#DC2626', dangerSoft: '#FEE2E2',
 };
@@ -33,9 +33,9 @@ export const Icon = ({ name, size = 20, color = colors.ink }: { name: IconName; 
   <Ionicons name={name} size={size} color={color} />;
 
 /** Rounded square with a coloured icon. */
-export const IconTile = ({ icon, tone = 'blue', size = 40 }: { icon: IconName; tone?: Tone; size?: number }) =>
-  <View style={[styles.tile, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: tones[tone][0] }]}>
-    <Icon name={icon} size={size * 0.5} color={tones[tone][1]} />
+export const IconTile = ({ icon, tone: _tone = 'blue', size = 40 }: { icon: IconName; tone?: Tone; size?: number }) =>
+  <View style={[styles.tile, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: colors.primarySoft }]}>
+    <Icon name={icon} size={size * 0.5} color={colors.primary} />
   </View>;
 
 export const LanguageContext = createContext<Language>('th');
@@ -73,14 +73,25 @@ export function Screen({ children, onBack, footer }: { children: ReactNode; onBa
     backStack.push(back);
     return () => { const i = backStack.lastIndexOf(back); if (i >= 0) backStack.splice(i, 1); };
   }, [hasBack]);
-  return <View style={styles.screen}>
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+  return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       {onBack ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.back} hitSlop={12}>
         <Icon name="chevron-back" size={22} color={colors.ink} />
       </Pressable> : null}
       {children}
     </ScrollView>
     {footer ? <View style={styles.footer}>{footer}</View> : null}
+  </KeyboardAvoidingView>;
+}
+
+/** Optional fields stay mounted: folding details never clears form values or photo state. */
+export function Disclosure({ title, children, initiallyOpen = false }: { title: string; children: ReactNode; initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  return <View>
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)} style={styles.disclosure}>
+      <Text style={styles.disclosureText}>{title}</Text><Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+    </Pressable>
+    <View style={!open ? { display: 'none' } : undefined}>{children}</View>
   </View>;
 }
 
@@ -203,7 +214,7 @@ const styles = StyleSheet.create({
   strong: text('semibold', 17, colors.ink, 26),
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10 },
   section: text('semibold', 15, colors.muted, 22),
-  card: { backgroundColor: colors.surface, borderRadius: 16, marginTop: 12, shadowColor: '#0F172A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  card: { backgroundColor: colors.surface, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: colors.line },
   cardPad: { padding: 16 },
   steps: { flexDirection: 'row', gap: 6, marginVertical: 18 },
   step: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
@@ -217,17 +228,19 @@ const styles = StyleSheet.create({
   fieldError: { ...text('regular', 13, colors.danger, 20), marginTop: 6 },
   hint: { ...text('regular', 13, colors.muted, 20), marginTop: 6 },
   button: { minHeight: 52, borderRadius: 12, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, marginTop: 12 },
-  buttonSmall: { minHeight: 40, borderRadius: 10, paddingHorizontal: 12, marginTop: 0 },
+  buttonSmall: { minHeight: 44, borderRadius: 10, paddingHorizontal: 12, marginTop: 0 },
   primary: { backgroundColor: colors.primary },
   primaryPressed: { backgroundColor: colors.primaryPressed },
-  secondary: { backgroundColor: colors.primarySoft },
+  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   ghost: { backgroundColor: 'transparent' },
   danger: { backgroundColor: colors.dangerSoft },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.7 },
   buttonText: text('semibold', 16, colors.onPrimary, 22),
   buttonTextSmall: text('semibold', 14, colors.onPrimary, 20),
-  iconButton: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 44, height: 44, borderRadius: 15, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  disclosure: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginTop: 8 },
+  disclosureText: { flex: 1, ...text('medium', 13, colors.muted, 20) },
   banner: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', borderRadius: 12, padding: 12, marginTop: 14 },
   bannerText: { flex: 1, ...text('regular', 14, colors.ink, 21) },
   badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 },
@@ -240,7 +253,7 @@ const styles = StyleSheet.create({
   rowTitle: text('medium', 16, colors.ink, 23),
   rowSub: text('regular', 13, colors.muted, 19),
   tabBar: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 10 },
-  tab: { flex: 1, alignItems: 'center', gap: 2 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 48, gap: 2 },
   // Amber bar over the active tab (amber is an accent only: too light for text on white).
   tabMarker: { width: 28, height: 3, borderRadius: 2, marginTop: -8, marginBottom: 5, backgroundColor: 'transparent' },
   tabMarkerOn: { backgroundColor: colors.accent },

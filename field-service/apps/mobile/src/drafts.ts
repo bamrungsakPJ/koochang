@@ -22,12 +22,13 @@ export async function loadDraft<T>(key: string): Promise<T | null> {
   } catch { return null; }
 }
 
-export async function saveDraft<T>(key: string, value: T): Promise<void> {
+export async function saveDraft<T>(key: string, value: T): Promise<boolean> {
   try {
     const text = JSON.stringify({ key, savedAt: Date.now(), value });
     if (Platform.OS === 'web') localStorage.setItem(`draft.${key}`, text);
     else file(key).write(text);
-  } catch { /* the form still works; only the offline copy is missing */ }
+    return true;
+  } catch { return false; }
 }
 
 export async function clearDraft(key: string): Promise<void> {
