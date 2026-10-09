@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 — staging `71b42f5` (migration 032) ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, APK 0.2.13 build 15; รอ DeeSMSx อนุมัติ sender)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 — staging `0016865` (migration 033) ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, APK 0.2.14 build 16; รอ DeeSMSx อนุมัติ sender)
 
 ### งานที่ทำและแก้ไขแล้ว
 
@@ -85,6 +85,8 @@
 - **Deploy** (ผู้ใช้สั่ง): git bundle → server2 fetch/reset `0016865` → pnpm install → build (NEXT_PUBLIC_API_URL=https://api.koochang.com) → migrate (Applied 033_stripe_refunds) → pm2 restart; 3 แอป online, /v1/health ok, koochang.com 200 มีป้าย Google Play, `POST /platform/billing/refunds/:id/stripe` ตอบ 401 (มี route แล้ว) — รายการคืน 20 บาท (INV-2610-000002) ตอนนี้มีปุ่ม "คืนเงินผ่าน Stripe" ในคอนโซลแล้ว ให้ผู้ใช้กดเอง
 - **APK 0.2.14 / build 16**: app.json 0.2.14/16; คัดลอก gallery.ts(.web), billing.tsx, service.tsx, i18n, app.json, package.json, lockfile ไป D:\kc → pnpm install (expo-media-library) → build i18n → `expo prebuild --platform android --no-install` (มี native module ใหม่)
 - **ปัญหา/แก้**: (1) prebuild รีเซ็ต release signing เป็น debug key ตามที่เตือนไว้ → ใส่ block release (อ่าน credentials.json ของ EAS) กลับ แล้ว diff กับสำรอง `D:\Android\temp\build.gradle.before-0.2.14` ต่างแค่ลำดับ block และ version (2) ปลั๊กอิน media-library ใส่ `READ_MEDIA_IMAGES` (ติดนโยบายรูปภาพของ Play) → ตั้ง `granularPermissions: []` เพราะบันทึกรูปบน Android 13+ ไม่ต้องขอสิทธิ์ ต่ำกว่านั้นใช้ WRITE_EXTERNAL_STORAGE (maxSdk 32) ที่ไลบรารีประกาศเอง; ยังมี `READ_MEDIA_VISUAL_USER_SELECTED` จาก manifest ของไลบรารี (ตรวจอีกครั้งก่อนส่ง Play)
+- **ผล**: BUILD SUCCESSFUL 11m44s (native module ใหม่ คอมไพล์ใหม่ 264 tasks) → `output/builds/apk/KooChang-0.2.14-build16.apk` (75.9 MB); ตรวจ com.koochang.app 16/0.2.14, cert SHA-256 4eed9485… เดิม (ติดตั้งทับ 0.2.13 ได้), ไม่มี READ_MEDIA_IMAGES, bundle มี api.koochang.com + pay.saveQrPhone ไม่มี api-staging; ยังไม่ได้ทดสอบบนโทรศัพท์
+- **Push**: ระบบบล็อก Claude push รอบนี้ — ให้ผู้ใช้รัน `git push origin field-service-a02`
 
 ### 2026-10-09 — มือถือ: บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามผู้ใช้ (b7a49f9) + ป้าย Google Play บนหน้าแรก
 
