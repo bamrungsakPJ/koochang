@@ -4,8 +4,10 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const url = code => `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
 const storageUrl=url(`export const values=new Map(); export const keys={tokens:'tokens',access:'access',refresh:'refresh'}; export const storage={get:async k=>values.get(k)??null,set:async(k,v)=>{if(v===null)values.delete(k);else values.set(k,v)}};`);
+// The offline copy (./cache) uses the device file system; these tests run with no saved copy.
+const cacheUrl=url(`export const cacheable=()=>false; export const clearCache=()=>{}; export const readCache=async()=>null; export const writeCache=()=>{};`);
 const source=await readFile(new URL('../apps/mobile/src/api.ts',import.meta.url),'utf8');
-const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace("'./storage'",JSON.stringify(storageUrl));
+const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace("'./storage'",JSON.stringify(storageUrl)).replace("'./cache'",JSON.stringify(cacheUrl));
 const {Api}=await import(url(code));const {values,keys,storage}=await import(storageUrl);
 const response=(status,data)=>new Response(JSON.stringify(data),{status});
 function setup(t,fn){values.clear();t.mock.method(globalThis,'fetch',fn);t.after(()=>t.mock.restoreAll());}
