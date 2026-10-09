@@ -185,8 +185,8 @@ const th = {
   taxSkipTitle: 'ข้าม ไม่ให้คู่ช่างออกเอกสารนี้', taxSkipHint: 'ใช้เมื่อออกเอกสารนี้เองในโปรแกรมเดิมแล้ว ใบเสร็จที่มีใบลดหนี้แล้วข้ามไม่ได้',
   itismeSettings: 'ใบเสร็จ ITISME', itismeHint: 'ฐาน SQL Server ของบริษัทที่ออกเลข IV / R / CN ใช้ login ที่รันได้เฉพาะ procedure sp_KC_* ทดสอบกับ ITISME_TEST ก่อนเปลี่ยนเป็น ITISME',
   itismePasswordSet: 'บันทึกรหัสผ่านแล้ว', itismePasswordMissing: 'ยังไม่ได้บันทึกรหัสผ่าน',
-  stepUpTitle: 'ยืนยันรหัสจากแอป Authenticator ก่อนทำรายการสำคัญ', stepUpEnabled: 'ถามรหัส 6 หลักก่อนรายการสำคัญ', stepUpMinutes: 'ยืนยันครั้งหนึ่งใช้ได้ (นาที, 5–720)', stepUpMinutesValue: 'ครั้งละ {n} นาที',
-  stepUpHint: 'รายการสำคัญ ได้แก่ ยืนยันรับเงิน คืนเงิน กุญแจ/บัญชีรับเงิน ทีมงาน ระงับร้าน และข้อมูลส่วนบุคคล เวลานับใหม่ทุกครั้งที่ทำรายการ จึงถามครั้งเดียวระหว่างทำงานต่อเนื่อง ตอนเข้าสู่ระบบยังต้องใช้รหัสเสมอ',
+  stepUpPolicyTitle: 'ยืนยันรหัสจากแอป Authenticator ก่อนทำรายการสำคัญ', stepUpEnabled: 'ถามรหัส 6 หลักก่อนรายการสำคัญ', stepUpMinutes: 'ยืนยันครั้งหนึ่งใช้ได้ (นาที, 5–720)', stepUpMinutesValue: 'ครั้งละ {n} นาที',
+  stepUpPolicyHint: 'รายการสำคัญ ได้แก่ ยืนยันรับเงิน คืนเงิน กุญแจ/บัญชีรับเงิน ทีมงาน ระงับร้าน และข้อมูลส่วนบุคคล เวลานับใหม่ทุกครั้งที่ทำรายการ จึงถามครั้งเดียวระหว่างทำงานต่อเนื่อง ตอนเข้าสู่ระบบยังต้องใช้รหัสเสมอ',
   stepUpOffHint: 'ปิดแล้ว: เข้าสู่ระบบด้วยรหัส 6 หลักครั้งเดียว แล้วทำรายการสำคัญได้โดยไม่ถามซ้ำ ถ้าเครื่องถูกใช้ต่อโดยคนอื่น จะยืนยันเงินหรือเปลี่ยนกุญแจได้ทันที ควรออกจากระบบทุกครั้งที่ลุกจากเครื่อง',
   'itisme.server': 'เซิร์ฟเวอร์', 'itisme.port': 'พอร์ต', 'itisme.database': 'ฐานข้อมูล', 'itisme.user': 'ผู้ใช้ SQL', 'itisme.password': 'รหัสผ่าน SQL (เว้นว่างเพื่อใช้ค่าเดิม)',
 };
@@ -376,8 +376,8 @@ const en: AdminCatalog = {
   taxSkipTitle: 'Skip: KooChang will not issue this document', taxSkipHint: 'Use when it was issued by hand in the legacy program. A receipt that has a credit note cannot be skipped.',
   itismeSettings: 'ITISME receipts', itismeHint: 'The company SQL Server that numbers IV / R / CN. Use a login that can only run the sp_KC_* procedures. Test with ITISME_TEST before switching to ITISME.',
   itismePasswordSet: 'Password saved', itismePasswordMissing: 'No password saved yet',
-  stepUpTitle: 'Authenticator code before important actions', stepUpEnabled: 'Ask for the 6-digit code before important actions', stepUpMinutes: 'One confirmation lasts (minutes, 5–720)', stepUpMinutesValue: '{n} minutes each',
-  stepUpHint: 'Important actions: confirming money, refunds, keys and receiving accounts, staff, suspending shops and personal data. The time restarts on every action, so steady work is asked once. Sign-in always needs the code.',
+  stepUpPolicyTitle: 'Authenticator code before important actions', stepUpEnabled: 'Ask for the 6-digit code before important actions', stepUpMinutes: 'One confirmation lasts (minutes, 5–720)', stepUpMinutesValue: '{n} minutes each',
+  stepUpPolicyHint: 'Important actions: confirming money, refunds, keys and receiving accounts, staff, suspending shops and personal data. The time restarts on every action, so steady work is asked once. Sign-in always needs the code.',
   stepUpOffHint: 'Off: the code is needed once at sign-in, then important actions are not asked again. Anyone using an unattended signed-in device can confirm money or change keys, so always sign out when leaving it.',
   'itisme.server': 'Server', 'itisme.port': 'Port', 'itisme.database': 'Database', 'itisme.user': 'SQL user', 'itisme.password': 'SQL password (leave blank to keep)',
 };
