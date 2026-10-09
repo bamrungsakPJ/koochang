@@ -1,0 +1,333 @@
+<title>คู่ช่าง Mobile v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a working review document — findings → principles → menus → phone mockups → tap counts → phases → decisions.
+   Mockups use the app's own navy/amber so the owner judges the real look; the document chrome stays neutral. */
+:root {
+  --bg: #F3F4F7; --paper: #FFFFFF; --ink: #141B26; --muted: #5B6575; --faint: #8B95A5; --line: #DDE2EA;
+  --navy: #12243A; --navy-soft: #E6ECF3; --amber: #F5A623; --amber-soft: #FDF0D8;
+  --ok: #157A3E; --ok-soft: #DDF3E5; --warn: #A65A06; --warn-soft: #FCEBD2; --bad: #B42318; --bad-soft: #FDE3E0;
+  --phone-bg: #F5F7FB; --phone-card: #FFFFFF;
+  --doc: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, sans-serif;
+  --app: "Noto Sans Thai", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F141B; --paper: #171E28; --ink: #E7ECF3; --muted: #A3AEBE; --faint: #7A8596; --line: #2A3442;
+  --navy-soft: #1E2B3C; --amber-soft: #3A2C12; --ok-soft: #12301F; --warn-soft: #3A2A12; --bad-soft: #3B1A17;
+  --ok: #5BD08A; --warn: #F2B35C; --bad: #FF8A7A; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0F141B; --paper: #171E28; --ink: #E7ECF3; --muted: #A3AEBE; --faint: #7A8596; --line: #2A3442;
+  --navy-soft: #1E2B3C; --amber-soft: #3A2C12; --ok-soft: #12301F; --warn-soft: #3A2A12; --bad-soft: #3B1A17;
+  --ok: #5BD08A; --warn: #F2B35C; --bad: #FF8A7A; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--doc); font-size: 15.5px; line-height: 1.7; padding: 32px 16px 64px }
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 40px }
+h1, h2, h3 { line-height: 1.3; text-wrap: balance; margin: 0 }
+h1 { font-size: clamp(28px, 4vw, 38px); font-weight: 700 }
+h2 { font-size: 22px; font-weight: 700 }
+h3 { font-size: 16px; font-weight: 600 }
+p { margin: 0; max-width: 68ch }
+.eyebrow { font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600 }
+.lead { color: var(--muted); font-size: 17px }
+section { display: grid; gap: 16px }
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px }
+.finding { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0 }
+.finding ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; display: grid; gap: 6px }
+.finding b { color: var(--ink); font-weight: 600 }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 99px; background: var(--amber-soft); color: var(--warn); justify-self: start }
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 0; margin: 0; list-style: none }
+.principles li { border-top: 3px solid var(--navy); padding-top: 10px; display: grid; gap: 4px; min-width: 0 }
+:root:not([data-theme="light"]) .principles li { border-top-color: var(--amber) }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .principles li { border-top-color: var(--navy) } }
+:root[data-theme="light"] .principles li { border-top-color: var(--navy) }
+.principles span { color: var(--muted); font-size: 14.5px }
+.menus { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px }
+.menu { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 12px; min-width: 0 }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px }
+.tabs span { font-size: 13.5px; padding: 4px 12px; border-radius: 8px; background: var(--navy-soft); font-weight: 500 }
+.menu small { color: var(--muted); font-size: 13.5px; line-height: 1.6 }
+.phones { display: flex; flex-wrap: wrap; gap: 26px; justify-content: center }
+figure { margin: 0; display: grid; gap: 10px; justify-items: center }
+figcaption { font-size: 13.5px; color: var(--muted); text-align: center; max-width: 280px }
+figcaption b { color: var(--ink) }
+
+/* Phone mockups: always the app's light look, whatever the page theme. */
+.phone { width: 280px; max-width: 100%; height: 580px; border-radius: 34px; background: #0B1220; padding: 10px; box-shadow: 0 18px 40px rgba(10, 18, 32, .22) }
+.screen { height: 100%; border-radius: 26px; background: var(--phone-bg); color: #0F172A; font-family: var(--app); font-size: 12px; line-height: 1.5; display: flex; flex-direction: column; overflow: hidden; position: relative }
+.status { display: flex; justify-content: space-between; padding: 8px 16px 2px; font-size: 10.5px; font-weight: 600; color: #334155 }
+.body { flex: 1; padding: 6px 12px 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden }
+.top { display: flex; align-items: center; gap: 8px }
+.top .t { flex: 1; min-width: 0 }
+.top .shop { font-size: 10.5px; color: #64748B }
+.top .h { font-size: 17px; font-weight: 700; color: #12243A; line-height: 1.3 }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: #12243A; color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 11px }
+.bell { width: 30px; height: 30px; border-radius: 50%; background: #E9EEF5; display: grid; place-items: center; position: relative }
+.bell::after { content: "2"; position: absolute; top: -2px; right: -2px; background: #DC2626; color: #fff; font-size: 8.5px; font-weight: 700; width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center }
+.seg { display: flex; background: #E9EEF5; border-radius: 10px; padding: 3px; gap: 3px }
+.seg span { flex: 1; text-align: center; padding: 4px 0; border-radius: 8px; font-size: 11px; color: #475569 }
+.seg span.on { background: #fff; color: #12243A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08) }
+.job { background: #fff; border-radius: 14px; padding: 10px 11px; display: grid; gap: 6px; border: 1px solid #E5EAF1 }
+.job .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 6px }
+.job .time { font-weight: 700; font-size: 13px; color: #12243A; font-variant-numeric: tabular-nums }
+.job .who { font-weight: 600; font-size: 12.5px }
+.job .where { color: #64748B; font-size: 11px }
+.job .acts { display: flex; gap: 6px }
+.btn { border-radius: 9px; padding: 6px 8px; font-size: 11px; font-weight: 600; text-align: center; flex: 1 }
+.btn.primary { background: #12243A; color: #fff }
+.btn.light { background: #EEF2F7; color: #12243A }
+.chip { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap }
+.chip.now { background: #FEF3DC; color: #9A5B00 }
+.chip.done { background: #DCFCE7; color: #15803D }
+.chip.late { background: #FEE2E2; color: #B91C1C }
+.chip.wait { background: #E0E7F1; color: #334155 }
+.label { font-size: 10.5px; font-weight: 600; color: #64748B; letter-spacing: .02em; margin-top: 2px }
+.alert { background: #FFF7E6; border: 1px solid #F8D9A0; color: #7A4A00; border-radius: 12px; padding: 8px 10px; font-size: 11px; display: flex; gap: 8px; align-items: center }
+.alert .btn { flex: 0 0 auto }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
+.kpi { background: #fff; border: 1px solid #E5EAF1; border-radius: 12px; padding: 7px 8px }
+.kpi b { display: block; font-size: 16px; color: #12243A; font-variant-numeric: tabular-nums }
+.kpi span { font-size: 9.5px; color: #64748B }
+.list { background: #fff; border: 1px solid #E5EAF1; border-radius: 14px }
+.li { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-bottom: 1px solid #EEF2F7 }
+.li:last-child { border-bottom: 0 }
+.li .ico { width: 24px; height: 24px; border-radius: 7px; background: #EEF2F7; display: grid; place-items: center; color: #12243A; font-size: 12px }
+.li .tx { flex: 1; min-width: 0 }
+.li .tx b { display: block; font-size: 12px; font-weight: 600 }
+.li .tx span { font-size: 10.5px; color: #64748B }
+.li .go { color: #94A3B8 }
+.tabbar { display: flex; background: #fff; border-top: 1px solid #E5EAF1; padding: 6px 4px 10px }
+.tabbar span { flex: 1; text-align: center; font-size: 9.5px; color: #94A3B8; display: grid; gap: 1px; justify-items: center }
+.tabbar span i { font-style: normal; font-size: 15px; line-height: 1.2 }
+.tabbar span.on { color: #12243A; font-weight: 600 }
+.fab { position: absolute; right: 14px; bottom: 58px; background: #F5A623; color: #12243A; font-weight: 700; font-size: 11.5px; border-radius: 99px; padding: 9px 14px; box-shadow: 0 6px 16px rgba(245,166,35,.45) }
+.unit { background: #fff; border: 1px solid #E5EAF1; border-radius: 14px; padding: 10px 11px; display: grid; gap: 7px }
+.unit .h { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 12px }
+.pills { display: flex; gap: 5px; flex-wrap: wrap }
+.pill { font-size: 10.5px; padding: 3px 9px; border-radius: 8px; background: #EEF2F7; color: #334155 }
+.pill.on { background: #12243A; color: #fff; font-weight: 600 }
+.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }
+.shot { border: 1.5px dashed #B9C4D3; border-radius: 10px; height: 54px; display: grid; place-items: center; color: #64748B; font-size: 10.5px; text-align: center }
+.shot.has { border-style: solid; border-color: #12243A; background: linear-gradient(135deg, #C9D6E6, #E9EEF5); color: #12243A; font-weight: 600 }
+.input { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 9px; padding: 6px 9px; color: #94A3B8; font-size: 11px }
+.footer { padding: 8px 12px 12px; background: #fff; border-top: 1px solid #E5EAF1 }
+.footer .btn { display: block; padding: 9px }
+.back { font-size: 11px; color: #12243A; font-weight: 600 }
+
+/* Tap-count table */
+.table-wrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 14px }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px }
+th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font-size: 12.5px; color: var(--muted); font-weight: 600; letter-spacing: .04em }
+tr:last-child td { border-bottom: 0 }
+td.num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap }
+td.num.before { color: var(--bad) }
+td.num.after { color: var(--ok) }
+td small { color: var(--muted); display: block; font-size: 13px; line-height: 1.5 }
+.phases { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; counter-reset: p }
+.phases li { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px 16px 58px; position: relative; counter-increment: p; display: grid; gap: 6px; min-width: 0 }
+.phases li::before { content: counter(p); position: absolute; left: 18px; top: 16px; width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px }
+.phases span { color: var(--muted); font-size: 14.5px }
+.decide { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none }
+.decide li { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--amber); border-radius: 10px; padding: 12px 16px; display: grid; gap: 4px }
+.decide span { color: var(--muted); font-size: 14.5px }
+.note { font-size: 13.5px; color: var(--muted) }
+</style>
+
+<div class="wrap">
+
+<header style="display:grid;gap:12px">
+  <div class="eyebrow">ข้อเสนอออกแบบ · ร่าง 9 ต.ค. 2569 · ยังไม่ได้แก้โค้ด</div>
+  <h1>คู่ช่าง Mobile v2</h1>
+  <p class="lead">ผลตรวจแอปรุ่น 0.2.16 ทุกหน้า ทั้งฝั่งเจ้าของร้านและช่าง ตามที่บอกมา 4 เรื่อง: หาเมนูไม่เจอ งานหลักของช่างหลายขั้น หน้าตาไม่เป็นมืออาชีพ และเจ้าของกับช่างปนกัน พร้อมหน้าจอที่เสนอ ลำดับการทำ และสิ่งที่ต้องตัดสินใจ</p>
+</header>
+
+<section>
+  <h2>สิ่งที่เจอในแอปตอนนี้</h2>
+  <div class="findings">
+    <div class="finding"><span class="tag">หาเมนูไม่เจอ / ลำดับหน้างง</span>
+      <ul>
+        <li><b>แพ็กเกจกับใบเสร็จอยู่ในการ์ดท้ายหน้าแรก</b> ต้องเลื่อนผ่านงาน ทีม รอบดูแล แล้วกด “ต่ออายุ / เลือกแพ็กเกจ” และเลื่อนลงอีกจึงเจอใบเสร็จ</li>
+        <li><b>รอบดูแลเข้าได้จากการ์ดหน้าแรกทางเดียว</b> ไม่มีในแท็บ</li>
+        <li><b>ช่วยเหลืออยู่ในแท็บบัญชี</b> ปนกับภาษาและรหัสผ่าน</li>
+        <li><b>ปุ่มย้อนกลับไปที่ตายตัว</b> เช่น เปิดงานจากแจ้งเตือนแล้วกดกลับไปหน้ารายการงาน, เปิดงานใหม่จากหน้าเลือกลูกค้าแล้วกดกลับไปหน้าลูกค้า (ปุ่มย้อนกลับ 28 จุดกำหนดปลายทางไว้ตายตัวในโค้ด)</li>
+        <li><b>มีหน้าที่ไม่มีทางออก</b> เช่นหน้า “ยังไม่ได้อยู่ในร้านใด” (แก้แล้วใน 0.2.16)</li>
+      </ul></div>
+    <div class="finding"><span class="tag">งานช่างหลายขั้น</span>
+      <ul>
+        <li><b>บันทึกผลงานที่ได้รับมอบหมาย</b> ต้องเปิดงานก่อน แล้วค่อยกดบันทึกผล ไม่มีปุ่มบนรายการงาน</li>
+        <li><b>ทุกเครื่องต้องเลือกเองทุกช่อง</b>: ประเภทงาน ผลงาน รอบดูแลถัดไป แม้งานจะบอกประเภทไว้แล้ว และเครื่องมีรอบเดิมอยู่</li>
+        <li><b>งานนอกแผนต้องค้นลูกค้าทุกครั้ง</b> ไม่มีรายการลูกค้าล่าสุด</li>
+        <li><b>ปุ่ม “เสร็จงาน” ตามด้วยหน้าสรุปอีกหน้า</b> ต้องกดตกลงอีกครั้ง</li>
+      </ul></div>
+    <div class="finding"><span class="tag">หน้าตาไม่เป็นมืออาชีพ</span>
+      <ul>
+        <li><b>ไอคอนใช้ 7 สีปนกัน</b> (ฟ้า เขียว ม่วง ชมพู ส้ม…) โดยสีไม่ได้บอกความหมาย ทุกอย่างจึงดูสำคัญเท่ากัน</li>
+        <li><b>หน้าแรกเจ้าของมี 8 กล่องต่อกัน</b>: แถบน้ำเงินใหญ่ แจ้งเตือน ปุ่มงานนอกแผน งานของฉัน ตัวเลขทีม รอบดูแล ทีม แพ็กเกจ</li>
+        <li><b>ปุ่มเต็มความกว้างซ้อนหลายปุ่ม</b> ไม่รู้ว่าปุ่มไหนคือสิ่งที่ควรกด</li>
+        <li><b>สถานะงานเป็นตัวหนังสือเล็ก</b> ไม่เห็นในพริบตาว่างานไหนเลยเวลา งานไหนเสร็จ</li>
+      </ul></div>
+    <div class="finding"><span class="tag">เจ้าของกับช่างปนกัน</span>
+      <ul>
+        <li><b>หน้าแรกเดียวกัน</b> ต่างกันแค่เจ้าของมีกล่องจัดการต่อท้าย</li>
+        <li><b>เจ้าของที่มีช่างหลายคนเห็น “งานของฉัน” เป็นอย่างแรก</b> แทนภาพรวมงานทั้งร้านวันนี้</li>
+        <li><b>ร้านคนเดียว</b> (เจ้าของทำงานเอง) ได้แท็บทีมที่แทบไม่ได้ใช้</li>
+        <li><b>ช่างเห็นแท็บลูกค้าทั้งร้าน</b> แทนลูกค้าที่เกี่ยวกับงานตัวเอง</li>
+      </ul></div>
+  </div>
+  <p class="note">ผลจากการอ่านโค้ดทุกหน้า (App.tsx และ screens/*) ยังไม่ได้วัดกับผู้ใช้จริง</p>
+</section>
+
+<section>
+  <h2>หลักที่ใช้ออกแบบใหม่</h2>
+  <ul class="principles">
+    <li><h3>หน้าแรก = สิ่งที่ต้องทำวันนี้</h3><span>งานวันนี้ก่อนเสมอ เรื่องร้าน เงิน แพ็กเกจ ขึ้นหน้าแรกเฉพาะตอนต้องทำอะไรบางอย่าง</span></li>
+    <li><h3>หน้าละหนึ่งปุ่มหลัก</h3><span>ปุ่มหลักอยู่ล่างจอตำแหน่งเดิมทุกหน้า ปุ่มรองเป็นตัวหนังสือหรือปุ่มอ่อน</span></li>
+    <li><h3>สีบอกความหมาย</h3><span>กรมท่า = กดได้ / สำคัญ, ส้ม = กำลังทำ, เขียว = เสร็จ, แดง = เลยเวลา ไอคอนอื่นเป็นสีเทาเดียวกัน</span></li>
+    <li><h3>กลับที่เดิมเสมอ</h3><span>ปุ่มย้อนกลับ (และปุ่มกลับของ Android) พากลับหน้าที่มาจริง ไม่ใช่หน้าที่กำหนดไว้</span></li>
+    <li><h3>ใส่ค่าที่รู้อยู่แล้วให้</h3><span>ประเภทงานจากใบงาน, ผล = เสร็จ, รอบดูแลจากรอบเดิมของเครื่อง ช่างแก้เฉพาะที่ต่างไป</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>เมนูแยกตามบทบาท</h2>
+  <div class="menus">
+    <div class="menu"><h3>ช่าง</h3><div class="tabs"><span>งานวันนี้</span><span>ลูกค้า</span><span>ฉัน</span></div>
+      <small>งานวันนี้แสดงลำดับตามเวลา มีปุ่ม “นำทาง” และ “บันทึกผล” บนแต่ละงาน ปุ่มลอย “+ บันทึกงาน” สำหรับงานนอกแผน ลูกค้าแสดงลูกค้าที่เคยทำงานด้วยก่อน</small></div>
+    <div class="menu"><h3>เจ้าของร้านที่มีทีม</h3><div class="tabs"><span>วันนี้</span><span>งาน</span><span>ลูกค้า</span><span>ร้าน</span></div>
+      <small>วันนี้ = ภาพรวมทั้งร้าน (งานเลยเวลา งานที่ยังไม่มีคนรับ คำขอเข้าร่วม) แท็บร้านรวม ทีม รอบดูแล แพ็กเกจและใบเสร็จ ช่วยเหลือ ตั้งค่าร้าน บัญชีส่วนตัวย้ายไปที่รูปโปรไฟล์มุมบน</small></div>
+    <div class="menu"><h3>เจ้าของที่ทำงานคนเดียว</h3><div class="tabs"><span>วันนี้</span><span>ลูกค้า</span><span>ร้าน</span></div>
+      <small>ไม่มีแท็บทีมและงานแยก งานวันนี้ใช้หน้าเดียวกับช่าง และมีปุ่มเปิดงานใหม่ เมื่อชวนช่างคนแรก เมนูจะเปลี่ยนเป็นแบบมีทีมเอง</small></div>
+  </div>
+</section>
+
+<section>
+  <h2>หน้าจอที่เสนอ</h2>
+  <div class="phones">
+
+    <figure>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>08:42</span><span>●●● 87%</span></div>
+        <div class="body">
+          <div class="top"><div class="t"><div class="shop">ต้นเซอร์วิส · ช่าง</div><div class="h">งานวันนี้ 3 งาน</div></div><div class="bell">🔔</div><div class="avatar">สม</div></div>
+          <div class="seg"><span class="on">วันนี้</span><span>พรุ่งนี้</span><span>สัปดาห์นี้</span></div>
+          <div class="job"><div class="row1"><span class="time">09:00</span><span class="chip now">กำลังทำ</span></div>
+            <div class="who">คุณวิภา · ล้างแอร์ 2 เครื่อง</div><div class="where">คอนโดลุมพินี ชั้น 12 · 3.2 กม.</div>
+            <div class="acts"><span class="btn light">นำทาง</span><span class="btn primary">บันทึกผล</span></div></div>
+          <div class="job"><div class="row1"><span class="time">13:30</span><span class="chip wait">นัดแล้ว</span></div>
+            <div class="who">ร้านกาแฟบ้านสวน · ซ่อมน้ำหยด</div><div class="where">ซ.อารีย์ 5 · 6.8 กม.</div>
+            <div class="acts"><span class="btn light">โทร</span><span class="btn light">นำทาง</span></div></div>
+          <div class="job"><div class="row1"><span class="time">16:00</span><span class="chip wait">นัดแล้ว</span></div>
+            <div class="who">คุณธนา · ตรวจเช็กประจำปี</div><div class="where">บ้าน นนทบุรี · 11 กม.</div></div>
+        </div>
+        <div class="fab">+ บันทึกงาน</div>
+        <div class="tabbar"><span class="on"><i>◉</i>งานวันนี้</span><span><i>☺</i>ลูกค้า</span><span><i>○</i>ฉัน</span></div>
+      </div></div>
+      <figcaption><b>ช่าง · งานวันนี้</b><br>บันทึกผลได้จากรายการงานเลย สถานะเป็นสีให้เห็นในพริบตา</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>08:42</span><span>●●● 87%</span></div>
+        <div class="body">
+          <div class="top"><div class="t"><div class="shop">ต้นเซอร์วิส · เจ้าของร้าน</div><div class="h">วันนี้</div></div><div class="bell">🔔</div><div class="avatar">ตน</div></div>
+          <div class="alert"><span style="flex:1">แพ็กเกจจะหมดใน 5 วัน (14 ต.ค.)</span><span class="btn primary">ต่ออายุ</span></div>
+          <div class="kpis"><div class="kpi"><b>7</b><span>งานวันนี้</span></div><div class="kpi"><b style="color:#B91C1C">1</b><span>เลยเวลา</span></div><div class="kpi"><b>2</b><span>ยังไม่มีคนรับ</span></div></div>
+          <div class="label">ต้องจัดการ</div>
+          <div class="list">
+            <div class="li"><div class="ico">!</div><div class="tx"><b>งานคุณสมศรี เลยเวลา 1 ชม.</b><span>ช่างเอก · ล้างแอร์</span></div><span class="chip late">เลย</span></div>
+            <div class="li"><div class="ico">?</div><div class="tx"><b>2 งานยังไม่มีคนรับ</b><span>พรุ่งนี้ 10:00, 14:00</span></div><span class="go">›</span></div>
+            <div class="li"><div class="ico">+</div><div class="tx"><b>ช่างนิด ขอเข้าร่วมร้าน</b><span>อนุมัติ / ปฏิเสธ</span></div><span class="go">›</span></div>
+            <div class="li"><div class="ico">↻</div><div class="tx"><b>4 เครื่องถึงรอบดูแลสัปดาห์นี้</b><span>โทรนัดลูกค้า</span></div><span class="go">›</span></div>
+          </div>
+        </div>
+        <div class="tabbar"><span class="on"><i>◉</i>วันนี้</span><span><i>▤</i>งาน</span><span><i>☺</i>ลูกค้า</span><span><i>⌂</i>ร้าน</span></div>
+      </div></div>
+      <figcaption><b>เจ้าของร้าน · วันนี้</b><br>สิ่งที่ต้องตัดสินใจก่อน แพ็กเกจขึ้นเฉพาะตอนใกล้หมดหรือค้างจ่าย</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>08:42</span><span>●●● 87%</span></div>
+        <div class="body">
+          <div class="top"><div class="t"><div class="shop">เจ้าของร้าน</div><div class="h">ต้นเซอร์วิส</div></div><div class="avatar">ตน</div></div>
+          <div class="list">
+            <div class="li"><div class="ico">👥</div><div class="tx"><b>ทีม</b><span>ช่าง 3/5 · รออนุมัติ 1</span></div><span class="go">›</span></div>
+            <div class="li"><div class="ico">↻</div><div class="tx"><b>รอบดูแล</b><span>เลยกำหนด 2 · 7 วันนี้ 4</span></div><span class="go">›</span></div>
+          </div>
+          <div class="list">
+            <div class="li"><div class="ico">★</div><div class="tx"><b>แพ็กเกจและการชำระเงิน</b><span>Small · ใช้ได้ถึง 8 พ.ย. 2569</span></div><span class="go">›</span></div>
+            <div class="li"><div class="ico">🧾</div><div class="tx"><b>ใบเสร็จ / ใบกำกับภาษี</b><span>ข้อมูลออกใบเสร็จ · 3 ใบ</span></div><span class="go">›</span></div>
+          </div>
+          <div class="list">
+            <div class="li"><div class="ico">?</div><div class="tx"><b>ช่วยเหลือ</b><span>ติดต่อทีมคู่ช่าง</span></div><span class="go">›</span></div>
+            <div class="li"><div class="ico">⚙</div><div class="tx"><b>ตั้งค่าร้าน</b><span>ชื่อร้าน · ลิงก์เข้าร่วม</span></div><span class="go">›</span></div>
+          </div>
+        </div>
+        <div class="tabbar"><span><i>◉</i>วันนี้</span><span><i>▤</i>งาน</span><span><i>☺</i>ลูกค้า</span><span class="on"><i>⌂</i>ร้าน</span></div>
+      </div></div>
+      <figcaption><b>เจ้าของร้าน · ร้าน</b><br>เรื่องจัดการร้านทั้งหมดอยู่ที่เดียว แทนที่จะกระจายอยู่ในหน้าแรก</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>10:15</span><span>●●● 80%</span></div>
+        <div class="body">
+          <div class="back">‹ คุณวิภา · คอนโดลุมพินี</div>
+          <div class="top"><div class="t"><div class="h">บันทึกผล 2 เครื่อง</div></div></div>
+          <div class="unit"><div class="h"><span>แอร์ห้องนอน · Daikin 12,000</span><span class="chip done">เสร็จ</span></div>
+            <div class="pills"><span class="pill on">ล้าง</span><span class="pill">ซ่อม</span><span class="pill">ตรวจเช็ก</span></div>
+            <div class="photos"><div class="shot has">ก่อน ✓</div><div class="shot">+ หลัง</div></div>
+            <div class="pills"><span class="pill">รอบถัดไป</span><span class="pill on">6 เดือน (เดิม)</span><span class="pill">3</span><span class="pill">12</span></div></div>
+          <div class="unit"><div class="h"><span>แอร์ห้องนั่งเล่น · Mitsubishi</span><span class="chip wait">ยังไม่บันทึก</span></div>
+            <div class="photos"><div class="shot">+ ก่อน</div><div class="shot">+ หลัง</div></div></div>
+          <div class="input">หมายเหตุถึงลูกค้า (ไม่บังคับ)</div>
+        </div>
+        <div class="footer"><span class="btn primary">เสร็จงาน · ส่งผลให้ลูกค้า</span></div>
+      </div></div>
+      <figcaption><b>บันทึกผลแบบเร็ว</b><br>ประเภทงาน ผล และรอบถัดไปใส่ไว้ให้แล้ว ช่างถ่ายรูปแล้วกดเสร็จ</figcaption>
+    </figure>
+
+  </div>
+  <p class="note">ภาพจำลองแสดงโครงหน้าและลำดับความสำคัญ ไอคอนและตัวเลขเป็นตัวอย่าง ของจริงจะใช้ไอคอนชุดเดิมของแอปและข้อมูลจริงของร้าน</p>
+</section>
+
+<section>
+  <h2>งานหลักต้องกดกี่ครั้ง</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>งาน</th><th>ตอนนี้</th><th>ที่เสนอ</th><th>เปลี่ยนอะไร</th></tr></thead>
+    <tbody>
+      <tr><td>ช่างบันทึกผลงานที่ได้รับมอบหมาย (1 เครื่อง, ล้างตามใบงาน)</td><td class="num before">9 ครั้ง</td><td class="num after">4 ครั้ง</td>
+        <td>กด “บันทึกผล” บนรายการงาน → ถ่ายรูปก่อน → ถ่ายรูปหลัง → เสร็จงาน<small>ตอนนี้: เปิดงาน → บันทึกผล → ประเภท → ผล → รูปก่อน → รูปหลัง → รอบถัดไป → เสร็จงาน → ตกลงหน้าสรุป</small></td></tr>
+      <tr><td>ช่างบันทึกงานนอกแผน ลูกค้าที่เคยทำ</td><td class="num before">7+ ครั้ง และพิมพ์ค้นหา</td><td class="num after">5 ครั้ง</td>
+        <td>ปุ่ม “+ บันทึกงาน” → เลือกจากลูกค้าล่าสุด → รูป 2 รูป → เสร็จงาน<small>ตอนนี้ต้องพิมพ์ค้นเบอร์หรือชื่อลูกค้าทุกครั้ง</small></td></tr>
+      <tr><td>เจ้าของดูใบเสร็จ / ใบกำกับภาษี</td><td class="num before">เลื่อน 2 หน้า + 2 ครั้ง</td><td class="num after">2 ครั้ง</td>
+        <td>แท็บร้าน → ใบเสร็จ / ใบกำกับภาษี</td></tr>
+      <tr><td>เจ้าของต่ออายุแพ็กเกจที่ใกล้หมด</td><td class="num before">เลื่อน + 2 ครั้ง</td><td class="num after">1 ครั้ง</td>
+        <td>กด “ต่ออายุ” บนแถบแจ้งเตือนหน้าแรก (ขึ้นเฉพาะช่วงใกล้หมด)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">นับจากขั้นตอนในโค้ด ไม่รวมการพิมพ์และการเปิดกล้อง ตัวเลข “ที่เสนอ” เป็นเป้าหมายที่จะวัดอีกครั้งหลังทำเสร็จ</p>
+</section>
+
+<section>
+  <h2>ลำดับการทำ (แต่ละขั้นได้ APK ให้ลองบนมือถือ)</h2>
+  <ul class="phases">
+    <li><h3>โครงเมนูใหม่และหน้าแรกแยกบทบาท</h3><span>แท็บตามบทบาท, หน้าวันนี้ของช่างและเจ้าของ, แท็บร้าน (ทีม รอบดูแล แพ็กเกจ ใบเสร็จ ช่วยเหลือ), ย้ายแพ็กเกจออกจากหน้าแรก, ปุ่มย้อนกลับกลับหน้าที่มาจริง</span></li>
+    <li><h3>บันทึกผลแบบเร็ว</h3><span>ปุ่มบันทึกผลบนรายการงาน, ค่าที่ใส่ไว้ให้ (ประเภท ผล รอบเดิม), ปุ่ม “+ บันทึกงาน” กับลูกค้าล่าสุด, ตัดหน้าสรุปเป็นข้อความสั้นแทน</span></li>
+    <li><h3>ระบบหน้าตา</h3><span>สีไอคอนชุดเดียว สีบอกสถานะเท่านั้น, ปุ่มหลักติดล่างจอ, ขนาดตัวอักษรและระยะห่างชุดเดียวทั้งแอป, ทำทุกหน้าที่เหลือให้เป็นแบบเดียวกัน</span></li>
+  </ul>
+  <p class="note">ไม่ต้องแก้ API หรือฐานข้อมูลในขั้น 1 และ 3 ขั้น 2 อาจเพิ่ม API เล็กน้อย (ลูกค้าล่าสุดของช่าง, รอบเดิมของเครื่องใน job)</p>
+</section>
+
+<section>
+  <h2>ต้องให้ตัดสินใจ</h2>
+  <ul class="decide">
+    <li><h3>ช่างควรเห็นลูกค้าทั้งร้าน หรือเฉพาะลูกค้าที่เคยทำงานด้วย?</h3><span>ตอนนี้เห็นทั้งร้าน ข้อเสนอคือเรียงลูกค้าของตัวเองก่อน แต่ยังค้นทั้งร้านได้ (งานนอกแผนอาจเป็นลูกค้าใหม่)</span></li>
+    <li><h3>ปุ่มลอย “+ บันทึกงาน” มุมขวาล่าง ตกลงไหม?</h3><span>ทางเลือกคือปุ่มกลางแถบเมนู แบบปุ่มลอยไม่เปลืองช่องเมนู</span></li>
+    <li><h3>หน้าสรุปหลังเสร็จงาน ตัดออกได้ไหม?</h3><span>เสนอให้แสดงข้อความสั้น “บันทึกแล้ว · รอบถัดไป 9 เม.ย. 2570” แล้วกลับหน้างานวันนี้เอง</span></li>
+    <li><h3>เริ่มขั้น 1 ได้เลยไหม?</h3><span>ขั้น 1 ส่งผลกับทุกคนมากที่สุด และไม่ต้องแก้ฝั่งเซิร์ฟเวอร์</span></li>
+  </ul>
+</section>
+
+</div>
