@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { formatPhone, normalizePhone } from '@field-service/core';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Customer, type CustomerLocation, type CustomerSummary, type Membership } from '../api';
 import { LocationEquipment } from './equipment';
-import { Avatar, Badge, Banner, Button, Card, colors, confirm, Disclosure, Field, fonts, Icon, IconButton, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
+import { ActionTrio, Avatar, Badge, Banner, Button, Card, colors, confirm, Disclosure, Field, fonts, Icon, IconButton, IconTile, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT } from '../ui';
 
 const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
@@ -14,12 +14,13 @@ const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => 
 export const customerTitle = (c: { name: string | null; phone_normalized: string | null }) =>
   c.name?.trim() || (c.phone_normalized ? formatPhone(c.phone_normalized) : '—');
 
-/** Google Maps with the saved coordinates; without them, a search for the address. */
-export function openMaps(location: Pick<CustomerLocation, 'latitude' | 'longitude' | 'address' | 'label'>) {
+/** Google Maps link with the saved coordinates; without them, a search for the address. */
+export function mapsUrl(location: Pick<CustomerLocation, 'latitude' | 'longitude' | 'address' | 'label'>) {
   const query = location.latitude !== null && location.longitude !== null
     ? `${location.latitude},${location.longitude}` : encodeURIComponent(location.address || location.label);
-  void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
+export function openMaps(location: Pick<CustomerLocation, 'latitude' | 'longitude' | 'address' | 'label'>) { void Linking.openURL(mapsUrl(location)); }
 
 export function CustomersScreen({ membership, onOpen, onCreate }: { membership: Membership; onOpen: (id: string) => void; onCreate: (search: string) => void }) {
   const t = useT();
@@ -48,12 +49,8 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
     } catch (e) { if (mine === seq.current) setError(errorText(e)); } finally { setMore(false); }
   }
 
-  return <Screen>
-    <View style={styles.headerRow}>
-      <Title>{t('customers')}</Title>
-      <Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} />
-    </View>
-    <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder="08x-xxx-xxxx" />
+  return <Screen title={t('customers')} right={<Button small kind="tonal" icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} />}>
+    <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder={t('ownerWeb.searchCustomerHint')} />
     {membership.role !== 'owner' ? <Sub>{t('technicianCustomersHint')}</Sub> : null}
     <Banner text={error} />
     {!items ? <Loading /> : items.length === 0
@@ -63,7 +60,7 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
         {items.map((c, i) => <Row key={c.id} last={i === items.length - 1} onPress={() => onOpen(c.id)}
           icon={<Avatar name={c.name ?? ''} tone={c.customer_type === 'business' ? 'amber' : 'violet'} />}
           title={customerTitle(c)}
-          subtitle={[c.name && c.phone_normalized ? formatPhone(c.phone_normalized) : null, t('locationCount', { count: c.location_count })].filter(Boolean).join(' · ')}
+          subtitle={[c.first_address, c.name && c.phone_normalized ? formatPhone(c.phone_normalized) : null, c.location_count > 1 ? t('locationCount', { count: c.location_count }) : null].filter(Boolean).join(' · ')}
           trailing={c.location_count ? <Badge text={c.located_count ? t('hasCoordinates') : t('noCoordinates')} tone={c.located_count ? 'ok' : 'neutral'} /> : undefined} />)}
       </Card>}
     {items && next !== null ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
@@ -204,29 +201,27 @@ function LocationCard({ membership, location, onChanged, onEdit, onAddEquipment,
   const t = useT();
   const errorText = useErrorText();
   const [capture, setCapture] = useState<Capture>({ state: 'idle' });
-  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<number | null | undefined>(undefined);
   const located = location.latitude !== null;
 
+  /** One tap reads and saves (design handoff F32): the button already says it uses or replaces the
+   * place's position with where the phone is now, so there is no second confirmation. A failed read
+   * or save keeps the old position. */
   async function read() {
-    setCapture({ state: 'reading' });
+    setCapture({ state: 'reading' }); setSaved(undefined);
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== 'granted') { setCapture({ state: 'error', message: t('locationDenied') }); return; }
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setCapture({ state: 'preview', latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy ?? null });
+      const accuracy = position.coords.accuracy ?? null;
+      try {
+        onChanged(await api.saveCoordinates(membership.organization_id, location.id, {
+          expected_version: location.version, latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy_m: accuracy !== null ? Math.round(accuracy) : null,
+          method: 'current_location', replace_existing: located,
+        }));
+        setCapture({ state: 'idle' }); setSaved(accuracy === null ? null : Math.round(accuracy));
+      } catch (e) { setCapture({ state: 'error', message: errorText(e) }); }
     } catch { setCapture({ state: 'error', message: t('locationUnavailable') }); }
-  }
-  async function save() {
-    if (capture.state !== 'preview') return;
-    if (located && !await confirm(t('replaceConfirm'), t('replaceCoordinates'), t('cancel'))) return;
-    setBusy(true);
-    try {
-      onChanged(await api.saveCoordinates(membership.organization_id, location.id, {
-        expected_version: location.version, latitude: capture.latitude, longitude: capture.longitude, accuracy_m: capture.accuracy !== null ? Math.round(capture.accuracy) : null,
-        method: 'current_location', replace_existing: located,
-      }));
-      setCapture({ state: 'idle' });
-    } catch (e) { setCapture({ state: 'error', message: errorText(e) }); } finally { setBusy(false); }
   }
 
   return <View style={[styles.location, !last && styles.locationLine]}>
@@ -243,17 +238,10 @@ function LocationCard({ membership, location, onChanged, onEdit, onAddEquipment,
     {!located ? <Sub>{t('addressOnly')}</Sub> : null}
     <View style={styles.actions}>
       <View style={{ flex: 1 }}><Button small kind="secondary" icon="navigate" title={t('navigate')} onPress={() => openMaps(location)} /></View>
-      <View style={{ flex: 1 }}><Button small kind="secondary" icon="locate" title={t('captureLocation')} busy={capture.state === 'reading'} onPress={read} /></View>
+      <View style={{ flex: 1 }}><Button small kind="secondary" icon="share-social" title={t('shareAddress')} onPress={() => { void Share.share({ message: [location.label, location.address, mapsUrl(location)].filter(Boolean).join('\n') }); }} /></View>
     </View>
-    {capture.state === 'preview' ? <View style={styles.preview}>
-      <Text style={styles.locationText}>{t('capturedPreview', { meters: capture.accuracy !== null ? Math.round(capture.accuracy) : '?' })}</Text>
-      <Text style={styles.coords}>{capture.latitude.toFixed(6)}, {capture.longitude.toFixed(6)}</Text>
-      {capture.accuracy !== null && capture.accuracy > 50 ? <Banner tone="info" text={t('lowAccuracy')} /> : null}
-      <View style={styles.actions}>
-        <View style={{ flex: 1 }}><Button small icon="checkmark" title={t('confirmLocation')} busy={busy} onPress={save} /></View>
-        <View style={{ flex: 1 }}><Button small kind="secondary" icon="refresh" title={t('tryAgain')} onPress={read} /></View>
-      </View>
-    </View> : null}
+    <Button small kind="tonal" icon="locate" title={located ? t('updateToCurrentLocation') : t('useCurrentLocation')} busy={capture.state === 'reading'} onPress={read} />
+    {saved !== undefined ? <Banner tone={saved !== null && saved > 50 ? 'info' : 'success'} text={saved !== null && saved > 50 ? t('lowAccuracySaved', { meters: saved }) : t('locationSaved', { meters: saved ?? '?' })} /> : null}
     {capture.state === 'error' ? <Banner tone="info" text={capture.message} /> : null}
     {capture.state === 'idle' && !located ? <Text style={styles.hint}>{t('captureHint')}</Text> : null}
     <LocationEquipment membership={membership} locationId={location.id} onAdd={onAddEquipment} onOpen={onOpenEquipment} />
@@ -289,14 +277,10 @@ export function CustomerDetail({ membership, customerId, onBack, onAddLocation, 
     try { await api.archiveCustomer(membership.organization_id, customer!.id); onBack(); } catch (e) { setError(errorText(e)); }
   }
 
-  return <Screen onBack={onBack}>
-    <View style={styles.headerRow}>
-      <Avatar name={customer.name ?? ''} size={56} tone={customer.customer_type === 'business' ? 'amber' : 'violet'} />
-      <View style={{ flex: 1 }}>
-        <Title>{customerTitle(customer)}</Title>
-        {customer.name?.trim() ? <Sub>{customer.phone_normalized ? formatPhone(customer.phone_normalized) : t('noPhone')}</Sub> : null}
-      </View>
-    </View>
+  const first = customer.locations.find(l => l.latitude !== null) ?? customer.locations[0];
+  return <Screen onBack={onBack} title={customerTitle(customer)}
+    subtitle={customer.name?.trim() ? (customer.phone_normalized ? formatPhone(customer.phone_normalized) : t('noPhone')) : undefined}
+    right={editing ? undefined : <IconButton icon="create-outline" label={t('edit')} onPress={startEdit} />}>
     <Banner text={error} />
     {editing ? <Card>
       <Field label={t('customerName')} value={name} onChangeText={setName} maxLength={120} />
@@ -307,13 +291,14 @@ export function CustomerDetail({ membership, customerId, onBack, onAddLocation, 
         <View style={{ flex: 1 }}><Button small kind="secondary" title={t('cancel')} onPress={() => setEditing(false)} /></View>
       </View>
     </Card> : <>
-      <View style={styles.actions}>
-        {customer.phone_normalized ? <View style={{ flex: 1 }}><Button icon="call" title={t('call')} onPress={() => { void Linking.openURL(`tel:${customer.phone_normalized}`); }} /></View> : null}
-        <View style={{ flex: 1 }}><Button kind="secondary" icon="create-outline" title={t('edit')} onPress={startEdit} /></View>
-      </View>
+      <ActionTrio items={[
+        { icon: 'call', label: t('call'), disabled: !customer.phone_normalized, onPress: () => { void Linking.openURL(`tel:${customer.phone_normalized}`); } },
+        { icon: 'navigate', label: t('navigate'), disabled: !first, onPress: () => { if (first) openMaps(first); } },
+        { icon: 'share-social', label: t('shareAddress'), disabled: !first, onPress: () => { if (first) void Share.share({ message: [customerTitle(customer), first.label, first.address, mapsUrl(first)].filter(Boolean).join('\n') }); } },
+      ]} />
       {customer.note ? <Card><Sub>{customer.note}</Sub></Card> : null}
     </>}
-    <Section action={<Button small kind="ghost" icon="add" title={t('addLocation')} onPress={onAddLocation} />}>{t('locations')}</Section>
+    <Section action={<Button small kind="tonal" icon="add" title={t('addLocation')} onPress={onAddLocation} />}>{t('locations')}</Section>
     <Card padded={false}>
       {customer.locations.length === 0 ? <Row icon="home-outline" tone="sky" title={t('addLocation')} onPress={onAddLocation} last />
         : customer.locations.map((l, i) => <LocationCard key={l.id} membership={membership} location={l} last={i === customer.locations.length - 1}

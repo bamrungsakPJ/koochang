@@ -1,17 +1,19 @@
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent, type TextInputProps, type TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Language } from '@field-service/core';
 import { translate, type TranslationKey } from '@field-service/i18n';
 import { ApiFailure } from './api';
 
+/** Tokens from the design handoff (output/koochang-design, 2026-10-10); lines are a step darker so
+ * cards still read outdoors in sunlight. */
 export const colors = {
-  bg: '#F6F7F9', surface: '#FFFFFF', ink: '#14263B', muted: '#657080', faint: '#7C8898', line: '#E8EBEF',
+  bg: '#F5F7FB', surface: '#FFFFFF', ink: '#12243A', muted: '#526174', faint: '#64748B', line: '#D3DCE6',
   // KooChang brand (branding/koochang): navy actions, amber accent.
-  primary: '#14263B', primaryPressed: '#0B1828', primarySoft: '#EDF1F6', onPrimary: '#FFFFFF',
-  accent: '#F6AF37', accentSoft: '#FFF1D9',
-  success: '#16A34A', successSoft: '#DCFCE7', warn: '#B45309', warnSoft: '#FEF3C7',
-  danger: '#DC2626', dangerSoft: '#FEE2E2',
+  primary: '#12243A', primaryPressed: '#0B192B', primarySoft: '#EDF1F6', tonal: '#E6EDF6', onPrimary: '#FFFFFF',
+  accent: '#F5A623', accentPressed: '#E0951A', accentSoft: '#FFE7B8',
+  success: '#166534', successSoft: '#EAF7EE', warn: '#92400E', warnSoft: '#FFF4DB',
+  danger: '#B42318', dangerSoft: '#FFF0EE',
 };
 
 /** Secondary tones: [soft background, strong foreground]. Navy stays the action colour. */
@@ -21,9 +23,10 @@ export const tones = {
 } as const;
 export type Tone = keyof typeof tones;
 
-/** Noto Sans Thai per weight (Android ignores fontWeight with custom fonts). */
+/** Per weight (Android ignores fontWeight with custom fonts). Body text uses the looped Thai face,
+ * which reads faster for older users and outdoors; headings and buttons keep the loopless face. */
 export const fonts = {
-  regular: 'NotoSansThai_400Regular', medium: 'NotoSansThai_500Medium', semibold: 'NotoSansThai_600SemiBold', bold: 'NotoSansThai_700Bold',
+  regular: 'NotoSansThaiLooped_400Regular', medium: 'NotoSansThaiLooped_500Medium', semibold: 'NotoSansThai_600SemiBold', bold: 'NotoSansThai_700Bold',
 };
 const text = (family: keyof typeof fonts, size: number, color: string, lineHeight = Math.round(size * 1.5)): TextStyle =>
   ({ fontFamily: fonts[family], fontSize: size, lineHeight, color });
@@ -63,8 +66,22 @@ export function handleScreenBack(): boolean {
   return true;
 }
 
-export function Screen({ children, onBack, footer }: { children: ReactNode; onBack?: () => void; footer?: ReactNode }) {
+/** Floating extended action button; it shrinks to the icon while the list scrolls down. */
+export interface Fab { label: string; icon: IconName; onPress: () => void }
+
+/** With a title the heading sits in a fixed bar (back + title + subtitle + actions) instead of
+ * scrolling away; a top-level screen (no back) gets the large title. */
+export function Screen({ children, onBack, footer, title, subtitle, right, fab }: {
+  children: ReactNode; onBack?: () => void; footer?: ReactNode; title?: string; subtitle?: string; right?: ReactNode; fab?: Fab;
+}) {
   const t = useT();
+  const [compact, setCompact] = useState(false);
+  const lastY = useRef(0);
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y > lastY.current + 4 && y > 40) setCompact(true); else if (y < lastY.current - 4) setCompact(false);
+    lastY.current = y;
+  };
   const back = useRef(onBack);
   back.current = onBack;
   const hasBack = !!onBack;
@@ -73,13 +90,30 @@ export function Screen({ children, onBack, footer }: { children: ReactNode; onBa
     backStack.push(back);
     return () => { const i = backStack.lastIndexOf(back); if (i >= 0) backStack.splice(i, 1); };
   }, [hasBack]);
+  const header = title !== undefined;
   return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      {onBack ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.back} hitSlop={12}>
+    {header ? <View style={[styles.topBar, !onBack && styles.topBarLarge]}>
+      {onBack ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.topBack} hitSlop={8}>
+        <Icon name="chevron-back" size={24} color={colors.ink} />
+      </Pressable> : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text accessibilityRole="header" numberOfLines={onBack ? 1 : 2} style={onBack ? styles.topTitle : styles.title}>{title}</Text>
+        {subtitle ? <Text numberOfLines={onBack ? 1 : 2} style={onBack ? styles.topSub : styles.topSubLarge}>{subtitle}</Text> : null}
+      </View>
+      {right}
+    </View> : null}
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, header && styles.contentUnderBar, fab && { paddingBottom: 104 }]}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScroll={fab ? onScroll : undefined} scrollEventThrottle={64}>
+      {onBack && !header ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.back} hitSlop={12}>
         <Icon name="chevron-back" size={22} color={colors.ink} />
       </Pressable> : null}
       {children}
     </ScrollView>
+    {fab ? <Pressable accessibilityRole="button" accessibilityLabel={fab.label} onPress={fab.onPress}
+      style={({ pressed }) => [styles.fab, compact && styles.fabCompact, footer ? { bottom: 96 } : null, pressed && { backgroundColor: colors.accentPressed }]}>
+      <Icon name={fab.icon} size={22} color={colors.ink} />
+      {compact ? null : <Text style={styles.fabText}>{fab.label}</Text>}
+    </Pressable> : null}
     {footer ? <View style={styles.footer}>{footer}</View> : null}
   </KeyboardAvoidingView>;
 }
@@ -121,12 +155,12 @@ export function Field({ label, error, hint, icon, big, required, ...input }: Tex
 }
 
 export function Button({ title, onPress, kind = 'primary', icon, busy, disabled, small }: {
-  title: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'ghost' | 'danger'; icon?: IconName; busy?: boolean; disabled?: boolean; small?: boolean;
+  title: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'tonal'; icon?: IconName; busy?: boolean; disabled?: boolean; small?: boolean;
 }) {
   const off = disabled || busy;
   const tint = kind === 'primary' ? colors.onPrimary : kind === 'danger' ? colors.danger : colors.primary;
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: off, busy }} disabled={off} onPress={onPress}
-    style={({ pressed }) => [styles.button, small && styles.buttonSmall, styles[kind], pressed && (kind === 'primary' ? styles.primaryPressed : styles.pressed), off && styles.disabled]}>
+    style={({ pressed }) => [styles.button, small && styles.buttonSmall, styles[kind], small && kind === 'tonal' && styles.tonalSmall, pressed && (kind === 'primary' ? styles.primaryPressed : styles.pressed), off && styles.disabled]}>
     {busy ? <ActivityIndicator color={tint} /> : <>
       {icon ? <Icon name={icon} size={small ? 16 : 20} color={tint} /> : null}
       <Text style={[small ? styles.buttonTextSmall : styles.buttonText, { color: tint }]}>{title}</Text>
@@ -182,8 +216,7 @@ export function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { k
     {tabs.map(tab => {
       const on = tab.key === active;
       return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(tab.key)} style={styles.tab}>
-        <View style={[styles.tabMarker, on && styles.tabMarkerOn]} />
-        <View>
+        <View style={[styles.tabPill, on && styles.tabPillOn]}>
           <Icon name={(on ? tab.icon : `${tab.icon}-outline`) as IconName} size={24} color={on ? colors.primary : colors.faint} />
           {tab.badge ? <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{tab.badge}</Text></View> : null}
         </View>
@@ -191,6 +224,21 @@ export function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { k
       </Pressable>;
     })}
   </View>;
+}
+
+/** Equal-width actions with an icon over the label: call, navigate, share address. */
+export function ActionTrio({ items }: { items: { icon: IconName; label: string; onPress: () => void; disabled?: boolean }[] }) {
+  return <View style={styles.trio}>{items.map(item => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} disabled={item.disabled} onPress={item.onPress}
+    style={({ pressed }) => [styles.trioItem, pressed && { backgroundColor: colors.primarySoft }, item.disabled && styles.disabled]}>
+    <Icon name={item.icon} size={22} color={colors.primary} /><Text style={styles.trioText}>{item.label}</Text>
+  </Pressable>)}</View>;
+}
+
+/** Something that needs the owner's action, shown as one tappable amber line. */
+export function AttentionRow({ icon, text: label, onPress }: { icon: IconName; text: string; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.attention, pressed && { opacity: 0.8 }]}>
+    <Icon name={icon} size={20} color={colors.warn} /><Text style={styles.attentionText}>{label}</Text><Icon name="chevron-forward" size={18} color={colors.warn} />
+  </Pressable>;
 }
 
 export const Loading = () => <View style={[styles.screen, { justifyContent: 'center' }]}><ActivityIndicator color={colors.primary} size="large" /></View>;
@@ -206,8 +254,26 @@ export function confirm(message: string, okText: string, cancelText: string): Pr
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20, paddingTop: 20, paddingBottom: 40, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  footer: { padding: 20, paddingTop: 12, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.line },
+  content: { padding: 16, paddingTop: 20, paddingBottom: 40, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  contentUnderBar: { paddingTop: 4 },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 64, paddingLeft: 4, paddingRight: 8, paddingVertical: 6, backgroundColor: colors.bg },
+  topBarLarge: { paddingLeft: 16, paddingTop: 12, minHeight: 72 },
+  topBack: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  topTitle: text('semibold', 18, colors.ink, 26),
+  topSub: text('regular', 14, colors.muted, 20),
+  topSubLarge: text('regular', 15, colors.muted, 22),
+  fab: { position: 'absolute', right: 16, bottom: 16, minHeight: 56, borderRadius: 16, paddingLeft: 16, paddingRight: 20, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: colors.accent, elevation: 6, shadowColor: '#12243A', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fabCompact: { paddingRight: 16 },
+  fabText: text('semibold', 16, colors.ink, 22),
+  tonal: { backgroundColor: colors.tonal },
+  tonalSmall: { borderRadius: 24, paddingHorizontal: 14 },
+  trio: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  trioItem: { flex: 1, minHeight: 72, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 4 },
+  trioText: text('semibold', 15, colors.ink, 20),
+  attention: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 8, backgroundColor: colors.warnSoft },
+  attentionText: { flex: 1, ...text('medium', 15, colors.warn, 22) },
+  footer: { padding: 16, paddingTop: 12, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.line },
   back: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: colors.line },
   title: text('bold', 26, colors.ink, 38),
   sub: { ...text('regular', 15, colors.muted, 23), marginTop: 4 },
@@ -220,13 +286,13 @@ const styles = StyleSheet.create({
   step: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
   stepOn: { backgroundColor: colors.primary },
   field: { marginTop: 16 },
-  label: { ...text('medium', 14, colors.ink, 20), marginBottom: 8 },
+  label: { ...text('medium', 15, colors.ink, 22), marginBottom: 8 },
   inputBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: 12, paddingHorizontal: 14 },
   inputBoxError: { borderColor: colors.danger },
   input: { flex: 1, paddingVertical: 13, ...text('regular', 17, colors.ink, 24) },
   inputBig: { fontFamily: fonts.semibold, fontSize: 28, lineHeight: 36, letterSpacing: 10, textAlign: 'center' },
-  fieldError: { ...text('regular', 13, colors.danger, 20), marginTop: 6 },
-  hint: { ...text('regular', 13, colors.muted, 20), marginTop: 6 },
+  fieldError: { ...text('regular', 14, colors.danger, 20), marginTop: 6 },
+  hint: { ...text('regular', 14, colors.muted, 20), marginTop: 6 },
   button: { minHeight: 52, borderRadius: 12, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, marginTop: 12 },
   buttonSmall: { minHeight: 44, borderRadius: 10, paddingHorizontal: 12, marginTop: 0 },
   primary: { backgroundColor: colors.primary },
@@ -240,24 +306,24 @@ const styles = StyleSheet.create({
   buttonTextSmall: text('semibold', 14, colors.onPrimary, 20),
   iconButton: { width: 44, height: 44, borderRadius: 15, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   disclosure: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginTop: 8 },
-  disclosureText: { flex: 1, ...text('medium', 13, colors.muted, 20) },
+  disclosureText: { flex: 1, ...text('medium', 15, colors.ink, 22) },
   banner: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', borderRadius: 12, padding: 12, marginTop: 14 },
-  bannerText: { flex: 1, ...text('regular', 14, colors.ink, 21) },
+  bannerText: { flex: 1, ...text('regular', 15, colors.ink, 22) },
   badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 },
-  badgeText: text('semibold', 12, colors.muted, 18),
+  badgeText: text('semibold', 13, colors.muted, 19),
   avatar: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontFamily: fonts.semibold, color: colors.primary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },
   rowLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
   tile: { alignItems: 'center', justifyContent: 'center' },
   rowTitle: text('medium', 16, colors.ink, 23),
-  rowSub: text('regular', 13, colors.muted, 19),
+  rowSub: text('regular', 14, colors.muted, 21),
   tabBar: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 10 },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 48, gap: 2 },
-  // Amber bar over the active tab (amber is an accent only: too light for text on white).
-  tabMarker: { width: 28, height: 3, borderRadius: 2, marginTop: -8, marginBottom: 5, backgroundColor: 'transparent' },
-  tabMarkerOn: { backgroundColor: colors.accent },
-  tabLabel: text('medium', 12, colors.faint, 16),
-  tabBadge: { position: 'absolute', top: -4, right: -10, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 56, gap: 4 },
+  // Material 3 active indicator: a soft amber pill behind the icon (amber stays an accent, never text).
+  tabPill: { width: 64, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  tabPillOn: { backgroundColor: colors.accentSoft },
+  tabLabel: text('medium', 13, colors.faint, 18),
+  tabBadge: { position: 'absolute', top: -2, right: 6, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, color: colors.onPrimary },
 });

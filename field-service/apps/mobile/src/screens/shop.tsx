@@ -3,8 +3,8 @@ import { useCallback, useContext, useEffect, useState, type ReactNode } from 're
 import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { formatPhone, type Language, type SubscriptionState } from '@field-service/core';
 import { formatDate } from '@field-service/i18n';
-import { api, type JoinLink, type Me, type Membership, type Subscription, type Team, type TeamMember } from '../api';
-import { Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, IconTile, LanguageContext, Loading, tones, type Tone, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
+import { api, type Job, type JoinLink, type Me, type Membership, type Subscription, type Team, type TeamMember } from '../api';
+import { AttentionRow, Avatar, Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconButton, IconTile, LanguageContext, Loading, tones, type Tone, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName } from '../ui';
 import { LanguageSwitch } from './onboarding';
 import { useUnread } from './notifications';
 import { MaintenanceCard } from './maintenance';
@@ -165,35 +165,36 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
   </Card>;
 }
 
-export function Home({ me, membership, onNotifications, onAccount, onOpenJob, onOpenDraft, onRecordAdhoc, onMaintenance, onCreateJob, onUnassigned }: { me: Me; membership: Membership; onNotifications: () => void; onAccount: () => void;
-  onOpenJob: (id: string) => void; onOpenDraft: (target: DraftTarget) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onCreateJob: () => void; onUnassigned: () => void }) {
+/** "Today": the next job first with call / navigate / record on it, then the rest of the agenda.
+ * Recording unplanned work is the floating button; owner-only items appear only when there is
+ * something to do. */
+export function Home({ me, membership, onNotifications, onAccount, onOpenJob, onRecordJob, onOpenDraft, onRecordAdhoc, onMaintenance, onCreateJob, onUnassigned }: { me: Me; membership: Membership; onNotifications: () => void; onAccount: () => void;
+  onOpenJob: (id: string) => void; onRecordJob: (job: Job) => void; onOpenDraft: (target: DraftTarget) => void; onRecordAdhoc: () => void; onMaintenance: () => void; onCreateJob: () => void; onUnassigned: () => void }) {
   const { unread } = useUnread(membership.organization_id);
   const t = useT();
+  const language = useContext(LanguageContext);
   const owner = membership.role === 'owner';
+  const org = membership.organization_id;
   const [sub, setSub] = useState<Subscription | null>(null);
-  useEffect(() => { setSub(null); api.subscription(membership.organization_id).then(setSub, () => {}); }, [membership.organization_id]);
-  return <Screen>
-    <View style={styles.brandHead}>
-      <View style={styles.brandMark}><Icon name="build" color={colors.accent} size={18} /></View>
-      <Text style={styles.brandName}>{t('appName')}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${t('notifications')} ${unread}`} onPress={onNotifications} style={styles.bell} hitSlop={8}>
-        <Icon name="notifications-outline" size={22} color={colors.primary} />
+  const [unassigned, setUnassigned] = useState(false);
+  useEffect(() => { setSub(null); api.subscription(org).then(setSub, () => {}); }, [org]);
+  useEffect(() => { setUnassigned(false); if (owner) api.jobs(org, { status: 'unassigned', limit: '1' }).then(r => setUnassigned(r.items.length > 0), () => {}); }, [org, owner]);
+  const date = new Intl.DateTimeFormat(language === 'th' ? 'th-TH-u-ca-buddhist-nu-latn' : 'en-GB', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+  return <Screen title={t('today')} subtitle={`${date} · ${membership.organization_name ?? ''}`}
+    fab={{ label: t('recordWork'), icon: 'add', onPress: onRecordAdhoc }}
+    right={<View style={styles.headActions}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t('notifications')} ${unread}`} onPress={onNotifications} style={({ pressed }) => [styles.bell, pressed && { backgroundColor: colors.tonal }]} hitSlop={4}>
+        <Icon name="notifications-outline" size={24} color={colors.primary} />
         {unread ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View> : null}
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={t('account')} onPress={onAccount} hitSlop={8}
+      <Pressable accessibilityRole="button" accessibilityLabel={t('account')} onPress={onAccount} hitSlop={4}
         style={({ pressed }) => [styles.heroAvatar, pressed && { opacity: 0.7 }]}><Avatar name={me.user.display_name} /></Pressable>
-    </View>
-    <Title>{t('today')}</Title><Sub>{membership.organization_name} · {t(`role.${membership.role}`)}</Sub>
+    </View>}>
     {sub ? <SubscriptionBanner sub={sub} owner={owner} /> : null}
-    <Section>{t('workOnSite')}</Section>
-    <Button icon="add-circle" kind="secondary" title={t('recordAdhoc')} onPress={onRecordAdhoc} />
-    <Section action={owner ? <Button small icon="add" title={t('createJob')} onPress={onCreateJob} /> : undefined}>{t('myJobs')}</Section>
-    <MyJobs membership={membership} onOpen={onOpenJob} />
+    {owner && unassigned ? <AttentionRow icon="person-add-outline" text={t('unassignedAttention')} onPress={onUnassigned} /> : null}
     <UnsentRecords membership={membership} onOpen={onOpenDraft} />
-    {owner ? <>
-      <Button kind="secondary" icon="person-add-outline" title={t('filterUnassigned')} onPress={onUnassigned} />
-      <MaintenanceCard membership={membership} onOpen={onMaintenance} />
-    </> : null}
+    <MyJobs membership={membership} onOpen={onOpenJob} onRecord={onRecordJob} onCreate={owner ? onCreateJob : undefined} />
+    {owner ? <MaintenanceCard membership={membership} onOpen={onMaintenance} /> : null}
   </Screen>;
 }
 
@@ -207,8 +208,7 @@ export function ShopManagement({ membership, onTeam, onMaintenance, onBilling, o
   const [error, setError] = useState<string | null>(null);
   const load = () => api.subscription(membership.organization_id).then(setSub, e => setError(errorText(e)));
   useEffect(() => { void load(); }, [membership.organization_id]);
-  return <Screen>
-    <Title>{t('shopWorkspace')}</Title><Sub>{membership.organization_name}</Sub>
+  return <Screen title={t('shopWorkspace')} subtitle={membership.organization_name ?? undefined}>
     <Card padded={false}>
       <Row icon="people-outline" title={t('manageTeam')} onPress={onTeam} />
       <Row icon="calendar-outline" title={t('maintenance')} onPress={onMaintenance} last />
@@ -245,8 +245,7 @@ export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack,
   me: Me; language: Language; onLanguage: (value: Language) => void; onSignOut: () => void; onSwitch?: () => void; onBack?: () => void; onSupport?: () => void; onChangePassword: () => void; onAbout: () => void;
 }) {
   const t = useT();
-  return <Screen onBack={onBack}>
-    <Title>{t('account')}</Title>
+  return <Screen onBack={onBack} title={t('account')}>
     <Card>
       <View style={styles.profile}><Avatar name={me.user.display_name} size={56} />
         <View style={{ flex: 1 }}><Strong>{me.user.display_name.startsWith('+') ? formatPhone(me.user.display_name) : me.user.display_name}</Strong><Sub>{formatPhone(me.user.phone_e164)}</Sub></View></View>
@@ -324,8 +323,7 @@ export function TeamScreen({ membership }: { membership: Membership }) {
   const small = (m: TeamMember, action: Parameters<typeof act>[1], kind: 'primary' | 'secondary' | 'danger', icon: IconName, disabled = false) =>
     <View style={{ flex: 1 }}><Button small kind={kind} icon={icon} title={t(action)} disabled={disabled} busy={busy === `${m.member_id}:${action}`} onPress={() => act(m, action)} /></View>;
 
-  return <Screen>
-    <Title>{t('team')}</Title>
+  return <Screen title={t('team')}>
     <View style={styles.seatRow}><Sub>{t('seatUsage', { active, limit })}</Sub></View>
     <View style={styles.seatBar}><View style={[styles.seatFill, { width: `${limit ? Math.min(100, (active / limit) * 100) : 100}%` }, full && { backgroundColor: colors.warn }]} /></View>
     {limit === 0 ? <Banner tone="info" text={t('soloPlanHint')} /> : null}
@@ -374,8 +372,9 @@ const styles = StyleSheet.create({
   heroShop: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.accent },
   heroTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: '#FFFFFF' },
   heroSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: '#C7D2FE' },
-  bell: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
-  bellBadge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  headActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  bell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   bellBadgeText: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, color: colors.primary },
   heroAvatar: { borderRadius: 24 },
   statValue: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 36, color: colors.ink },

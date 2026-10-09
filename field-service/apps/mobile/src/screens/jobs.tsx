@@ -1,12 +1,12 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { formatPhone } from '@field-service/core';
 import { formatDate, formatDateTime, formatDayChip, type TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Customer, type CustomerHistory, type CustomerSummary, type EquipmentSummary, type Job, type JobStatus, type JobSummary, type Membership, type TeamMember } from '../api';
 import { addDays, DatePicker } from '../calendar';
 import { uuid } from '../photos';
-import { Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
-import { customerTitle, openMaps } from './customers';
+import { ActionTrio, Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
+import { customerTitle, mapsUrl, openMaps } from './customers';
 import { categoryIcon, useEquipmentTitle } from './equipment';
 
 const jobTypes = ['maintenance', 'repair', 'installation', 'inspection', 'other'] as const;
@@ -109,8 +109,7 @@ export function JobsScreen({ membership, initialFilter = 'today', onOpen, onCrea
       if (mine === seq.current) { setItems(prev => [...(prev ?? []), ...shown(r.items).filter(j => !prev?.some(p => p.id === j.id))]); setNext(r.next_offset); }
     } catch (e) { if (mine === seq.current) setError(errorText(e)); } finally { setMore(false); }
   }
-  return <Screen>
-    <View style={styles.header}><Title>{t('jobs')}</Title><Button small icon="add" title={t('createJob')} onPress={onCreate} /></View>
+  return <Screen title={t('jobs')} right={<Button small kind="tonal" icon="add" title={t('createJob')} onPress={onCreate} />}>
     <View style={styles.chips}>
       {(['today', 'upcoming', 'unassigned'] as const).map(f => <Chip key={f} on={filter === f} onPress={() => setFilter(f)}
         label={t(f === 'today' ? 'filterToday' : f === 'upcoming' ? 'filterUpcoming' : 'filterUnassigned')} />)}
@@ -122,8 +121,63 @@ export function JobsScreen({ membership, initialFilter = 'today', onOpen, onCrea
   </Screen>;
 }
 
-/** Technician "today": own jobs today and next days, in appointment order. */
-export function MyJobs({ membership, onOpen }: { membership: Membership; onOpen: (id: string) => void }) {
+/** Opening the service form starts a scheduled job first (the server needs in_progress for
+ * started_at and photo uploads). Without signal the form still opens and starts the job on send. */
+export async function startForService(org: string, job: Job): Promise<Job> {
+  if (job.status !== 'scheduled') return job;
+  try { const started = await api.jobAction(org, job.id, 'start', { expected_version: job.version }); return 'job' in started ? started.job : started; }
+  catch (e) { if (e instanceof ApiFailure && e.code === 'NETWORK_ERROR') return job; throw e; }
+}
+
+const clock = (iso: string | null, language: 'th' | 'en') => iso
+  ? new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)) : '—';
+const callCustomer = (phone: string | null) => { if (phone) void Linking.openURL(`tel:${phone}`); };
+
+/** The job to go to now: one in progress, else the next open one today. Call, navigate and
+ * record are on the card so the technician does not need the detail page first. */
+function NextJobCard({ membership, job, onOpen, onRecord }: { membership: Membership; job: JobSummary; onOpen: () => void; onRecord: (job: Job) => void }) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  const errorText = useErrorText();
+  const [busy, setBusy] = useState<'nav' | 'record' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const org = membership.organization_id;
+  async function navigate() {
+    setBusy('nav');
+    // The summary has no coordinates; the detail does. Without signal, search the address instead.
+    try { const full = await api.job(org, job.id); openMaps({ latitude: full.latitude, longitude: full.longitude, address: full.location_address, label: full.location_label ?? '' }); }
+    catch { openMaps({ latitude: null, longitude: null, address: job.location_address, label: job.location_label ?? '' }); }
+    finally { setBusy(null); }
+  }
+  async function record() {
+    setBusy('record'); setError(null);
+    try { onRecord(await startForService(org, await api.job(org, job.id))); }
+    catch (e) { setError(errorText(e)); } finally { setBusy(null); }
+  }
+  return <View style={styles.hero}>
+    <View style={styles.heroHead}>
+      <Text style={styles.heroKicker}>{t('nextJob')} · {clock(job.scheduled_start, language)}</Text>
+      <Badge text={t(`status.${job.status}` as TranslationKey)} tone={statusTone(job.status)} />
+    </View>
+    <Text style={styles.heroName}>{customerTitle({ name: job.customer_name, phone_normalized: job.customer_phone })}</Text>
+    <Text style={styles.heroSub}>{[job.location_label, t(`jobType.${job.job_type}` as TranslationKey), job.equipment_count ? t('equipmentCount', { count: job.equipment_count }) : null].filter(Boolean).join(' · ')}</Text>
+    {job.location_address ? <Text style={styles.heroSub} numberOfLines={2}>{job.location_address}</Text> : null}
+    <View style={styles.heroActions}>
+      {job.customer_phone ? <Pressable accessibilityRole="button" onPress={() => callCustomer(job.customer_phone)} style={({ pressed }) => [styles.heroGhost, pressed && styles.heroGhostPressed]}>
+        <Icon name="call" size={20} color={colors.onPrimary} /><Text style={styles.heroGhostText}>{t('call')}</Text></Pressable> : null}
+      <Pressable accessibilityRole="button" disabled={busy !== null} onPress={() => { void navigate(); }} style={({ pressed }) => [styles.heroGhost, pressed && styles.heroGhostPressed]}>
+        <Icon name="navigate" size={20} color={colors.onPrimary} /><Text style={styles.heroGhostText}>{t('navigate')}</Text></Pressable>
+    </View>
+    <Pressable accessibilityRole="button" disabled={busy !== null} onPress={() => { void record(); }} style={({ pressed }) => [styles.heroCta, pressed && { opacity: 0.85 }]}>
+      <Icon name={busy === 'record' ? 'hourglass' : 'camera'} size={20} color={colors.ink} /><Text style={styles.heroCtaText}>{t('recordService')}</Text>
+    </Pressable>
+    {error ? <Text style={styles.heroError}>{error}</Text> : null}
+    <Pressable accessibilityRole="button" onPress={onOpen} style={styles.heroLink} hitSlop={4}><Text style={styles.heroLinkText}>{t('viewJobDetails')} ›</Text></Pressable>
+  </View>;
+}
+
+/** Technician "today": the next job as a card, then own jobs today and next days, in appointment order. */
+export function MyJobs({ membership, onOpen, onRecord, onCreate }: { membership: Membership; onOpen: (id: string) => void; onRecord: (job: Job) => void; onCreate?: () => void }) {
   const t = useT();
   const language = useContext(LanguageContext);
   const errorText = useErrorText();
@@ -137,20 +191,33 @@ export function MyJobs({ membership, onOpen }: { membership: Membership; onOpen:
   useEffect(() => {
     void load();
   }, [membership.organization_id, membership.member_id]);
+  const createAction = onCreate ? <Button small kind="tonal" icon="calendar-outline" title={t('createJob')} onPress={onCreate} /> : undefined;
   if (error) return <><Banner text={error} /><Button kind="secondary" title={t('retry')} onPress={() => { void load(); }} /></>;
   if (!items) return <Loading />;
+  const sorted = [...items].sort((a, b) => (a.scheduled_start ?? '').localeCompare(b.scheduled_start ?? ''));
+  const dayOf = (job: JobSummary) => job.scheduled_start ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(job.scheduled_start)) : '';
+  const today = bangkokDay(0);
+  const next = sorted.find(j => j.status === 'in_progress') ?? sorted.find(j => j.status === 'scheduled' && dayOf(j) === today);
   const groups = new Map<string, JobSummary[]>();
-  for (const job of [...items].sort((a, b) => (a.scheduled_start ?? '').localeCompare(b.scheduled_start ?? ''))) {
-    const day = job.scheduled_start ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(job.scheduled_start)) : '';
-    groups.set(day, [...(groups.get(day) ?? []), job]);
+  for (const job of sorted) {
+    if (job.id === next?.id) continue;
+    groups.set(dayOf(job), [...(groups.get(dayOf(job)) ?? []), job]);
   }
-  return items.length === 0 ? <Card><Sub>{t('noJobs')}</Sub></Card> : <>
-    {[...groups].map(([day, jobs]) => <View key={day}>
-      <Section>{day === bangkokDay(0) ? t('today') : day === bangkokDay(1) ? t('tomorrow') : day === bangkokDay(-1) ? t('yesterday') : day ? formatDate(new Date(`${day}T12:00:00+07:00`), language) : t('notScheduled')}</Section>
-      <Card padded={false}>{jobs.map((j, i) => <Pressable key={j.id} accessibilityRole="button" onPress={() => onOpen(j.id)} style={[styles.agendaRow, i !== jobs.length - 1 && styles.agendaLine]}>
-        <Text style={styles.agendaTime}>{j.scheduled_start ? new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(j.scheduled_start)) : '—'}</Text>
-        <View style={{ flex: 1 }}><Strong>{customerTitle({ name: j.customer_name, phone_normalized: j.customer_phone })}</Strong><Sub>{t(`jobType.${j.job_type}` as TranslationKey)} · {j.location_label}</Sub><Badge text={t(`status.${j.status}` as TranslationKey)} tone={statusTone(j.status)} /></View>
-        <Icon name="chevron-forward" size={18} color={colors.faint} />
+  if (items.length === 0) return <><Section action={createAction}>{t('myJobs')}</Section><Card><Sub>{t('noJobs')}</Sub></Card></>;
+  return <>
+    {next ? <NextJobCard membership={membership} job={next} onOpen={() => onOpen(next.id)} onRecord={onRecord} /> : null}
+    {!groups.size ? (createAction ? <Section action={createAction}>{t('laterToday')}</Section> : null) : null}
+    {[...groups].map(([day, jobs], gi) => <View key={day}>
+      <Section action={gi === 0 ? createAction : undefined}>{day === today ? (next ? t('laterToday') : t('today')) : day === bangkokDay(1) ? t('tomorrow') : day === bangkokDay(-1) ? t('yesterday') : day ? formatDate(new Date(`${day}T12:00:00+07:00`), language) : t('notScheduled')}</Section>
+      <Card padded={false}>{jobs.map((j, i) => <Pressable key={j.id} accessibilityRole="button" onPress={() => onOpen(j.id)} style={[styles.agendaRow, i !== jobs.length - 1 && styles.agendaLine, j.status === 'in_progress' && styles.agendaActive]}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.agendaHead}><Text style={styles.agendaTime}>{clock(j.scheduled_start, language)}</Text><Badge text={t(`status.${j.status}` as TranslationKey)} tone={statusTone(j.status)} /></View>
+          <Strong>{customerTitle({ name: j.customer_name, phone_normalized: j.customer_phone })}</Strong>
+          <Sub>{t(`jobType.${j.job_type}` as TranslationKey)} · {j.location_label}</Sub>
+        </View>
+        {j.customer_phone ? <Pressable accessibilityRole="button" accessibilityLabel={`${t('call')} ${customerTitle({ name: j.customer_name, phone_normalized: j.customer_phone })}`}
+          onPress={() => callCustomer(j.customer_phone)} style={({ pressed }) => [styles.callButton, pressed && { backgroundColor: colors.tonal }]}>
+          <Icon name="call" size={22} color={colors.primary} /></Pressable> : null}
       </Pressable>)}</Card>
     </View>)}
   </>;
@@ -330,16 +397,10 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
   // Without signal the form still opens; it starts the job itself when the record is sent.
   async function recordService() {
     if (!job) return;
-    if (job.status !== 'scheduled') { onRecordService(job); return; }
     setBusy(true); setError(null);
-    try {
-      const result = await api.jobAction(org, job.id, 'start', { expected_version: job.version });
-      const next = 'job' in result ? result.job : result;
-      setJob(next); onRecordService(next);
-    } catch (e) {
-      if (e instanceof ApiFailure && e.code === 'NETWORK_ERROR') onRecordService(job);
-      else { setError(errorText(e)); if (e instanceof ApiFailure && e.code === 'VERSION_CONFLICT') load(); }
-    } finally { setBusy(false); }
+    try { const next = await startForService(org, job); setJob(next); onRecordService(next); }
+    catch (e) { setError(errorText(e)); if (e instanceof ApiFailure && e.code === 'VERSION_CONFLICT') load(); }
+    finally { setBusy(false); }
   }
 
   if (!job) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
@@ -347,24 +408,27 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
   const openJob = ['unassigned', 'scheduled', 'in_progress'].includes(job.status);
   const mine = job.current_assignee_id === membership.member_id;
 
-  return <Screen onBack={onBack}>
+  const place = { latitude: job.latitude, longitude: job.longitude, address: job.location_address, label: job.location_label ?? '' };
+  const canRecord = mine && (job.status === 'scheduled' || job.status === 'in_progress');
+  return <Screen onBack={onBack} title={customerTitle({ name: job.customer_name, phone_normalized: job.customer_phone })}
+    subtitle={`${t(`jobType.${job.job_type}` as TranslationKey)} · ${job.scheduled_start ? formatDateTime(new Date(job.scheduled_start), language) : t('notScheduled')}`}
+    footer={canRecord ? <Button icon="camera" title={t('recordService')} busy={busy} onPress={() => { void recordService(); }} /> : undefined}>
     <View style={styles.header}>
-      <IconTile icon={icon} tone={tone} size={56} />
-      <View style={{ flex: 1 }}><Title>{t(`jobType.${job.job_type}` as TranslationKey)}</Title>
-        <Sub>{job.scheduled_start ? formatDateTime(new Date(job.scheduled_start), language) : t('notScheduled')}</Sub></View>
+      <IconTile icon={icon} tone={tone} size={44} />
+      <View style={{ flex: 1 }}><Strong>{job.location_label ?? ''}</Strong>{job.location_address ? <Sub>{job.location_address}</Sub> : null}</View>
       <Badge text={t(`status.${job.status}` as TranslationKey)} tone={statusTone(job.status)} />
     </View>
+    <ActionTrio items={[
+      { icon: 'call', label: t('call'), disabled: !job.customer_phone, onPress: () => { void Linking.openURL(`tel:${job.customer_phone}`); } },
+      { icon: 'navigate', label: t('navigate'), onPress: () => openMaps(place) },
+      { icon: 'share-social', label: t('shareAddress'), onPress: () => { void Share.share({ message: [place.label, place.address, mapsUrl(place)].filter(Boolean).join('\n') }); } },
+    ]} />
     <Banner text={error} />
     <Banner tone="info" text={notice} />
     {job.description ? <Card><Sub>{job.description}</Sub></Card> : null}
     <Card padded={false}>
-      <Row icon="person" tone="violet" title={customerTitle({ name: job.customer_name, phone_normalized: job.customer_phone })}
-        subtitle={job.customer_name && job.customer_phone ? formatPhone(job.customer_phone) : undefined} onPress={() => onOpenCustomer(job.customer_id)}
-        trailing={job.customer_phone ? <Pressable accessibilityRole="button" accessibilityLabel={t('call')} hitSlop={8}
-          onPress={() => { void Linking.openURL(`tel:${job.customer_phone}`); }}><IconTile icon="call" tone="green" /></Pressable> : undefined} />
-      <Row icon="location" tone={job.latitude !== null ? 'green' : 'sky'} title={job.location_label ?? ''} subtitle={[job.location_address, job.travel_note].filter(Boolean).join(' · ') || undefined}
-        trailing={<Pressable accessibilityRole="button" accessibilityLabel={t('navigate')} hitSlop={8}
-          onPress={() => openMaps({ latitude: job.latitude, longitude: job.longitude, address: job.location_address, label: job.location_label ?? '' })}><IconTile icon="navigate" tone="blue" /></Pressable>} />
+      <Row icon="person" tone="violet" title={t('customerInfo')} subtitle={job.customer_phone ? formatPhone(job.customer_phone) : undefined} onPress={() => onOpenCustomer(job.customer_id)} />
+      {job.travel_note ? <Row icon="navigate-circle" tone="sky" title={job.travel_note} subtitle={t('travelNote')} /> : null}
       <Row icon="construct" tone="amber" title={job.assignee_name ?? t('unassignedOption')} subtitle={t('assignee')} last />
     </Card>
     <Section>{t('plannedEquipment')}</Section>
@@ -375,7 +439,6 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
       {!job.equipment.length && !job.estimated_equipment_count ? <Row icon="help-circle" tone="sky" title={t('unknown')} last /> : null}
     </Card>
 
-    {mine && (job.status === 'scheduled' || job.status === 'in_progress') ? <Button icon="clipboard" title={t('recordService')} busy={busy} onPress={() => { void recordService(); }} /> : null}
     {job.status === 'cancelled' && job.cancellation_reason ? <Banner text={`${t('cancelReason')}: ${job.cancellation_reason}`} /> : null}
 
     {owner && openJob ? <>
@@ -410,9 +473,26 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
 }
 
 const styles = StyleSheet.create({
-  agendaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 17, paddingHorizontal: 16 },
+  agendaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingLeft: 16, paddingRight: 12 },
+  agendaActive: { borderLeftWidth: 4, borderLeftColor: colors.accent, paddingLeft: 12 },
+  agendaHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 },
+  callButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  hero: { backgroundColor: colors.primary, borderRadius: 20, padding: 16, marginTop: 8 },
+  heroHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heroKicker: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: '#C9D3E0', flex: 1 },
+  heroName: { fontFamily: fonts.semibold, fontSize: 22, lineHeight: 32, color: colors.onPrimary, marginTop: 6 },
+  heroSub: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: '#C9D3E0' },
+  heroActions: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  heroGhost: { flex: 1, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.08)', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  heroGhostPressed: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  heroGhostText: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.onPrimary },
+  heroCta: { minHeight: 56, borderRadius: 12, backgroundColor: colors.surface, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  heroCtaText: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.ink },
+  heroError: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: '#FFD6D1', marginTop: 8 },
+  heroLink: { alignSelf: 'center', minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, marginTop: 4 },
+  heroLinkText: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: '#DCE4EE' },
   agendaLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  agendaTime: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 24, color: colors.ink, minWidth: 45 },
+  agendaTime: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 24, color: colors.ink },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'space-between' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },

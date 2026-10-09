@@ -1,5 +1,14 @@
 export type Language = 'th' | 'en';
 const th = {
+  nextJob: 'งานถัดไป', removeUnitPhotos: 'ไม่รวมเครื่องนี้? รูปที่ถ่ายไว้ของเครื่องนี้จะถูกลบ', customerInfo: 'ข้อมูลลูกค้า', equipmentCount: '{count} เครื่อง', laterToday: 'ต่อจากนี้', viewJobDetails: 'ดูรายละเอียดงาน', recordWork: 'บันทึกงาน', unassignedAttention: 'งานรอมอบหมาย · เลือกช่าง',
+  shareAddress: 'ส่งที่อยู่', shareSummary: 'แชร์สรุปงานให้ลูกค้า', shareSummaryHint: 'ส่งผลแต่ละเครื่องผ่านแอพแชทที่ลูกค้าใช้', summaryTitle: 'สรุปงานบริการ',
+  photoRun: 'ถ่ายรูปต่อเนื่อง', photoRunHint: 'กล้องเปิดต่อทีละเครื่อง · ถ่ายก่อนทำตอนมาถึง หลังทำตอนเสร็จ', photoNext: 'ถัดไป: {name}', photoAllDone: 'ครบทุกเครื่องแล้ว',
+  allDone: 'เสร็จทุกเครื่อง', selectedOf: 'เลือก {n} จาก {total} เครื่อง', 'outcome.skip': 'ไม่รวม', notIncluded: 'ไม่รวมในงานนี้', photoCount: 'รูป {n}',
+  quickPick: 'แตะเลือกได้ หรือพิมพ์เพิ่ม', micHint: 'แตะไมค์บนคีย์บอร์ดเพื่อพูดแทนพิมพ์', updateToCurrentLocation: 'อัปเดตเป็นตำแหน่งปัจจุบัน',
+  locationSaved: 'บันทึกพิกัดแล้ว ความแม่นยำประมาณ {meters} เมตร', lowAccuracySaved: 'ตำแหน่งอาจคลาดเคลื่อนประมาณ {meters} เมตร ลองอ่านใหม่เมื่ออยู่ในที่โล่ง',
+  'quick.cleanCoil': 'ล้างคอยล์', 'quick.refill': 'เติมน้ำยา', 'quick.drainTray': 'ล้างถาดน้ำทิ้ง', 'quick.dirtyCoil': 'คอยล์สกปรก', 'quick.lowGas': 'น้ำยาต่ำ',
+  'quick.blockedDrain': 'ท่อน้ำทิ้งตัน', 'quick.noisy': 'มีเสียงดัง', 'quick.cleaned': 'ทำความสะอาด', 'quick.replacedPart': 'เปลี่ยนอะไหล่', 'quick.generalCheck': 'ตรวจเช็กทั่วไป',
+  'quick.leaking': 'รั่วซึม', 'quick.damaged': 'ชำรุด',
   shopWorkspace: 'ร้าน', workOnSite: 'ทำงานหน้างาน', optionalDetails: 'รายละเอียดเพิ่มเติม', serviceDetails: 'รายละเอียดบริการและรอบบำรุง',
   saveAndService: 'บันทึกและเริ่มบริการ', saveAndJob: 'บันทึกและสร้างงาน', backToService: 'กลับไปบันทึกบริการ', yesterday: 'เมื่อวาน',
   draftOnDevice: 'เก็บร่างในเครื่องแล้ว · ยังไม่ได้ส่งบริการ', draftSaveFailed: 'ยังเก็บร่างในเครื่องไม่ได้ กรุณาตรวจพื้นที่จัดเก็บก่อนออกจากหน้านี้', retryPhotos: 'ลองส่งรูปอีกครั้ง',
@@ -347,6 +356,15 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
+  nextJob: 'Next job', removeUnitPhotos: 'Leave this unit out? Its photos will be removed.', customerInfo: 'Customer details', equipmentCount: '{count} unit(s)', laterToday: 'Coming up', viewJobDetails: 'View job details', recordWork: 'Record work', unassignedAttention: 'Jobs waiting · pick a technician',
+  shareAddress: 'Share address', shareSummary: 'Share summary with customer', shareSummaryHint: 'Send the result of each unit through the chat app your customer uses', summaryTitle: 'Service summary',
+  photoRun: 'Photos in a row', photoRunHint: 'The camera opens for each unit in turn · before photos on arrival, after photos when done', photoNext: 'Next: {name}', photoAllDone: 'All units done',
+  allDone: 'All done', selectedOf: '{n} of {total} units', 'outcome.skip': 'Skip', notIncluded: 'Not in this job', photoCount: '{n} photos',
+  quickPick: 'Tap to add, or type more', micHint: 'Tap the mic on your keyboard to speak instead of typing', updateToCurrentLocation: 'Update to current location',
+  locationSaved: 'Location saved, accuracy about {meters} m', lowAccuracySaved: 'Location may be off by about {meters} m. Try again in an open area.',
+  'quick.cleanCoil': 'Cleaned coils', 'quick.refill': 'Refilled refrigerant', 'quick.drainTray': 'Cleaned drain tray', 'quick.dirtyCoil': 'Dirty coils', 'quick.lowGas': 'Low refrigerant',
+  'quick.blockedDrain': 'Blocked drain', 'quick.noisy': 'Noisy', 'quick.cleaned': 'Cleaned', 'quick.replacedPart': 'Replaced parts', 'quick.generalCheck': 'General check',
+  'quick.leaking': 'Leaking', 'quick.damaged': 'Damaged',
   shopWorkspace: 'Shop', workOnSite: 'On-site work', optionalDetails: 'More details', serviceDetails: 'Service details and maintenance',
   saveAndService: 'Save and record service', saveAndJob: 'Save and create job', backToService: 'Back to service', yesterday: 'Yesterday',
   draftOnDevice: 'Draft saved on this device · service not sent yet', draftSaveFailed: 'Could not save the draft on this device. Check available storage before leaving this screen.', retryPhotos: 'Retry photo uploads',

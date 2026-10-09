@@ -3,12 +3,13 @@ import { About } from './src/screens/about';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, BackHandler, Image, Linking, StatusBar, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { useFonts, NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
+import { useFonts, NotoSansThai_600SemiBold, NotoSansThai_700Bold } from '@expo-google-fonts/noto-sans-thai';
+import { NotoSansThaiLooped_400Regular, NotoSansThaiLooped_500Medium } from '@expo-google-fonts/noto-sans-thai-looped';
 import { getLocales } from 'expo-localization';
 import * as SplashScreen from 'expo-splash-screen';
 import { Language, normalizeLanguage } from '@field-service/core';
 import { api, tokenFromLink, type Challenge, type Customer, type CustomerLocation, type Job, type JoinLink, type MaintenanceItem, type Me, type ServiceResult } from './src/api';
-import { ServiceDone, ServiceForm } from './src/screens/service';
+import { ServiceDone, ServiceForm, type ServiceSummary } from './src/screens/service';
 import { CustomerDetail, CustomerForm, CustomersScreen, LocationForm } from './src/screens/customers';
 import { EquipmentDetail, EquipmentForm } from './src/screens/equipment';
 import { JobCustomerPicker, JobDetail, JobForm, JobsScreen } from './src/screens/jobs';
@@ -42,7 +43,7 @@ type Route =
   | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
   | { screen: 'equipmentNew'; customerId: string; locationId: string; returnTo?: Route } | { screen: 'equipment'; customerId: string; id: string }
   | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
-  | { screen: 'serviceDone'; result: ServiceResult; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
+  | { screen: 'serviceDone'; result: ServiceResult; summary?: ServiceSummary; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
   | { screen: 'jobs'; filter?: 'today' | 'upcoming' | 'unassigned' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
 // The native splash is hidden only once the start screen below has drawn, so there is no blank frame.
@@ -57,7 +58,7 @@ const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => 
 });
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ NotoSansThai_400Regular, NotoSansThai_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold });
+  const [fontsLoaded] = useFonts({ NotoSansThaiLooped_400Regular, NotoSansThaiLooped_500Medium, NotoSansThai_600SemiBold, NotoSansThai_700Bold });
   const [language, setLanguage] = useState<Language>('th');
   const [route, setRoute] = useState<Route>({ screen: 'boot' });
   const routeNow = useRef(route); routeNow.current = route;
@@ -297,7 +298,7 @@ export default function App() {
         onBack={() => setRoute(route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' })}
         onAddEquipment={locationId => setRoute({ screen: 'equipmentNew', customerId: route.screen === 'service' ? route.job.customer_id : route.customerId, locationId, returnTo: route })}
         onOpenLocation={() => setRoute({ screen: 'customer', id: route.screen === 'service' ? route.job.customer_id : route.customerId, back: route })}
-        onDone={result => setRoute({ screen: 'serviceDone', result, back: route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' } })} /> : <Loading />; break;
+        onDone={(result, summary) => setRoute({ screen: 'serviceDone', result, summary, back: route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' } })} /> : <Loading />; break;
     case 'maintenance': content = membership?.status === 'active' && membership.role === 'owner'
       ? <MaintenanceScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })} onOpen={item => setRoute({ screen: 'maintenanceItem', item })} /> : <Loading />; break;
     case 'maintenanceItem': content = membership?.status === 'active' && membership.role === 'owner'
@@ -309,7 +310,7 @@ export default function App() {
       ? <InvoiceScreen key={route.id} membership={membership} invoiceId={route.id} onBack={() => setRoute({ screen: 'billing' })} /> : <Loading />; break;
     case 'support': content = membership?.status === 'active' && membership.role === 'owner'
       ? <SupportScreen membership={membership} onBack={() => setRoute({ screen: membership.organization_status === 'active' ? 'account' : 'shop' })} /> : <Loading />; break;
-    case 'serviceDone': content = <ServiceDone result={route.result} onDone={() => setRoute(route.back)} />; break;
+    case 'serviceDone': content = <ServiceDone result={route.result} summary={route.summary} onDone={() => setRoute(route.back)} />; break;
     case 'adhocPick': content = membership?.status === 'active'
       ? <JobCustomerPicker membership={membership} onBack={() => setRoute({ screen: 'shop' })} onPicked={(customerId, locationId) => setRoute({ screen: 'serviceAdhoc', customerId, locationId })}
         onCreate={search => setRoute({ screen: 'customerNew', search, then: 'serviceAdhoc' })} /> : <Loading />; break;
@@ -353,7 +354,7 @@ export default function App() {
         onChangePassword={() => setRoute({ screen: 'changePassword' })} onAbout={() => setRoute({ screen: 'about', back: { screen: 'account' } })}
         onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
-      else if (membership && active) content = <Home me={me} membership={membership} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })}
+      else if (membership && active) content = <Home me={me} membership={membership} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordJob={job => setRoute({ screen: 'service', job })}
         onOpenDraft={d => setRoute(d.jobId ? { screen: 'job', id: d.jobId } : { screen: 'serviceAdhoc', customerId: d.customerId, locationId: d.locationId })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })}
         onCreateJob={() => setRoute({ screen: 'jobPick' })} onUnassigned={() => setRoute({ screen: 'jobs', filter: 'unassigned' })} />;
       else content = <Loading />;

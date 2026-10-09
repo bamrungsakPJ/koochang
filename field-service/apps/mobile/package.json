@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/noto-sans-thai": "0.4.2",
+    "@expo-google-fonts/noto-sans-thai-looped": "0.4.2",
     "@expo/vector-icons": "15.1.1",
     "@field-service/core": "workspace:*",
     "@field-service/i18n": "workspace:*",

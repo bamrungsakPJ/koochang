@@ -7,7 +7,7 @@
 
 ---
 
-## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-09 ค่ำ — staging migration 036 ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, DeeSMSx OTP จริง, ใบเสร็จ ITISME_Test, APK 0.2.17 build 19)
+## สถานะปัจจุบัน (อัปเดตล่าสุด 2026-10-10 — staging migration 036 ที่ koochang.com / api.koochang.com, Stripe โหมดจริง, DeeSMSx OTP จริง, ใบเสร็จ ITISME_Test, APK 0.2.18 build 20 ดีไซน์ตาม senior review)
 
 ### งานที่ทำและแก้ไขแล้ว
 
@@ -20,7 +20,7 @@
 - **ส่งรูปและ OCR**: แก้การส่งรูปป้าย/รูปงานเป็น native bytes เพิ่มภาพตัวอย่าง สถานะอัปโหลด/อ่านรูป ผลยี่ห้อ/รุ่น/Serial ข้อผิดพลาดและลองใหม่ ป้องกันผลรูปเก่าทับรูปใหม่ และอธิบายกรณีเซิร์ฟเวอร์ยังไม่ตั้งค่า AI; ยังต้องยืนยันบนโทรศัพท์จริง
 - **ลดค่าใช้จ่าย AI**: ใช้ `claude-haiku-4-5-20251001`, จำกัด 512 tokens, ปิด thinking และไม่มี fallback ไปโมเดลแพง Prompt อ่านเฉพาะ brand/model/serial_number คงตัวอักษรและเลขศูนย์ ไม่เดาข้อมูลที่อ่านไม่ได้ และไม่ทำตามคำสั่งในภาพ ทดสอบ Anthropic จริงด้วยภาพสังเคราะห์อ่านตรงครบ 3 ช่องประมาณ 4 วินาที ยังไม่ใช่ผลทดสอบรูปถ่ายจริง
 - **แบรนด์**: ใช้ คู่ช่าง / KooChang, package/bundle `com.koochang.app`, deep link `koochang://` และนำโลโก้ไปใช้แล้ว บริษัทไทย “บริษัท ไอ ที อีส มี จำกัด” อังกฤษ “IT IS ME Co., Ltd.”; เลขเวอร์ชันย้ายไปอยู่ บัญชี → เกี่ยวกับแอป (และลิงก์เล็กใต้หน้าเข้าสู่ระบบ) ไม่แสดงหน้าแรก ตั้งแต่ 0.2.6; มีลิงก์นโยบาย/ข้อตกลงแล้วในโค้ด (รอ APK ถัดไป)
-- **Build Android ในเครื่อง**: build จาก D:\kc ด้วย Start-Process (ประมาณ 1 นาที) — APK ล่าสุด **0.2.17 / Build 19** `output/builds/apk/KooChang-0.2.17-build19.apk` (ก่อนหน้า 0.2.16 / Build 18) (API `https://api.koochang.com`, เลือกวิธีชำระเงิน 3 แบบ + จ่ายแล้วกลับเข้าแอป, รวมงาน offline/ปฏิทิน/โหลดเพิ่ม/ล็อกนิ้ว/หน้าสร้างงานใหม่) cert SHA-256 4eed9485… เดิม; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
+- **Build Android ในเครื่อง**: build จาก D:\kc ด้วย Start-Process (ประมาณ 1 นาที) — APK ล่าสุด **0.2.18 / Build 20** `output/builds/apk/KooChang-0.2.18-build20.apk` (ดีไซน์ใหม่ตาม senior review; ก่อนหน้า 0.2.17 / Build 19) (API `https://api.koochang.com`, เลือกวิธีชำระเงิน 3 แบบ + จ่ายแล้วกลับเข้าแอป, รวมงาน offline/ปฏิทิน/โหลดเพิ่ม/ล็อกนิ้ว/หน้าสร้างงานใหม่) cert SHA-256 4eed9485… เดิม; รองรับ Android 7.0 ขึ้นไป (minSdk 24, targetSdk 36); วิธี build ซ้ำ: คัดลอกไฟล์ที่เปลี่ยนไป D:\kc, build i18n ใน D:\kc, แก้ versionCode/versionName ใน `D:\kc\apps\mobile\android\app\build.gradle` ให้ตรง app.json แล้วรัน gradlew ด้วย `Start-Process` ดู [ANDROID_LOCAL_BUILD.md](ANDROID_LOCAL_BUILD.md)
 - **Git**: origin = https://github.com/bamrungsakPJ/koochang (private); field-service-a02 push ล่าสุด 2026-10-09 ถึง commit บันทึกนี้ (Claude push เองได้เมื่อผู้ใช้สั่ง)
 - **Staging**: server2 อัปเดตทั้ง API/worker/web ถึง `71b42f5` (2026-10-08, migration ถึง 032) — **ชื่อถาวร**: เว็บ https://koochang.com (/shop, /console, /join, /pay-return), API https://api.koochang.com (api-staging ถูกลบแล้ว); build เว็บด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` ในโฟลเดอร์ `/opt/field-service/staging/field-service`; env `OWNER_WEB_URL=https://koochang.com/shop`, `JOIN_LINK_BASE_URL=https://koochang.com/join` (ผู้ใช้แก้เอง สำรอง staging.env.bak-20261008); Stripe live credential `db19ee92-…` webhook `https://api.koochang.com/v1/billing/stripe/webhook/db19ee92-33fd-4e51-bdf5-709a77a18c48`; แพ็กเกจ test20 (20 บาท/เดือน) ยังเปิดขาย; ตั้งค่า Anthropic key แล้ว มี push FCM (`push=fcm`)
 - **ทดสอบบนมือถือจริงโดยผู้ใช้ (2026-10-07)**: ผ่าน — บันทึกผลบริการ/จบงานโดยไม่ต้องกดเริ่มงาน (APK 0.2.10), push notification (APK 0.2.9), เปิดงานใช้งานได้, อ่านป้ายเครื่อง (OCR) จากรูปจริง, บันทึกตำแหน่ง GPS, สแกนนิ้ว (biometric) (ยังไม่ได้ทดสอบถึงขั้นชำระเงิน); ปุ่มย้อนกลับ Android ถอยตามหน้าในแอป/กดซ้ำเพื่อออก; ก่อนหน้านี้ผู้ใช้พบและเราแก้ (1) ค้นเบอร์ไม่เจอแล้วไปต่อไม่ได้ → เพิ่มลูกค้าใหม่จากหน้าเลือกลูกค้าแล้วไปเปิดงานต่อ (2) รูปโปรไฟล์หน้าแรกกดไม่ได้ → ไปแท็บบัญชี; ปุ่มลอย +/− ขอบขวาในภาพหน้าจอผู้ใช้ไม่ใช่ของแอป (ปุ่มซูม/การช่วยเหลือของเครื่อง)
@@ -31,14 +31,14 @@
 ข้อที่ปิดแล้วจึงตัดออกจากรายการ: OTP จริงผ่าน DeeSMSx, บันทึกรูป QR ลงเครื่อง + ร่างผลบริการแยกตามผู้ใช้ (0.2.14), test mobile-client, คืนเงิน 20 บาท (INV-2610-000002), หัวกระดาษใบเสร็จ (ใช้ค่าผู้ขายจากคอนโซลแทนตาราง Company)
 
 **1. ผู้ใช้ทำเอง**
-- ทดสอบบนโทรศัพท์ (APK 0.2.17 build 19 — มีงาน redesign: เมนูจัดการร้าน, ลูกค้าใหม่ไปต่อสร้างงาน/บันทึกบริการ, OCR เติมค่าทันที): จ่ายจากแอป → กลับเข้าแอป, โอน + สลิป, หน้าแพ็กเกจ/ใบเสร็จ PDF, บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามคน, ออฟไลน์ (โหมดเครื่องบิน), ปฏิทินนัด, โหลดเพิ่ม, re-lock, หน้าสร้างงานใหม่, หน้าเกี่ยวกับแอป, session หลังเปิดใหม่/อัปเดต, keyboard/ขนาดตัวอักษร
+- ทดสอบบนโทรศัพท์ (APK 0.2.18 build 20 — ดีไซน์ใหม่: การ์ดงานถัดไป + โทร/นำทาง, FAB บันทึกงาน, ถ่ายรูปต่อเนื่อง, เสร็จทุกเครื่อง, ข้อความสำเร็จรูป, แชร์สรุปงาน, โทร·นำทาง·ส่งที่อยู่, กดพิกัดครั้งเดียวบันทึกทันที, ฟอนต์มีหัว; รวมของ 0.2.17: เมนูจัดการร้าน, ลูกค้าใหม่ไปต่อสร้างงาน/บันทึกบริการ, OCR เติมค่าทันที): จ่ายจากแอป → กลับเข้าแอป, โอน + สลิป, หน้าแพ็กเกจ/ใบเสร็จ PDF, บันทึก QR ลงเครื่อง, ร่างผลบริการแยกตามคน, ออฟไลน์ (โหมดเครื่องบิน), ปฏิทินนัด, โหลดเพิ่ม, re-lock, หน้าสร้างงานใหม่, หน้าเกี่ยวกับแอป, session หลังเปิดใหม่/อัปเดต, keyboard/ขนาดตัวอักษร
 - ITISME: ขอคืนเงิน INV-2610-000003 เพื่อทดสอบใบลดหนี้; แก้ตาราง Company ใน ITISME จริง (ชื่ออังกฤษ/เลขผู้เสียภาษีผิด); เปลี่ยนคอนโซลจาก `ITISME_Test` → `ITISME` เมื่อพร้อม
 - Stripe Dashboard: Send test event (ต้อง 200), Manage failed payments → Cancel subscription, Customer portal (เปิดอัปเดตบัตร + ประวัติ, ปิดยกเลิก/Switch plans/Update quantities); ทดสอบเสร็จหยุดขาย test20
 - server2: ลบ `/opt/field-service/staging/pnpm-workspace.yaml`; ภายหลังลบ hostname app-staging + เอาออกจาก ADMIN_ORIGIN
 - ทดสอบบน staging: ปรับราคาแพ็กเกจกับร้านเดิม (แจ้ง 30 วัน + Stripe เปลี่ยนราคา), กติการะงับร้าน (ชั่วคราว 14 วัน → ถาวร), UAT เว็บร้าน/คอนโซล, ความแม่น OCR ด้วยรูปจริง
 
 **2. รอภายนอก**
-- นักออกแบบทำ redesign มือถือ — ระหว่างนี้แก้เฉพาะบั๊ก ([mobile-redesign/index.html](mobile-redesign/index.html) เก็บไว้อ้างอิง)
+- ชุดออกแบบล่าสุดอยู่ที่ `output/koochang-design` (handoff ข้อ 9 = ปรับตาม senior review 2026-10-10 ที่ผู้ใช้สั่งให้ Claude แก้); หน้าที่ยังไม่ได้จัดตามต้นแบบ: แพ็กเกจ/ชำระเงิน/ทีม/ช่วยเหลือ/onboarding
 - Play Store รอ D-U-N-S; QR พร้อมเพย์ของบริษัทรอ PromptPay ID (เอกสารธนาคาร)
 
 **3. โค้ด — บันทึกไว้ ทำเมื่อผู้ใช้สั่ง**
@@ -76,6 +76,23 @@
 ---
 
 ## บันทึกรายวัน
+
+### 2026-10-10 — Senior design review → ต้นแบบใหม่ + APK 0.2.18 (build 20)
+
+- ผู้ใช้ให้รีวิวต้นแบบของนักออกแบบ (`output/koochang-design/02-prototype/koochang-final-prototype.html`) ในมุม Senior Product Designer (M3 / Apple HIG / พฤติกรรมผู้ใช้ไทย) แล้วสั่ง "แก้ตามเอกสารและที่ให้ความเห็น" และ build ให้ทดสอบพรุ่งนี้
+- **ต้นแบบ** (ก่อนแก้เก็บที่ `99-history/koochang-final-prototype-2026-10-10-before-senior-review.html`): หัวข้ออยู่ใน top bar ไม่ซ้ำกับ H1, การ์ด "งานถัดไป" พร้อมโทร/นำทาง/บันทึกผล, FAB อำพันลอยและย่อเมื่อเลื่อน, แคปซูลแท็บแบบ M3, พิกัดบรรทัดเดียว, segment 4 ค่า (เสร็จ/ไม่เสร็จ/เลื่อน/ไม่รวม) + การ์ดเครื่องพับได้, "เสร็จทุกเครื่อง", ถ่ายรูปต่อเนื่อง, ข้อความสำเร็จรูป + คำแนะนำไมค์, แชร์สรุปงาน, โทร·นำทาง·ส่งที่อยู่, ปุ่ม tonal, chevron ในส่วนพับ, snackbar, ฟอนต์มีหัว, เส้นเข้มขึ้น, ตัวเลือกขนาดตัวอักษร 100/115/130% ในแผงทบทวน; ไอคอนฝัง Lucide ในไฟล์ (เดิมบางไอคอนไม่แสดงเพราะไม่ได้โหลด lucide); ภาพใหม่ใน `03-screenshots/`; เอกสาร handoff เพิ่มข้อ 9
+- **แอป 0.2.18** (`ui.tsx`, `shop.tsx` Home, `jobs.tsx`, `service.tsx`, `customers.tsx`, i18n):
+  - token ตาม handoff (#12243A/#F5A623/#F5F7FB, เส้น #D3DCE6, สถานะ #166534/#92400E/#B42318), เนื้อหาใช้ **Noto Sans Thai Looped** (`@expo-google-fonts/noto-sans-thai-looped` 0.4.2 — JS/asset ล้วน ไม่ต้อง prebuild), ข้อความรอง 13→14–15sp
+  - `Screen` รองรับ `title/subtitle/right` (แถบหัวตรึง) และ `fab`; แท็บล่างเป็นแคปซูลอำพันอ่อน; ปุ่ม `tonal`; `ActionTrio`, `AttentionRow`
+  - วันนี้: large title + วันที่ · ร้าน, การ์ดงานถัดไป (in_progress ก่อน ไม่งั้น scheduled วันนี้), โทรในทุกแถวงาน, FAB "บันทึกงาน" (= บันทึกบริการหน้างาน), เจ้าของเห็นแถบ "งานรอมอบหมาย" เฉพาะเมื่อมีจริง; การเริ่มงานก่อนบันทึกย้ายไป `startForService` ใช้ร่วมกับหน้ารายละเอียดงาน
+  - บันทึกบริการ: แถบหัวมีลูกค้า·สถานที่, พิกัดเป็นแถวเดียว, ถ่ายรูปต่อเนื่อง (ไม่รอ upload ระหว่างเปิดกล้องเครื่องถัดไป), เสร็จทุกเครื่อง, segment 4 ค่า ("ไม่รวม" ที่มีรูปถามก่อนลบ), การ์ดพับได้, ปุ่มข้อความสำเร็จรูปตามประเภทเครื่องใส่ลงช่องงานที่ทำ/ปัญหา, ปุ่มบันทึกบอกจำนวนเครื่อง; หน้าผลบันทึกมีชื่อเครื่อง + **แชร์สรุปงาน** (ข้อความผ่าน Share ของ Android ยังไม่แนบรูป)
+  - รายละเอียดงาน/ลูกค้า: แถบหัว + โทร·นำทาง·ส่งที่อยู่ (แชร์ชื่อสถานที่ ที่อยู่ ลิงก์ Google Maps), แก้ไขลูกค้าย้ายเป็นไอคอนมุมขวา, ปุ่มบันทึกผลบริการอยู่ใน footer
+  - สถานที่: กด "ใช้ตำแหน่งปัจจุบัน / อัปเดตเป็นตำแหน่งปัจจุบัน" ครั้งเดียวแล้วบันทึกทันทีตาม F32 (เดิมต้องยืนยัน 2 ครั้ง) แจ้งความแม่นยำ >50 ม. ให้อ่านใหม่; ล้มเหลวคงค่าเดิม
+  - รายชื่อลูกค้าแสดงที่อยู่แรกก่อนเบอร์ และช่องค้นหาบอกว่าค้นซอย/ที่อยู่ได้ (API รองรับอยู่แล้ว)
+- **ปัญหาที่เจอ**: (1) bash heredoc ที่มี quote/backtick พังอีก → เขียนสคริปต์แก้ด้วย Write แล้วรันด้วย node (2) `ui.tsx` มี CRLF/LF ปน ทำให้ string replace ไม่เจอ → normalize เป็น LF ก่อนแก้ (3) `'\n'` ในสคริปต์ template กลายเป็นขึ้นบรรทัดจริงใน `join(...)` → แก้ด้วย regex (4) `pnpm install --frozen-lockfile` ใน D:\kc ล้มเพราะ package.json ของ api/admin/root ใน snapshot เก่า → คัดลอก manifest ล่าสุดแล้วติดตั้งผ่าน
+- ตรวจแล้ว: typecheck มือถือผ่าน; test i18n + mobile-client + mobile-redesign 14/14 ผ่าน; ต้นแบบเปิดใน Playwright ไม่มี error ใน console
+- **Build**: ไม่มี native ใหม่ (ฟอนต์เป็น asset) จึงไม่ prebuild; ซิงก์ manifest + lockfile ไป D:\kc แล้ว `pnpm install --frozen-lockfile`; BUILD SUCCESSFUL 4m13s; ตรวจ com.koochang.app 20/0.2.18, cert SHA-256 4eed9485… เดิม, bundle มี api.koochang.com (ไม่มี api-staging), NotoSansThaiLooped และข้อความใหม่ → `output/builds/apk/KooChang-0.2.18-build20.apk` (76 MB)
+- **ยังไม่ได้ทำ/ข้อจำกัด**: ยังไม่ได้ดูหน้าจอแอปจริง (ไม่มี preview ที่ไม่ต้องล็อกอิน) — ต้องดูบนโทรศัพท์; snackbar ทำในต้นแบบเท่านั้น แอปยังใช้ Banner; แชร์สรุปยังไม่แนบรูป; หน้าอื่น (แพ็กเกจ, ทีม ฯลฯ) ได้แค่ token/ฟอนต์/หัวข้อใหม่ ไม่ได้จัดใหม่
 
 ### 2026-10-10 — ข้อความ SMS OTP เป็นภาษาไทย ขึ้นต้น "คู่ช่าง :"
 
