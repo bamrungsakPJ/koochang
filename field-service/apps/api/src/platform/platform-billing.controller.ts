@@ -131,7 +131,7 @@ export class PlatformBillingController {
     return { ok: true, ...result };
   }
 
-  @Post('refunds/:id/reject') @HttpCode(200) @Permission('refund.approve') @StepUp()
+  @Post('refunds/:id/reject') @HttpCode(200) @Permission('refund.approve')
   rejectRefund(@Account() account: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Body() body: Record<string, unknown> = {}) {
     return this.decide(account, requestId, id, false, body);
   }

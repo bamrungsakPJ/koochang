@@ -90,7 +90,9 @@ export class ManagementController {
  async submit(@Account()a:PlatformAccount,@RequestId()request:string,@Body()b:Record<string,unknown>={}){
   if(!['roles','recovery','plan','policy'].includes(b.kind as string))throw apiError(400,'VALIDATION_ERROR');const p=b.payload as Record<string,unknown>|undefined;
   if(b.kind==='policy'){
-   if(!p||typeof p.new_shops_enabled!=='boolean'||typeof p.new_payments_enabled!=='boolean'||Object.keys(p).some(k=>!['new_shops_enabled','new_payments_enabled','business_retention_days','deletion_cooling_days'].includes(k)))throw apiError(400,'VALIDATION_ERROR');
+   if(!p||typeof p.new_shops_enabled!=='boolean'||typeof p.new_payments_enabled!=='boolean'||Object.keys(p).some(k=>!['new_shops_enabled','new_payments_enabled','business_retention_days','deletion_cooling_days','step_up_enabled','step_up_minutes'].includes(k)))throw apiError(400,'VALIDATION_ERROR');
+   if(p.step_up_enabled!==undefined&&typeof p.step_up_enabled!=='boolean')throw apiError(400,'VALIDATION_ERROR');
+   if(p.step_up_minutes!==undefined&&(typeof p.step_up_minutes!=='number'||!Number.isInteger(p.step_up_minutes)||p.step_up_minutes<5||p.step_up_minutes>720))throw apiError(400,'VALIDATION_ERROR');
    for(const k of ['business_retention_days','deletion_cooling_days']){const x=p[k];if(x!==undefined&&x!==null&&(typeof x!=='number'||!Number.isSafeInteger(x)||x<1||x>36500))throw apiError(400,'VALIDATION_ERROR');}
   }
   if(b.kind==='roles'&&(!Array.isArray(p?.roles)||!p.roles.length||p.roles.length>20||!p.roles.every(x=>typeof x==='string')))throw apiError(400,'VALIDATION_ERROR');

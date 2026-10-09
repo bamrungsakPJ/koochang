@@ -49,6 +49,13 @@ test('console settings HTTP enforces permission and TOTP; raw settings are inacc
  assert.equal((await http(admin,'/platform/settings',{section:'bank',version:0,...bank})).status,403);
  await db.query('UPDATE platform.sessions SET step_up_at=now() WHERE id=$1',[admin.sessionId]);
  assert.equal((await http(admin,'/platform/settings',{section:'bank',version:0,...bank})).status,200);
+ // System policy can switch the re-confirmation off (sign-in still needs the code), and back on.
+ const policy=async payload=>{const v=(await db.query('SELECT coalesce(max(version),0)+1 AS v FROM platform.policy_versions')).rows[0].v;const body={new_shops_enabled:true,new_payments_enabled:true,...payload};const c=(await db.query("INSERT INTO platform.change_requests(kind,target_version,payload,reason,requested_by) VALUES('policy',$1,$2,'Step-up policy test',$3) RETURNING id",[v-1,body,admin.accountId])).rows[0].id;await db.query('INSERT INTO platform.policy_versions(version,payload,published_by,approval_id) VALUES($1,$2,$3,$4)',[v,body,admin.accountId,c]);};
+ await policy({step_up_enabled:false});await db.query('UPDATE platform.sessions SET step_up_at=NULL WHERE id=$1',[admin.sessionId]);
+ const d1=await controller.get(admin);assert.equal((await http(admin,'/platform/settings',{section:'bank',version:d1.version,...bank})).status,200,'off: no code asked');
+ await policy({step_up_enabled:true,step_up_minutes:5});await db.query("UPDATE platform.sessions SET step_up_at=now()-interval '6 minutes' WHERE id=$1",[admin.sessionId]);
+ const d2=await controller.get(admin);assert.equal((await http(admin,'/platform/settings',{section:'bank',version:d2.version,...bank})).status,403,'on with 5 minutes');
+ await db.query('UPDATE platform.sessions SET step_up_at=now() WHERE id=$1',[admin.sessionId]);
  await assert.rejects(role('fs_api',c=>c.query('SELECT padmin.runtime_settings()')),e=>e.code==='42501');
  await assert.rejects(role('fs_platform',c=>c.query('SELECT * FROM platform.runtime_settings')),e=>e.code==='42501');
 });

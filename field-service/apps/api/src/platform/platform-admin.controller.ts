@@ -87,7 +87,7 @@ export class PlatformAdminController {
     return { grant_id: row.grant_id };
   }
 
-  @Post('grants/:id/end') @HttpCode(200) @Permission('grants.manage') @StepUp()
+  @Post('grants/:id/end') @HttpCode(200) @Permission('grants.manage')
   async endGrant(@Account() a: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Body() body: Record<string, unknown> = {}) {
     this.id(id);
     const check = new Validation();

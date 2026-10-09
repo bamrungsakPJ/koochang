@@ -871,11 +871,17 @@ test('payments: owner invoice and private proof; operator confirms money once; r
 
   const confirmPath = `/platform/billing/invoices/${invoice.id}/confirm`;
   const body = { amount_minor: 59000, bank_reference: ' tx 2026 1004 0001 ', received_at: new Date().toISOString(), proof_id: proofId };
-  await db.query("UPDATE platform.sessions SET step_up_at = now() - interval '11 minutes' WHERE account_id = $1", [operator.id]);
+  // Policy default: one confirmation lasts 60 minutes and every protected action restarts it.
+  await db.query("UPDATE platform.sessions SET step_up_at = now() - interval '61 minutes' WHERE account_id = $1", [operator.id]);
   assert.equal((await call('POST', confirmPath, { token: op, body })).body.code, 'STEP_UP_REQUIRED');
-  assert.equal((await call('POST', '/platform/auth/step-up', { token: op, body: { code: await codeFor(operator.secret, 0) } })).status, 200);
+  const stepped = await call('POST', '/platform/auth/step-up', { token: op, body: { code: await codeFor(operator.secret, 0) } });
+  assert.equal(stepped.status, 200);
+  assert.ok(Math.abs(Date.parse(stepped.body.step_up_until) - Date.now() - 60 * 60_000) < 60_000, 'window follows the policy');
+  await db.query("UPDATE platform.sessions SET step_up_at = now() - interval '50 minutes' WHERE account_id = $1", [operator.id]);
   const short = await call('POST', confirmPath, { token: op, body: { ...body, amount_minor: 50000 } });
   assert.deepEqual([short.status, short.body.code], [422, 'PAYMENT_AMOUNT_MISMATCH']);
+  const slid = (await db.query('SELECT now() - step_up_at < interval \'1 minute\' AS fresh FROM platform.sessions WHERE account_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1', [operator.id])).rows[0];
+  assert.equal(slid.fresh, true, 'a protected action restarts the window');
   const ap = await platformLogin(approver);
   assert.equal((await call('POST', confirmPath, { token: ap, body })).body.code, 'PERMISSION_DENIED');
 

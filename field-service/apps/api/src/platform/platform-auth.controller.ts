@@ -3,7 +3,7 @@ import { PLATFORM_SETTINGS, type PlatformSettings } from '../config.js';
 import { apiError, Validation } from '../shared/api-error.js';
 import { decrypt, randomToken, sha256Hex, tokenPattern } from '../shared/crypto.js';
 import { PlatformDatabaseService } from './platform-database.service.js';
-import { Account, PlatformGuard, STEP_UP_WINDOW_MS, type PlatformAccount } from './platform.guard.js';
+import { Account, PlatformGuard, STEP_UP_DEFAULT_MINUTES, type PlatformAccount } from './platform.guard.js';
 import { verifyPassword, verifyTotp } from './secrets.js';
 
 /** Platform console sign-in: email + password, then a TOTP code (MFA is mandatory). Accounts
@@ -43,7 +43,8 @@ export class PlatformAuthController {
   @Post('step-up') @HttpCode(200) @UseGuards(PlatformGuard)
   async stepUp(@Account() account: PlatformAccount, @Body() body: Record<string, unknown> = {}) {
     await this.checkCode(account.tokenHash, body.code, true);
-    return { step_up_until: new Date(Date.now() + STEP_UP_WINDOW_MS).toISOString() };
+    const minutes = Number((await this.database.run(async c => (await c.query('SELECT padmin.step_up_policy() AS v')).rows[0]?.v))?.minutes) || STEP_UP_DEFAULT_MINUTES;
+    return { step_up_until: new Date(Date.now() + minutes * 60_000).toISOString() };
   }
 
   @Post('logout') @HttpCode(200) @UseGuards(PlatformGuard)

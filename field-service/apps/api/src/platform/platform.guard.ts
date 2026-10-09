@@ -14,9 +14,10 @@ const PERMISSION = 'platform:permission';
 const STEP_UP = 'platform:step-up';
 /** Permission code the endpoint needs (checked here and again in the padmin function). */
 export const Permission = (code: string) => SetMetadata(PERMISSION, code);
-/** Money and access actions need a TOTP confirmation within the last 10 minutes. */
+/** Money and access actions need a recent TOTP confirmation. Whether, and how many minutes it lasts, is the
+ * system policy (step_up_enabled, step_up_minutes; default on, 60 minutes); each protected action restarts it. */
 export const StepUp = () => SetMetadata(STEP_UP, true);
-export const STEP_UP_WINDOW_MS = 10 * 60_000;
+export const STEP_UP_DEFAULT_MINUTES = 60;
 
 export const Account = createParamDecorator((_: unknown, context: ExecutionContext) =>
   context.switchToHttp().getRequest<PlatformRequest>().platform!);
@@ -25,6 +26,12 @@ export const Account = createParamDecorator((_: unknown, context: ExecutionConte
 @Injectable()
 export class PlatformGuard implements CanActivate {
   constructor(private readonly database: PlatformDatabaseService, private readonly reflector: Reflector) {}
+  /** Read on each protected action (they are few), so a policy change applies at once. */
+  private async stepUpPolicy() {
+    const v = await this.database.run(async c => (await c.query('SELECT padmin.step_up_policy() AS v')).rows[0]?.v);
+    const minutes = Number(v?.minutes);
+    return { enabled: v?.enabled !== false, minutes: Number.isInteger(minutes) && minutes >= 5 && minutes <= 720 ? minutes : STEP_UP_DEFAULT_MINUTES };
+  }
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<PlatformRequest>();
     const token = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '')?.[1];
@@ -38,7 +45,13 @@ export class PlatformGuard implements CanActivate {
     // A super admin may do everything (owner decision 2026-10-04); SQL functions check the same way.
     if (needed && !row.roles.includes('super_admin') && !row.permissions.includes(needed)) throw apiError(403, 'PERMISSION_DENIED');
     const stepUp = this.reflector.getAllAndOverride<boolean | undefined>(STEP_UP, [context.getHandler(), context.getClass()]);
-    if (stepUp && (!row.step_up_at || Date.now() - new Date(row.step_up_at).getTime() > STEP_UP_WINDOW_MS)) throw apiError(403, 'STEP_UP_REQUIRED');
+    if (stepUp) {
+      const policy = await this.stepUpPolicy();
+      if (policy.enabled) {
+        if (!row.step_up_at || Date.now() - new Date(row.step_up_at).getTime() > policy.minutes * 60_000) throw apiError(403, 'STEP_UP_REQUIRED');
+        await this.database.run(c => c.query('SELECT padmin.touch_step_up($1)', [row.session_id]));
+      }
+    }
     return true;
   }
 }
