@@ -6,11 +6,14 @@ const digits = (value: unknown) => typeof value === 'string' && /^[\d -]+$/.test
 const minor = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 &&
   Math.abs(value * 100 - Math.round(value * 100)) < 0.000001 ? Math.round(value * 100) : NaN;
 // EasySlip also uses name similarity. Corroborate the visible account digits, not just a matched name.
-function matchesMasked(value: unknown, expected: string | undefined): boolean {
+// Banks mask differently: KBank keeps the full length (xxx-x-x9956-x), SCB shows only the tail (x-9956), so a
+// shorter mask is compared right-aligned with the end of the account number.
+export function matchesMasked(value: unknown, expected: string | undefined): boolean {
   if (typeof value !== 'string') return false;
   const actual = value.replace(/[ -]/g, '').toLowerCase(), number = digits(expected);
-  return Boolean(number && /^[\dx*]+$/.test(actual) && actual.length === number.length &&
-    (actual.match(/\d/g)?.length ?? 0) >= 4 && [...actual].every((c, i) => c === 'x' || c === '*' || c === number[i]));
+  if (!number || !/^[\dx*]+$/.test(actual) || actual.length > number.length || (actual.match(/\d/g)?.length ?? 0) < 4) return false;
+  const offset = number.length - actual.length;
+  return [...actual].every((c, i) => c === 'x' || c === '*' || c === number[offset + i]);
 }
 
 export class EasySlip {
@@ -35,11 +38,14 @@ export class EasySlip {
       if (!data || !slip || typeof data.isDuplicate !== 'boolean') return { code: 'INVALID_RESPONSE' };
       if (data.isDuplicate) return { code: 'DUPLICATE' };
       if (data.isAmountMatched !== true || minor(data.amountInSlip) !== Number(order.amount_minor) || minor(slip.amount?.amount) !== Number(order.amount_minor)) return { code: 'AMOUNT_MISMATCH' };
-      if (!data.matchedAccount || data.matchedAccount.bank?.code !== order.receiver!.bankCode ||
-        slip.receiver?.bank?.id !== order.receiver!.bankCode || digits(data.matchedAccount.bankNumber) !== digits(order.receiver!.accountNumber)) return { code: 'RECEIVER_MISMATCH' };
+      // Which receiver check failed goes to the log (our own account details only, never the sender's).
+      const mismatch = (step: string) => { console.warn(`SLIP_RECEIVER_MISMATCH ${step} matched=${data.matchedAccount ? `${data.matchedAccount.bank?.code ?? '-'}/${String(data.matchedAccount.bankNumber ?? '-').slice(-4)}` : 'none'} slipBank=${slip.receiver?.bank?.id ?? '-'} slipAccount=${String(slip.receiver?.account?.bank?.account ?? slip.receiver?.account?.proxy?.account ?? '-').slice(0, 20)}`); return { code: 'RECEIVER_MISMATCH' }; };
+      if (!data.matchedAccount) return mismatch('no_matched_account');
+      if (data.matchedAccount.bank?.code !== order.receiver!.bankCode || slip.receiver?.bank?.id !== order.receiver!.bankCode) return mismatch('bank');
+      if (digits(data.matchedAccount.bankNumber) !== digits(order.receiver!.accountNumber)) return mismatch('account_number');
       const account = slip.receiver?.account;
       if (!matchesMasked(account?.bank?.account, order.receiver!.accountNumber) &&
-        !(['NATID', 'MSISDN'].includes(account?.proxy?.type) && matchesMasked(account?.proxy?.account, order.receiver!.promptPayId))) return { code: 'RECEIVER_MISMATCH' };
+        !(['NATID', 'MSISDN'].includes(account?.proxy?.type) && matchesMasked(account?.proxy?.account, order.receiver!.promptPayId))) return mismatch('masked_account');
       if (slip.countryCode !== 'TH' || (slip.amount?.local?.currency && !['THB', '764'].includes(slip.amount.local.currency))) return { code: 'CURRENCY_MISMATCH' };
       const at = typeof slip.date === 'string' ? Date.parse(slip.date) : NaN;
       if (!Number.isFinite(at) || at < new Date(order.created_at).getTime() || at > Date.now() + 60_000) return { code: 'DATE_MISMATCH' };

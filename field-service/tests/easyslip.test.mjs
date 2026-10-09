@@ -28,6 +28,12 @@ test('EasySlip uses authenticated v2 multipart amount/account/duplicate checks a
   const result = await provider.verify(Buffer.from('image'),order);
   assert.deepEqual(Object.keys(result).sort(),['amountMinor','code','receivedAt','reference']); assert.equal(result.code,'VERIFIED'); assert.equal(requests,1);
 });
+test('EasySlip accepts the short tail mask some banks print (SCB: x-9956) but not a wrong or too short tail', async () => {
+  for (const [account, code] of [['x-7890', 'VERIFIED'], ['xxx-x-x7890', 'VERIFIED'], ['x-7891', 'RECEIVER_MISMATCH'], ['x-890', 'RECEIVER_MISMATCH'], ['x-1234-567890', 'RECEIVER_MISMATCH']]) {
+    const r = valid(); r.data.rawSlip.receiver.account.bank.account = account;
+    assert.equal((await verify(r)).code, code, account);
+  }
+});
 test('EasySlip rejects duplicate, wrong amount/receiver/currency/date and incomplete results', async () => {
   for (const [code, mutate] of [
     ['DUPLICATE',r=>r.data.isDuplicate=true], ['AMOUNT_MISMATCH',r=>r.data.amountInSlip=589],
