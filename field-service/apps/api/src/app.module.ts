@@ -14,6 +14,7 @@ import { EquipmentController } from './equipment/equipment.controller.js';
 import { JobsController } from './jobs/jobs.controller.js';
 import { ServiceController } from './service/service.controller.js';
 import { MaintenanceController } from './maintenance/maintenance.controller.js';
+import { TaxDocumentFileController, TaxDocumentsController } from './billing/tax-documents.controller.js';
 import { BillingController } from './billing/billing.controller.js';
 import { SlipVerificationService } from './billing/slip-verification.service.js';
 import { StripeService } from './billing/stripe.service.js';
@@ -40,7 +41,7 @@ import { RuntimeOcrProvider, OCR_PROVIDER } from './ocr/ocr.provider.js';
 @Module({
   controllers: [HealthController, AuthController, MeController, OrganizationsController, JoinController, CustomersController,
     MediaController, FilesController, NotificationsController, DevicesController, EquipmentController, JobsController, ServiceController, MaintenanceController,
-    BillingController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController, ConsoleSettingsController, AccountSettingsController, ManagementController, StaffEnrollmentController, OperationsController, PrivacyController, ExportDownloadController, BrandingController, BrandingSettingsController, PublicCatalogController],
+    BillingController, TaxDocumentsController, TaxDocumentFileController, PlatformAuthController, PlatformBillingController, PlatformAdminController, SupportController, StripeWebhookController, PaymentSettingsController, ConsoleSettingsController, AccountSettingsController, ManagementController, StaffEnrollmentController, OperationsController, PrivacyController, ExportDownloadController, BrandingController, BrandingSettingsController, PublicCatalogController],
   providers: [
     DatabaseService, SessionGuard, TenantGuard, AuthService, JoinLinksService, PlatformDatabaseService, PlatformGuard, SlipVerificationService, StripeService, RuntimeSettingsService,
     { provide: PLATFORM_SETTINGS, useFactory: () => loadPlatformSettings() },

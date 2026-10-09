@@ -2,11 +2,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { Language } from '@field-service/core';
 import { call, ConsoleError, dateTime, useLanguage, useStepUp, useText, type Me } from './api';
-type Section='bank'|'sms'|'easyslip'|'ocr';
+type Section='bank'|'sms'|'easyslip'|'ocr'|'itisme';
 interface Config {
  ocr:{enabled:boolean;key_configured:boolean;model:string};ocr_worker_ready:boolean;version:number;server_ready:boolean;slip_worker_ready:boolean;
  bank:{enabled:boolean;bankName:string;bankCode:string;accountName:string;accountNumber:string;promptPayId?:string}|null;
  sms:{enabled:boolean;sender:string;key_configured:boolean};easyslip:{enabled:boolean;key_configured:boolean};
+ itisme:{enabled:boolean;server:string;port:number;database:string;user:string;key_configured:boolean};
 }
 export function PlatformSettingsView(){
  const t=useText(),step=useStepUp();
@@ -16,20 +17,25 @@ export function PlatformSettingsView(){
  const load=()=>call<Config>('GET','/platform/settings').then(setData,e=>setError(e instanceof Error?e.message:t('settingsError')));
  useEffect(()=>{void load();},[]);
  useEffect(()=>{if(!data)return;const selected=data[section];setEnabled(Boolean(selected?.enabled));setKey('');setSecret('');
-   setValues(section==='bank'?{bankName:data.bank?.bankName??'',bankCode:data.bank?.bankCode??'',accountName:data.bank?.accountName??'',accountNumber:data.bank?.accountNumber??'',promptPayId:data.bank?.promptPayId??''}:section==='ocr'?{model:data.ocr.model}:{sender:data.sms.sender});
+   setValues(section==='bank'?{bankName:data.bank?.bankName??'',bankCode:data.bank?.bankCode??'',accountName:data.bank?.accountName??'',accountNumber:data.bank?.accountNumber??'',promptPayId:data.bank?.promptPayId??''}:section==='ocr'?{model:data.ocr.model}:section==='itisme'?{server:data.itisme.server,port:String(data.itisme.port),database:data.itisme.database,user:data.itisme.user}:{sender:data.sms.sender});
  },[data,section]);
  async function save(e:FormEvent){e.preventDefault();if(!data||busy)return;setBusy(true);setError('');setDone('');
-   try{setData(await step(()=>call<Config>('POST','/platform/settings',{version:data.version,section,enabled,...values,api_key:key||undefined,secret_key:secret||undefined})));setDone(t('saved'));}
+   try{setData(await step(()=>call<Config>('POST','/platform/settings',section==='itisme'?{version:data.version,section,enabled,...values,port:Number(values.port),password:key||undefined}:{version:data.version,section,enabled,...values,api_key:key||undefined,secret_key:secret||undefined})));setDone(t('saved'));}
    catch(e){setError(e instanceof ConsoleError&&e.code==='VALIDATION_ERROR'?t('settingsReview'):e instanceof Error?e.message:t('settingsError'));}finally{setBusy(false);}
  }
- const configured=section==='sms'?data?.sms.key_configured:section==='ocr'?data?.ocr.key_configured:data?.easyslip.key_configured;
+ const configured=section==='sms'?data?.sms.key_configured:section==='ocr'?data?.ocr.key_configured:section==='itisme'?data?.itisme.key_configured:data?.easyslip.key_configured;
+ const title=(s:Section)=>t(s==='bank'?'bankSettings':s==='sms'?'smsSettings':s==='ocr'?'ocrSettings':s==='itisme'?'itismeSettings':'slipSettings');
  return <><h1>{t('platformSettings')}</h1><p className="muted">{t('settingsHint')}</p>
- <div className="actions">{(['bank','sms','easyslip','ocr'] as const).map(s=><button type="button" className={section===s?'primary':'ghost'} disabled={busy} key={s} onClick={()=>{setSection(s);setError('');setDone('');}}>{t(s==='bank'?'bankSettings':s==='sms'?'smsSettings':s==='ocr'?'ocrSettings':'slipSettings')}</button>)}<button type="button" className="ghost" disabled={busy} onClick={()=>{setError('');setDone('');void load();}}>{t('reloadSettings')}</button></div>
+ <div className="actions settings-nav">{(['bank','sms','easyslip','ocr','itisme'] as const).map(s=><button type="button" className={section===s?'primary':'ghost'} disabled={busy} key={s} onClick={()=>{setSection(s);setError('');setDone('');}}>{title(s)}</button>)}<button type="button" className="ghost" disabled={busy} onClick={()=>{setError('');setDone('');void load();}}>{t('reloadSettings')}</button></div>
  {error?<p className="error" role="alert">{error}</p>:null}{done?<p role="status">{done}</p>:null}
  {data?<form className="panel settings-form" onSubmit={save}>
- <h2>{t(section==='bank'?'bankSettings':section==='sms'?'smsSettings':section==='ocr'?'ocrSettings':'slipSettings')}</h2>
+ <h2>{title(section)}</h2>
  <label className="check"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>{t('enableService')}</label>
- {section==='bank'?<><div className="grid2">{(['bankName','bankCode','accountName','accountNumber','promptPayId'] as const).map(name=><label key={name}>{t(name)}<input value={values[name]??''} onChange={e=>setValues({...values,[name]:e.target.value})} required={enabled&&name!=='promptPayId'} maxLength={name==='bankCode'?3:name==='promptPayId'?20:150} inputMode={['bankCode','accountNumber','promptPayId'].includes(name)?'numeric':undefined}/></label>)}</div><p className="muted">{t('bankSnapshotHint')}</p></>:<>
+ {section==='itisme'?<><p className="muted">{t('itismeHint')}</p><p>{t(configured?'itismePasswordSet':'itismePasswordMissing')}</p>
+ <div className="grid2">{(['server','port','database','user'] as const).map(name=><label key={name}>{t(`itisme.${name}`)}<input value={values[name]??''} required onChange={e=>setValues({...values,[name]:e.target.value})} maxLength={name==='port'?5:128} inputMode={name==='port'?'numeric':undefined}/></label>)}</div>
+ <label>{t('itisme.password')}<input type="password" autoComplete="new-password" value={key} onChange={e=>setKey(e.target.value)} required={enabled&&!configured} maxLength={200}/></label>
+ <p className="muted">{t('keepProviderKeys')}</p>{!data.server_ready?<p className="error">{t('settingsEncryptionMissing')}</p>:null}</>
+ :section==='bank'?<><div className="grid2">{(['bankName','bankCode','accountName','accountNumber','promptPayId'] as const).map(name=><label key={name}>{t(name)}<input value={values[name]??''} onChange={e=>setValues({...values,[name]:e.target.value})} required={enabled&&name!=='promptPayId'} maxLength={name==='bankCode'?3:name==='promptPayId'?20:150} inputMode={['bankCode','accountNumber','promptPayId'].includes(name)?'numeric':undefined}/></label>)}</div><p className="muted">{t('bankSnapshotHint')}</p></>:<>
  <p>{t(configured?'providerConfigured':'providerMissing')}</p>
  {section==='sms'?<label>{t('smsSender')}<input value={values.sender??''} required={enabled} maxLength={100} onChange={e=>setValues({...values,sender:e.target.value})}/></label>:null}
  {section==='ocr'?<><label>{t('ocrModel')}<input value={values.model??''} required maxLength={100} onChange={e=>setValues({...values,model:e.target.value})}/></label><p role="status">{t(data.ocr.enabled&&configured&&data.ocr_worker_ready?'ocrReady':'ocrNotReady')}</p></>:null}

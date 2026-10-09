@@ -7,6 +7,7 @@ import { createStorage, type ObjectStorage } from './media/object-storage.js';
 import { RuntimeOcrProvider, TemporaryOcrError, type OcrProvider } from './ocr/ocr.provider.js';
 import { createPushSender, TemporaryPushError, type PushSender } from './notifications/push.sender.js';
 import { StripeService } from './billing/stripe.service.js';
+import { runTaxDocuments } from './billing/tax-documents.js';
 
 /** Background worker: OCR queue, push deliveries, subscription reminders and housekeeping.
  * Connects as fs_worker, which can only call worker.* functions. Every job is claimed with
@@ -66,6 +67,7 @@ export async function runPush(deps: WorkerDeps, limit = 20): Promise<number> {
 export async function runScheduled(deps: WorkerDeps): Promise<{ reminders: number; housekeeping: unknown }> {
   await deps.pool.query('SELECT worker.expire_exports()');
   await deps.pool.query('SELECT worker.requeue_stale_ocr(600)');
+  await deps.pool.query('SELECT worker.requeue_stale_tax_documents(900)');
   const reminders = (await deps.pool.query('SELECT worker.scan_subscriptions(now()) AS n')).rows[0].n as number
     + ((await deps.pool.query('SELECT worker.scan_suspensions(now()) AS n')).rows[0].n as number)
     + ((await deps.pool.query('SELECT worker.scan_maintenance(now()) AS n')).rows[0].n as number)
@@ -135,7 +137,9 @@ async function main() {
   let lastScheduled = 0;
   while (!stopping) {
     try {
-      const busy = (await runOcr(deps)) + (await runPush(deps)) + (await runErasure(deps));
+      const busy = (await runOcr(deps)) + (await runPush(deps)) + (await runErasure(deps))
+        // Receipts / credit notes in ITISME; failures stay queued and never stop the other jobs.
+        + (await runTaxDocuments({ pool, secretKey: platform.secretKey, log: console.log }).catch(error => { console.error('TAX_DOCUMENT_LOOP_ERROR', error instanceof Error ? error.message.slice(0, 120) : ''); return 0; }));
       if (registry) await syncErasureRegistry(deps, registry);
       if (Date.now() - lastScheduled > 15 * 60_000) {
         await runScheduled(deps); lastScheduled = Date.now();

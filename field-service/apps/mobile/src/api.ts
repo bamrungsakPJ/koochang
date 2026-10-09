@@ -72,6 +72,9 @@ export interface PlanOffer { code: string; name_th: string; name_en: string; tec
   renewal?: boolean; change?: { effective_at: string; amount_minor: string; technician_seats: number; storage_bytes: string } | null; }
 export interface InvoiceSummary { id: string; number: string; amount_minor: string; status: 'open' | 'paid' | 'voided'; created_at: string; paid_at: string | null; plan_name_th: string; plan_name_en: string; proof_status: 'pending' | 'accepted' | 'rejected' | null; }
 /** Automatic card renewal through Stripe Subscription: status only, no card details. */
+export interface BuyerProfile { version: number; buyer_name: string; tax_id: string | null; branch_no: string | null; address: string; phone: string | null; email: string | null; updated_at: string; }
+export interface BuyerProfileInput { version: number; buyer_name: string; tax_id: string | null; branch_no: string | null; address: string; phone: string | null; email: string | null; }
+export interface TaxDocument { id: string; kind: 'receipt' | 'credit_note'; status: 'queued' | 'running' | 'issued' | 'failed'; doc_date: string; gross_minor: string; invoice_no: string | null; receipt_no: string | null; credit_note_no: string | null; issued_at: string | null; created_at: string; }
 export interface Autopay {
   available: boolean;
   subscription: { status: string; live: boolean; cancel_at_period_end: boolean; current_period_end: string | null; canceled_by_owner: boolean; updated_at: string } | null;
@@ -260,6 +263,10 @@ export class Api {
   refreshCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/refresh`); }
   cancelCheckout(organizationId: string, invoiceId: string, id: string) { return this.call<Invoice>('POST', `/organizations/${organizationId}/billing/invoices/${invoiceId}/checkouts/${id}/cancel`); }
   billingPlans(organizationId: string) { return this.call<{ payment_available: boolean; items: PlanOffer[] }>('GET', `/organizations/${organizationId}/billing/plans`); }
+  buyerProfile(organizationId: string) { return this.call<{ profile: BuyerProfile | null; organization_name: string }>('GET', `/organizations/${organizationId}/billing/buyer-profile`); }
+  saveBuyerProfile(organizationId: string, body: BuyerProfileInput) { return this.call<{ profile: BuyerProfile | null; organization_name: string }>('PUT', `/organizations/${organizationId}/billing/buyer-profile`, body); }
+  taxDocuments(organizationId: string) { return this.call<{ items: TaxDocument[] }>('GET', `/organizations/${organizationId}/billing/tax-documents`); }
+  taxDocumentLink(organizationId: string, id: string) { return this.call<{ url: string; expires_at: string }>('POST', `/organizations/${organizationId}/billing/tax-documents/${id}/link`); }
   invoices(organizationId: string) { return this.call<{ items: InvoiceSummary[] }>('GET', `/organizations/${organizationId}/billing/invoices`); }
   invoice(organizationId: string, id: string) { return this.call<Invoice>('GET', `/organizations/${organizationId}/billing/invoices/${id}`); }
   createInvoice(organizationId: string, priceVersionId: string, requestKey: string) {

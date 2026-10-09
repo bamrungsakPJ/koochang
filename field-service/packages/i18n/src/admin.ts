@@ -174,6 +174,18 @@ const th = {
   pushTitle: 'การแจ้งเตือน (7 วัน)',
   shopsRequired: 'เลือกร้านอย่างน้อย 1 ร้าน',
   shopPickerFailed: 'ค้นหาไม่สำเร็จ กรุณาลองใหม่',
+  navTaxDocuments: 'ใบเสร็จ / ใบกำกับภาษี',
+  taxDocumentsHint: 'ใบแจ้งหนี้ (IV) + ใบเสร็จรับเงิน/ใบกำกับภาษี (R) ออกให้ทุกการชำระเงิน และใบลดหนี้ (CN) ทุกการคืนเงินที่สำเร็จ เลขเอกสารมาจากฐาน ITISME ต่อจากระบบเดิม เอกสารที่รอจะออกเองเมื่อเชื่อม ITISME ได้ การชำระเงินและสิทธิ์ใช้งานไม่รอเอกสาร',
+  'taxFilter.open': 'รอ / ไม่สำเร็จ', 'taxFilter.failed': 'ไม่สำเร็จ', 'taxFilter.issued': 'ออกแล้ว', 'taxFilter.skipped': 'ข้าม', 'taxFilter.all': 'ทั้งหมด',
+  taxKind: 'เอกสาร', 'taxKind.receipt': 'ใบเสร็จรับเงิน/ใบกำกับภาษี', 'taxKind.credit_note': 'ใบลดหนี้',
+  taxNumber: 'เลขที่', taxDate: 'วันที่เอกสาร', taxIssuedAt: 'ออกเมื่อ {at}', taxAttempts: 'ลอง {n} ครั้ง',
+  'taxStatus.queued': 'รอออก', 'taxStatus.running': 'กำลังออก', 'taxStatus.issued': 'ออกแล้ว', 'taxStatus.failed': 'ไม่สำเร็จ', 'taxStatus.skipped': 'ข้าม',
+  taxOpenPdf: 'เปิด PDF (สำเนา)', taxRetry: 'ส่งใหม่', taxSkip: 'ข้าม',
+  taxRetryTitle: 'ส่งเอกสารไป ITISME อีกครั้ง', taxRetryHint: 'ใช้เมื่อแก้สาเหตุแล้ว เช่น ข้อมูลผู้ซื้อหรือการเชื่อม ITISME ระบบจะไม่ออกเลขซ้ำถ้าเอกสารนี้ออกไปแล้ว',
+  taxSkipTitle: 'ข้าม ไม่ให้คู่ช่างออกเอกสารนี้', taxSkipHint: 'ใช้เมื่อออกเอกสารนี้เองในโปรแกรมเดิมแล้ว ใบเสร็จที่มีใบลดหนี้แล้วข้ามไม่ได้',
+  itismeSettings: 'ใบเสร็จ ITISME', itismeHint: 'ฐาน SQL Server ของบริษัทที่ออกเลข IV / R / CN ใช้ login ที่รันได้เฉพาะ procedure sp_KC_* ทดสอบกับ ITISME_TEST ก่อนเปลี่ยนเป็น ITISME',
+  itismePasswordSet: 'บันทึกรหัสผ่านแล้ว', itismePasswordMissing: 'ยังไม่ได้บันทึกรหัสผ่าน',
+  'itisme.server': 'เซิร์ฟเวอร์', 'itisme.port': 'พอร์ต', 'itisme.database': 'ฐานข้อมูล', 'itisme.user': 'ผู้ใช้ SQL', 'itisme.password': 'รหัสผ่าน SQL (เว้นว่างเพื่อใช้ค่าเดิม)',
 };
 type AdminCatalog = { [K in keyof typeof th]: string };
 const en: AdminCatalog = {
@@ -350,6 +362,18 @@ const en: AdminCatalog = {
   pushTitle: 'Notifications (7 days)',
   shopsRequired: 'Choose at least 1 shop',
   shopPickerFailed: 'Search failed. Please try again.',
+  navTaxDocuments: 'Receipts / tax invoices',
+  taxDocumentsHint: 'Every payment gets an invoice (IV) and a receipt / tax invoice (R); every refund that succeeds gets a credit note (CN). Numbers come from the ITISME database, continuing the legacy books. Waiting documents are issued once ITISME can be reached; payments and access never wait for them.',
+  'taxFilter.open': 'Waiting / failed', 'taxFilter.failed': 'Failed', 'taxFilter.issued': 'Issued', 'taxFilter.skipped': 'Skipped', 'taxFilter.all': 'All',
+  taxKind: 'Document', 'taxKind.receipt': 'Receipt / tax invoice', 'taxKind.credit_note': 'Credit note',
+  taxNumber: 'Number', taxDate: 'Document date', taxIssuedAt: 'Issued {at}', taxAttempts: '{n} attempt(s)',
+  'taxStatus.queued': 'Waiting', 'taxStatus.running': 'Issuing', 'taxStatus.issued': 'Issued', 'taxStatus.failed': 'Failed', 'taxStatus.skipped': 'Skipped',
+  taxOpenPdf: 'Open PDF (copy)', taxRetry: 'Retry', taxSkip: 'Skip',
+  taxRetryTitle: 'Send to ITISME again', taxRetryHint: 'Use after fixing the cause, such as buyer details or the ITISME connection. A document already issued is never numbered twice.',
+  taxSkipTitle: 'Skip: KooChang will not issue this document', taxSkipHint: 'Use when it was issued by hand in the legacy program. A receipt that has a credit note cannot be skipped.',
+  itismeSettings: 'ITISME receipts', itismeHint: 'The company SQL Server that numbers IV / R / CN. Use a login that can only run the sp_KC_* procedures. Test with ITISME_TEST before switching to ITISME.',
+  itismePasswordSet: 'Password saved', itismePasswordMissing: 'No password saved yet',
+  'itisme.server': 'Server', 'itisme.port': 'Port', 'itisme.database': 'Database', 'itisme.user': 'SQL user', 'itisme.password': 'SQL password (leave blank to keep)',
 };
 export type AdminKey = keyof AdminCatalog;
 const adminCatalogs = { th, en };

@@ -1,10 +1,10 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatMoney, type TranslationKey } from '@field-service/i18n';
-import { api, ApiFailure, type Autopay, type Invoice, type InvoiceSummary, type Membership, type PlanOffer } from '../api';
+import { api, ApiFailure, type Autopay, type BuyerProfile, type Invoice, type InvoiceSummary, type Membership, type PlanOffer, type TaxDocument } from '../api';
 import { CameraDeniedError, pickPhoto, readPicked, uuid } from '../photos';
 import { GalleryDeniedError, savePngToGallery } from '../gallery';
-import { Badge, Banner, Button, Card, colors, confirm, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, tones, useErrorText, useT, type Tone } from '../ui';
+import { Badge, Banner, Button, Card, colors, confirm, Field, fonts, Icon, IconTile, LanguageContext, Loading, Row, Screen, Section, Strong, Sub, Title, tones, useErrorText, useT, type Tone } from '../ui';
 
 const invoiceTone = (s: InvoiceSummary['status']) => s === 'paid' ? 'ok' : s === 'open' ? 'warn' : 'neutral';
 const proofTone = (s: string | null) => s === 'accepted' ? 'ok' : s === 'rejected' ? 'danger' : 'info';
@@ -74,7 +74,73 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
         trailing={<Badge text={inv.status === 'open' && inv.proof_status ? t(`proof.${inv.proof_status}` as TranslationKey) : t(`invoice.${inv.status}` as TranslationKey)}
           tone={inv.status === 'open' && inv.proof_status ? proofTone(inv.proof_status) : invoiceTone(inv.status)} />} />)}
     </Card> : <Card><Sub center>{t('noInvoices')}</Sub></Card>}
+    <TaxCard org={org} />
   </Screen>;
+}
+
+type BuyerForm = { buyer_name: string; tax_id: string; hq: boolean; branch_no: string; address: string; phone: string; email: string };
+/** Receipts / tax invoices and credit notes issued in ITISME, and who they are made out to. The PDF opens in the browser
+ * through a five-minute link. */
+function TaxCard({ org }: { org: string }) {
+  const t = useT();
+  const language = useContext(LanguageContext);
+  const errorText = useErrorText();
+  const [profile, setProfile] = useState<{ profile: BuyerProfile | null; organization_name: string } | null>(null);
+  const [docs, setDocs] = useState<TaxDocument[] | null>(null);
+  const [form, setForm] = useState<BuyerForm | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null), [done, setDone] = useState<string | null>(null);
+  const load = () => Promise.all([api.buyerProfile(org).then(setProfile), api.taxDocuments(org).then(r => setDocs(r.items))]).catch(e => setError(errorText(e)));
+  useEffect(() => { void load(); }, [org]);
+  async function run(key: string, action: () => Promise<void>) {
+    setBusy(key); setError(null); setDone(null);
+    try { await action(); } catch (e) { setError(errorText(e)); } finally { setBusy(null); }
+  }
+  const p = profile?.profile ?? null;
+  const edit = () => setForm({ buyer_name: p?.buyer_name ?? profile?.organization_name ?? '', tax_id: p?.tax_id ?? '', hq: !p?.branch_no || p.branch_no === '00000',
+    branch_no: p?.branch_no && p.branch_no !== '00000' ? p.branch_no : '', address: p?.address ?? '', phone: p?.phone ?? '', email: p?.email ?? '' });
+  const save = (f: BuyerForm) => run('save', async () => {
+    const taxId = f.tax_id.replace(/[\s-]/g, '');
+    setProfile(await api.saveBuyerProfile(org, { version: p?.version ?? 0, buyer_name: f.buyer_name.trim(), tax_id: taxId || null,
+      branch_no: taxId ? (f.hq ? '00000' : f.branch_no.trim()) : null, address: f.address.trim(), phone: f.phone.trim() || null, email: f.email.trim() || null }));
+    setForm(null); setDone(t('tax.saved')); await load();
+  });
+  const set = (patch: Partial<BuyerForm>) => setForm(f => f ? { ...f, ...patch } : f);
+  return <>
+    <Section>{t('tax.title')}</Section>
+    <Card>
+      <Sub>{t('tax.hint')}</Sub>
+      <Banner text={error} />{done ? <Banner tone="success" text={done} /> : null}
+      <Strong>{t('tax.buyerTitle')}</Strong>
+      {form ? <View style={{ gap: 8, marginTop: 8 }}>
+        <Sub>{t('tax.buyerHint')}</Sub>
+        <Field label={t('tax.buyerName')} required value={form.buyer_name} maxLength={200} onChangeText={v => set({ buyer_name: v })} />
+        <Field label={t('tax.taxId')} value={form.tax_id} keyboardType="number-pad" maxLength={17} onChangeText={v => set({ tax_id: v })} />
+        {form.tax_id.trim() ? <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Button small kind={form.hq ? 'secondary' : 'ghost'} title={t('tax.hq')} onPress={() => set({ hq: true })} />
+          <Button small kind={form.hq ? 'ghost' : 'secondary'} title={t('tax.branch')} onPress={() => set({ hq: false })} />
+        </View> : null}
+        {form.tax_id.trim() && !form.hq ? <Field label={t('tax.branchNo')} required value={form.branch_no} keyboardType="number-pad" maxLength={5} onChangeText={v => set({ branch_no: v })} /> : null}
+        <Field label={t('tax.address')} required value={form.address} multiline maxLength={500} onChangeText={v => set({ address: v })} />
+        <Field label={t('tax.phone')} value={form.phone} keyboardType="phone-pad" maxLength={30} onChangeText={v => set({ phone: v })} />
+        <Field label={t('tax.email')} value={form.email} keyboardType="email-address" autoCapitalize="none" maxLength={100} onChangeText={v => set({ email: v })} />
+        <Button title={t('tax.save')} icon="save-outline" busy={busy === 'save'} disabled={!form.buyer_name.trim() || !form.address.trim()} onPress={() => save(form)} />
+        <Button small kind="ghost" title={t('cancel')} onPress={() => setForm(null)} />
+      </View> : <View style={{ marginTop: 6, gap: 8 }}>
+        {p ? <Sub>{[p.buyer_name, p.tax_id ? `${p.tax_id} ${p.branch_no === '00000' ? t('tax.hq') : `${t('tax.branch')} ${p.branch_no}`}` : '', p.address].filter(Boolean).join('\n')}</Sub>
+          : profile ? <Banner tone="info" text={t('tax.noProfile', { name: profile.organization_name })} /> : null}
+        {profile ? <Button small kind="secondary" icon="create-outline" title={t('tax.edit')} onPress={edit} /> : null}
+      </View>}
+    </Card>
+    {docs?.length ? <Card padded={false}>{docs.map((d, i) => {
+      const number = d.kind === 'receipt' ? d.receipt_no : d.credit_note_no;
+      return <Row key={d.id} last={i === docs.length - 1} icon="document-text" tone={d.status === 'issued' ? 'green' : 'amber'}
+        title={`${t(`tax.kind.${d.kind}` as TranslationKey)}${number ? ` · ${number}` : ''}`}
+        subtitle={`${money(d.gross_minor, language)} · ${formatDate(new Date(d.doc_date), language)}`}
+        onPress={d.status === 'issued' ? () => run(d.id, async () => { await Linking.openURL((await api.taxDocumentLink(org, d.id)).url); }) : undefined}
+        trailing={d.status === 'issued' ? <Badge text={busy === d.id ? '…' : t('tax.open')} tone="ok" /> : <Badge text={t(`tax.status.${d.status}` as TranslationKey)} tone="info" />} />;
+    })}</Card> : docs ? <Card><Sub center>{t('tax.empty')}</Sub></Card> : null}
+  </>;
 }
 
 /** Automatic renewal through Stripe Subscription. Stripe keeps the card; owners change it in Stripe's portal. */

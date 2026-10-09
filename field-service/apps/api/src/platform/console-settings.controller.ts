@@ -17,6 +17,7 @@ export class ConsoleSettingsController {
      sms:value.sms??{enabled:process.env.SMS_PROVIDER==='deesmsx',sender:process.env.DEESMSX_SENDER??'',key_configured:Boolean(process.env.DEESMSX_API_KEY&&process.env.DEESMSX_SECRET_KEY)},
      easyslip:value.easyslip??{enabled:Boolean(process.env.EASYSLIP_API_KEY),key_configured:Boolean(process.env.EASYSLIP_API_KEY)},
      ocr:value.ocr??{enabled:process.env.OCR_PROVIDER==='claude'&&Boolean(process.env.ANTHROPIC_API_KEY),model:process.env.OCR_CLAUDE_MODEL||'claude-haiku-4-5-20251001',key_configured:Boolean(process.env.ANTHROPIC_API_KEY)},
+     itisme:value.itisme??{enabled:false,server:'localhost',port:1433,database:'ITISME',user:'koochang_billing',key_configured:false},
      ocr_worker_ready:Boolean(process.env.WORKER_DATABASE_URL&&this.settings.secretKey),
      server_ready:Boolean(this.settings.secretKey),slip_worker_ready:Boolean(process.env.SLIP_DATABASE_URL)};
  }
@@ -25,7 +26,7 @@ export class ConsoleSettingsController {
    const check=new Validation();
    const version=typeof body.version==='number'&&Number.isSafeInteger(body.version)&&body.version>=0?body.version:(check.fail('version','field.required'),0);
    const section=body.section as string;
-   if(!['bank','sms','easyslip','ocr'].includes(section))check.fail('section','field.required');
+   if(!['bank','sms','easyslip','ocr','itisme'].includes(section))check.fail('section','field.required');
    if(typeof body.enabled!=='boolean')check.fail('enabled','field.required');
    const value:Record<string,unknown>={enabled:body.enabled};
    if(section==='bank'){
@@ -41,6 +42,17 @@ export class ConsoleSettingsController {
      if(Boolean(apiKey)!==Boolean(secret))check.fail(!apiKey?'api_key':'secret_key','field.required');
      if(apiKey&&secret){if(!this.settings.secretKey)throw apiError(503,'TEMPORARILY_UNAVAILABLE');
        value.apiKeySealed=encrypt(this.settings.secretKey,apiKey);value.secretKeySealed=encrypt(this.settings.secretKey,secret);}
+   }else if(section==='itisme'){
+     // SQL Server of the company documents (ใบเสร็จ/ใบกำกับภาษี). The login may only run the sp_KC_* procedures.
+     value.server=check.text('server',body.server,{required:true,max:100});
+     if(value.server&&!/^[A-Za-z0-9.-]+$/.test(String(value.server)))check.fail('server','field.required');
+     const port=typeof body.port==='number'?body.port:Number(body.port);
+     if(!Number.isInteger(port)||port<1||port>65535)check.fail('port','field.required');else value.port=port;
+     value.database=check.text('database',body.database,{required:true,max:128});
+     if(value.database&&!/^[A-Za-z0-9_]+$/.test(String(value.database)))check.fail('database','field.required');
+     value.user=check.text('user',body.user,{required:true,max:128});
+     const password=check.text('password',body.password,{required:false,max:200});
+     if(password){if(!this.settings.secretKey)throw apiError(503,'TEMPORARILY_UNAVAILABLE');value.passwordSealed=encrypt(this.settings.secretKey,password);}
    }else if(section==='easyslip'||section==='ocr'){
      if(section==='ocr'){value.model=check.text('model',body.model,{required:true,max:100});if(!/^claude-[a-z0-9.-]+$/.test(String(value.model)))check.fail('model','field.required');}
      const key=check.text('api_key',body.api_key,{required:false,max:500});
@@ -57,6 +69,7 @@ export class ConsoleSettingsController {
    if(section==='ocr'&&!value.keySealed&&!old?.ocr&&this.settings.secretKey&&process.env.ANTHROPIC_API_KEY)value.keySealed=encrypt(this.settings.secretKey,process.env.ANTHROPIC_API_KEY);
    if(body.enabled&&section==='ocr'&&!(value.keySealed||old?.ocr?.keySealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{api_key:'field.required'}});
    if(body.enabled&&section==='sms'&&!(value.apiKeySealed||old?.sms?.apiKeySealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{api_key:'field.required'}});
+   if(body.enabled&&section==='itisme'&&!(value.passwordSealed||old?.itisme?.passwordSealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{password:'field.required'}});
    if(body.enabled&&section==='easyslip'&&!(value.keySealed||old?.easyslip?.keySealed))throw apiError(400,'VALIDATION_ERROR',{field_errors:{api_key:'field.required'}});
    const result=await this.database.run(async c=>(await c.query('SELECT padmin.save_console_settings($1,$2,$3::jsonb,$4,$5) AS value',[a.accountId,section,JSON.stringify(value),version,requestId])).rows[0].value);
    if(result!=='ok')throw apiError(409,'VERSION_CONFLICT');

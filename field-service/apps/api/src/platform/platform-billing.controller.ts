@@ -6,6 +6,7 @@ import { apiError, uuidPattern, Validation } from '../shared/api-error.js';
 import { PlatformDatabaseService } from './platform-database.service.js';
 import { Account, Permission, PlatformGuard, StepUp, type PlatformAccount } from './platform.guard.js';
 import { page, pageOffset } from './platform-admin.controller.js';
+import { sendTaxPdf } from '../billing/tax-documents.controller.js';
 
 const confirmErrors: Record<string, [number, Parameters<typeof apiError>[1]]> = {
   not_found: [404, 'RESOURCE_NOT_FOUND'], voided: [422, 'INVOICE_CLOSED'], already_paid: [422, 'INVOICE_CLOSED'],
@@ -164,6 +165,40 @@ export class PlatformBillingController {
     response.setHeader('Content-Disposition', `attachment; filename="reconciliation-${from}-${to}.csv"`);
     response.setHeader('Cache-Control', 'no-store');
     response.end('﻿' + lines.join('\r\n') + '\r\n');
+  }
+
+  /** Receipts and credit notes waiting for, issued in, or skipped from ITISME. status: open (queued/running/failed) | issued | failed | skipped | all. */
+  @Get('tax-documents') @Permission('billing.read')
+  taxDocuments(@Account() account: PlatformAccount, @Query('status') status?: string, @Query('offset') offset?: string, @Query('organization_id') organizationId?: string) {
+    const filter = ['open', 'issued', 'failed', 'skipped', 'queued'].includes(status ?? '') ? status : status === 'all' ? null : 'open';
+    const n = pageOffset(offset);
+    return this.database.run(async c => page((await c.query('SELECT * FROM padmin.tax_documents($1,$2,$3,51,$4)',
+      [account.accountId, filter, organizationId && uuidPattern.test(organizationId) ? organizationId : null, n])).rows, n));
+  }
+
+  /** The company copy (สำเนา) of an issued document; every view is audited. */
+  @Get('tax-documents/:id/pdf') @Permission('billing.read')
+  async taxDocumentPdf(@Account() account: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string,
+    @Res() response: { setHeader: (n: string, v: string) => void; end: (b: Buffer) => void }) {
+    this.id(id);
+    const row = await this.database.run(async c => (await c.query('SELECT padmin.tax_document($1,$2,$3) AS v', [account.accountId, id, requestId])).rows[0].v);
+    await sendTaxPdf(response, row, 'copy');
+  }
+
+  /** retry: send to ITISME again now. skip: will not be issued by KooChang (made by hand in the legacy program). */
+  @Post('tax-documents/:id/:action') @HttpCode(200) @Permission('billing.verify')
+  async taxDocumentAction(@Account() account: PlatformAccount, @RequestId() requestId: string, @Param('id') id: string, @Param('action') action: string,
+    @Body() body: Record<string, unknown> = {}) {
+    this.id(id);
+    if (!['retry', 'skip'].includes(action)) throw apiError(404, 'RESOURCE_NOT_FOUND');
+    const check = new Validation();
+    const reason = check.text('reason', body.reason, { max: 500 });
+    if (reason && reason.length < 3) check.fail('reason', 'field.required');
+    check.done();
+    const outcome = await this.database.run(async c => (await c.query('SELECT padmin.act_tax_document($1,$2,$3,$4,$5) AS o', [account.accountId, id, action, reason, requestId])).rows[0].o);
+    if (outcome === 'not_found') throw apiError(404, 'RESOURCE_NOT_FOUND');
+    if (outcome !== 'ok') throw apiError(422, 'INVALID_STATE_TRANSITION');
+    return { ok: true };
   }
 
   private async decide(account: PlatformAccount, requestId: string, id: string, approve: boolean, body: Record<string, unknown>) {

@@ -1,7 +1,8 @@
 'use client';
 import { useContext, useEffect, useRef, useState } from 'react';
+import { formatDate } from '@field-service/i18n';
 import { CreditCard, Landmark, QrCode } from 'lucide-react';
-import { api, type Autopay, type MaintenanceItem, type ContactResult } from './api';
+import { api, type Autopay, type BuyerProfile, type MaintenanceItem, type ContactResult, type TaxDocument } from './api';
 import type { Go } from './OwnerApp';
 import { ActionState, Button, dateTime, Empty, Field, LanguageContext, money, Note, Notice, PageTitle, Panel, ResourceState, SearchSelect, Select, statusText, toInstant, useAction, useResource, useTeamOptions, useText, uuid } from './ui';
 export function MaintenanceView({ org, go }: { org: string; go: Go }) {
@@ -35,7 +36,52 @@ export function BillingView({ org, go }: { org: string; go: Go }) {
       if (!keys.current.has(p.price_version_id)) keys.current.set(p.price_version_id, uuid());
       const invoice = await api.createInvoice(org, p.price_version_id, keys.current.get(p.price_version_id)!); go({ section: 'invoice', id: invoice.id });
     })}>{t('ownerWeb.choose_plan_create_invoice')}</Button></Panel>)}</div>
-    <Panel title={t('ownerWeb.payment_history')}><div className="table-scroll"><table><thead><tr><th>{t('ownerWeb.invoice')}</th><th>{t('ownerWeb.amount')}</th><th>{t('ownerWeb.status')}</th><th>{t('ownerWeb.proof')}</th></tr></thead><tbody>{r.data.invoices.items.map(i => <tr key={i.id}><td><Button kind="link" onClick={() => go({ section: 'invoice', id: i.id })}>{i.number}</Button></td><td>{money(i.amount_minor, lang)}</td><td>{statusText(lang, 'invoice', i.status)}</td><td>{i.proof_status ? statusText(lang, 'proof', i.proof_status) : '—'}</td></tr>)}</tbody></table></div>{!r.data.invoices.items.length ? <Empty /> : null}</Panel></> : null}</>;
+    <Panel title={t('ownerWeb.payment_history')}><div className="table-scroll"><table><thead><tr><th>{t('ownerWeb.invoice')}</th><th>{t('ownerWeb.amount')}</th><th>{t('ownerWeb.status')}</th><th>{t('ownerWeb.proof')}</th></tr></thead><tbody>{r.data.invoices.items.map(i => <tr key={i.id}><td><Button kind="link" onClick={() => go({ section: 'invoice', id: i.id })}>{i.number}</Button></td><td>{money(i.amount_minor, lang)}</td><td>{statusText(lang, 'invoice', i.status)}</td><td>{i.proof_status ? statusText(lang, 'proof', i.proof_status) : '—'}</td></tr>)}</tbody></table></div>{!r.data.invoices.items.length ? <Empty /> : null}</Panel>
+    <TaxPanel org={org} /></> : null}</>;
+}
+/** Receipts / tax invoices and credit notes issued in ITISME, and who they are made out to. */
+function TaxPanel({ org }: { org: string }) {
+  const t = useText(), lang = useContext(LanguageContext), a = useAction(), open = useAction();
+  const p = useResource(() => api.buyerProfile(org), [org]), d = useResource(() => api.taxDocuments(org), [org]);
+  const [form, setForm] = useState<{ buyer_name: string; tax_id: string; hq: boolean; branch_no: string; address: string; phone: string; email: string } | null>(null);
+  const edit = (x: BuyerProfile | null, name: string) => setForm({ buyer_name: x?.buyer_name ?? name, tax_id: x?.tax_id ?? '', hq: !x?.branch_no || x.branch_no === '00000',
+    branch_no: x?.branch_no && x.branch_no !== '00000' ? x.branch_no : '', address: x?.address ?? '', phone: x?.phone ?? '', email: x?.email ?? '' });
+  const profile = p.data?.profile ?? null;
+  const number = (x: TaxDocument) => x.kind === 'receipt' ? x.receipt_no : x.credit_note_no;
+  function pdf(x: TaxDocument) {
+    // Open the tab now (popup blockers allow it only inside the click), then point it at the short-lived link.
+    const tab = window.open('', '_blank');
+    void open.run(async () => { const { url } = await api.taxDocumentLink(org, x.id); if (tab) { tab.opener = null; tab.location.href = url; } else window.location.assign(url); });
+  }
+  return <Panel title={t('tax.title')}><p className="muted">{t('tax.hint')}</p>
+    <ResourceState resource={p} /><ActionState action={a} /><ActionState action={open} />
+    <h3>{t('tax.buyerTitle')}</h3>
+    {form ? <form onSubmit={e => { e.preventDefault(); void a.run(async () => {
+      const taxId = form.tax_id.replace(/[\s-]/g, '');
+      await api.saveBuyerProfile(org, { version: profile?.version ?? 0, buyer_name: form.buyer_name.trim(), tax_id: taxId || null,
+        branch_no: taxId ? (form.hq ? '00000' : form.branch_no.trim()) : null, address: form.address.trim(), phone: form.phone.trim() || null, email: form.email.trim() || null });
+      await Promise.all([p.reload(), d.reload()]); setForm(null);
+    }, t('tax.saved')); }}>
+      <p className="muted">{t('tax.buyerHint')}</p>
+      <Field label={t('tax.buyerName')} required maxLength={200} value={form.buyer_name} onChange={e => setForm({ ...form, buyer_name: e.target.value })} />
+      <div className="grid2"><Field label={t('tax.taxId')} inputMode="numeric" maxLength={17} value={form.tax_id} onChange={e => setForm({ ...form, tax_id: e.target.value })} />
+        {form.tax_id.trim() ? <Select label={t('tax.branch')} value={form.hq ? 'hq' : 'branch'} onChange={e => setForm({ ...form, hq: e.target.value === 'hq' })}>
+          <option value="hq">{t('tax.hq')}</option><option value="branch">{t('tax.branch')}</option></Select> : null}</div>
+      {form.tax_id.trim() && !form.hq ? <Field label={t('tax.branchNo')} required inputMode="numeric" pattern="\d{5}" maxLength={5} value={form.branch_no} onChange={e => setForm({ ...form, branch_no: e.target.value })} /> : null}
+      <Note label={t('tax.address')} required maxLength={500} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+      <div className="grid2"><Field label={t('tax.phone')} type="tel" maxLength={30} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+        <Field label={t('tax.email')} type="email" maxLength={100} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+      <div className="actions"><Button kind="primary" type="submit" busy={a.busy}>{t('tax.save')}</Button><Button type="button" onClick={() => setForm(null)}>{t('cancel')}</Button></div>
+    </form> : p.data ? <>{profile ? <p><strong>{profile.buyer_name}</strong>{profile.tax_id ? <> · {profile.tax_id} {profile.branch_no === '00000' ? t('tax.hq') : `${t('tax.branch')} ${profile.branch_no}`}</> : null}<br />{profile.address}</p>
+      : <Notice>{t('tax.noProfile', { name: p.data.organization_name })}</Notice>}
+      <Button onClick={() => edit(profile, p.data!.organization_name)}>{t('tax.edit')}</Button></> : null}
+    <ResourceState resource={d} />
+    {d.data?.items.length ? <div className="table-scroll"><table><thead><tr><th>{t('tax.number')}</th><th>{t('tax.date')}</th><th>{t('ownerWeb.amount')}</th><th>{t('ownerWeb.status')}</th><th /></tr></thead>
+      <tbody>{d.data.items.map(x => <tr key={x.id}><td>{t(`tax.kind.${x.kind}`)}<div className="muted">{number(x) ?? '—'}</div></td><td>{formatDate(new Date(x.doc_date), lang)}</td>
+        <td>{money(x.gross_minor, lang)}</td><td>{t(`tax.status.${x.status}`)}</td>
+        <td>{x.status === 'issued' ? <Button busy={open.busy} onClick={() => pdf(x)}>{t('tax.open')}</Button> : null}</td></tr>)}</tbody></table></div>
+      : d.data ? <p className="muted">{t('tax.empty')}</p> : null}
+  </Panel>;
 }
 /** Automatic renewal through Stripe Subscription. Stripe keeps the card; owners change it in Stripe's portal. */
 function AutopayPanel({ org }: { org: string }) {

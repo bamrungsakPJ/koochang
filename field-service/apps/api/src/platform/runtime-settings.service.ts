@@ -10,6 +10,7 @@ export interface RuntimeSettings {
  sms?: {enabled:boolean;sender:string;apiKeySealed?:string;secretKeySealed?:string};
  ocr?: import('../ocr/ocr.provider.js').OcrSettings;
  easyslip?: {enabled:boolean;keySealed?:string};
+ itisme?: import('../billing/tax-documents.js').ItismeSettings;
 }
 @Injectable()
 export class RuntimeSettingsService {

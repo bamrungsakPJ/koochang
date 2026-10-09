@@ -10,20 +10,22 @@ import { AccountSettingsView, PlatformSettingsView } from './settings';
 import { ApprovalsView, CatalogView, Enrollment, PolicyView, StaffView } from './management';
 import { CommunicationsView, OperationsView } from './operations';
 import { PrivacyView } from './privacy';
+import { TaxDocumentsView } from './tax-documents';
 import { BrandMark } from '../brand';
 import { BrandingView } from './branding';
-import { Activity, CircleUserRound, ClipboardCheck, CreditCard, DatabaseZap, FileSpreadsheet, KeyRound, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Menu,
+import { Activity, CircleUserRound, ClipboardCheck, CreditCard, DatabaseZap, FileSpreadsheet, FileText, KeyRound, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Menu,
   Palette, RotateCcw, Scale, ScrollText, Settings, Store, Tags, Users, Wallet, Wrench, X, type LucideIcon } from 'lucide-react';
 
-type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
+type View = { name: 'overview' } | { name: 'payments' } | { name: 'invoice'; id: string } | { name: 'refunds' } | { name: 'taxDocuments' } | { name: 'reconcile' } | { name: 'shops' } | { name: 'shop'; id: string }
   | { name: 'support' } | { name: 'ticket'; id: string } | { name: 'access' } | { name: 'audit' } | { name: 'system' } | { name: 'data' } | {name:'paymentSettings'} | {name:'settings'} | {name:'branding'} | {name:'account'} | {name:'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations'};
-type NavName = 'overview' | 'payments' | 'refunds' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings' | 'settings' | 'branding' | 'account' | 'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations';
+type NavName = 'overview' | 'payments' | 'refunds' | 'taxDocuments' | 'reconcile' | 'shops' | 'support' | 'access' | 'audit' | 'system' | 'data' | 'paymentSettings' | 'settings' | 'branding' | 'account' | 'staff'|'catalog'|'approvals'|'policy'|'communications'|'operations';
 type Group = 'navGroupMain' | 'navGroupFinance' | 'navGroupSupport' | 'navGroupTeam' | 'navGroupSystem' | 'navGroupSettings';
 const nav: { name: NavName; key: AdminKey; group: Group; icon: LucideIcon; permission?: string }[] = [
   { name: 'overview', key: 'navOverview', group: 'navGroupMain', icon: LayoutDashboard, permission: 'shops.read' },
   { name: 'shops', key: 'navShops', group: 'navGroupMain', icon: Store, permission: 'shops.read' },
   { name: 'payments', key: 'navPayments', group: 'navGroupFinance', icon: CreditCard, permission: 'billing.read' },
   { name: 'refunds', key: 'navRefunds', group: 'navGroupFinance', icon: RotateCcw, permission: 'billing.read' },
+  { name: 'taxDocuments', key: 'navTaxDocuments', group: 'navGroupFinance', icon: FileText, permission: 'billing.read' },
   { name: 'reconcile', key: 'navReconcile', group: 'navGroupFinance', icon: FileSpreadsheet, permission: 'billing.read' },
   { name: 'catalog', key: 'navCatalog', group: 'navGroupFinance', icon: Tags, permission: 'plans.manage' },
   { name: 'support', key: 'navSupport', group: 'navGroupSupport', icon: LifeBuoy, permission: 'support.read' },
@@ -101,6 +103,7 @@ export function Console() {
       : current.name === 'overview' ? <OverviewView onNavigate={name => { if (allowed.some(n => n.name === name)) go(name); }} />
       : current.name === 'payments' ? <PaymentsView onOpen={id => open({ name: 'invoice', id })} />
       : current.name === 'refunds' ? <RefundsView me={me} onOpen={id => open({ name: 'invoice', id })} />
+      : current.name === 'taxDocuments' ? <TaxDocumentsView me={me} />
       : current.name === 'reconcile' ? <ReconcileView />
       : current.name === 'shops' ? <ShopsView onOpen={id => open({ name: 'shop', id })} />
       : current.name === 'support' ? <TicketsView onOpen={id => open({ name: 'ticket', id })} />
