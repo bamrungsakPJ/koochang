@@ -29,6 +29,15 @@
 ### งานที่ยังค้างและลำดับทำต่อ
 
 - (ใหม่ 2026-10-09) **ผู้ใช้ทำต่อ**: ติดตั้ง APK 0.2.13 แล้วทดสอบจ่ายจากแอป (กลับเข้าแอปได้ไหม) และโอน + สลิป; คืนเงิน 20 บาท (INV-2610-000002) — อนุมัติในคอนโซลแล้ว; หลัง deploy `af3503d` (migration 033) กด "คืนเงินผ่าน Stripe" ในคอนโซล (หรือกด Refund ใน Stripe Dashboard แทน แต่ห้ามทำทั้งสองทาง); Stripe Dashboard: Send test event (ต้อง 200), Manage failed payments → Cancel subscription, Customer portal (เปิดอัปเดตบัตร + ประวัติ, ปิดยกเลิก/Switch plans/Update quantities); ทดสอบเสร็จหยุดขาย test20; ลบ `/opt/field-service/staging/pnpm-workspace.yaml`; ภายหลังลบ hostname app-staging (+ เอาออกจาก ADMIN_ORIGIN)
+- (ใหม่ 2026-10-09) **ส่วนเสริม — บันทึกไว้ก่อน ยังไม่ทำจนกว่าผู้ใช้สั่ง**:
+  - คอนโซล: บันทึก "คืนสำเร็จ" ให้รายการ Stripe ที่คืนเงินไปแล้วใน Stripe Dashboard (ใส่เลข `re_…` แล้วระบบตรวจกับ Stripe ก่อนบันทึก) — ตอนนี้ช่องเลขอ้างอิงซ่อนสำหรับรายการ Stripe
+  - รับ webhook `charge.refunded` / `refund.updated` เพื่อรู้ว่าการคืนเงินที่ Stripe ตอบ pending ล้มเหลวภายหลัง
+  - มือถือ: ปุ่มบันทึกรูป QR พร้อมเพย์ลงเครื่อง (expo-media-library)
+  - แยกร่างผลบริการตามผู้ใช้ (โทรศัพท์ใช้ร่วมกัน)
+  - แผนที่ฝังในแอปมือถือ (ตอนนี้ใช้ปุ่มเปิด Google Maps) — ต้องเพิ่ม native module
+  - ข้อความ error เมื่อใส่ Stripe `rk_` key / รองรับ restricted key ถ้าจำเป็น
+  - Omise (Opn Payments) เป็นทางเลือกจ่ายบัตร; QR พร้อมเพย์ของบริษัทเมื่อได้ PromptPay ID
+  - iOS (build + push), Play Store (รอ D-U-N-S), production + CI
 - (ใหม่ 2026-10-09) **โค้ดที่ทำต่อได้**: test "photo upload" ใน auth-http ผลไม่คงที่; test เก่าที่ยังล้ม 2 ข้อ (plan-changes, mobile-client); แยกร่างผลบริการตามผู้ใช้; ปุ่มบันทึกรูป QR บนมือถือ (expo-media-library); ข้อความ error การรับ `rk_` key ถ้า Stripe ไม่ให้สร้าง key สิทธิ์เต็ม
 - (2026-10-08 **ย้ายชื่อเสร็จแล้ว** — เหลือ: ลบ hostname app-staging + เอาออกจาก ADMIN_ORIGIN เมื่อพร้อม) ~~ย้ายไป koochang.com / api.koochang.com (ทำตามลำดับ)~~: ผู้ใช้เพิ่ม Cloudflare hostname `api.koochang.com` → `http://localhost:4100` และแก้ env OWNER_WEB_URL/JOIN_LINK_BASE_URL เป็น koochang.com → Claude build เว็บใหม่ด้วย `NEXT_PUBLIC_API_URL=https://api.koochang.com` → แล้วจึงตั้ง Stripe webhook; APK 0.2.12 (build 14) ชี้ api.koochang.com แล้ว ใช้ได้หลังเพิ่ม hostname (รายละเอียดในบันทึกรายวัน)
 - (อนาคต, ผู้ใช้ตัดสินใจ 2026-10-08) **เพิ่ม Omise (Opn Payments) เป็นตัวเลือกจ่ายบัตร** คู่กับ Stripe — ค่าธรรมเนียมบัตรไม่มีค่าคงที่ ฿10 (ดูบันทึกรายวัน 2026-10-08 "ค่าธรรมเนียม Stripe vs Omise")
