@@ -40,7 +40,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
 
   if (!plans && !error) return <Loading />;
   return <Screen onBack={onBack} title={t('choosePlan')}>
-    <Sub>{t('renewHint')}</Sub>
+    
     {plans && !plans.payment_available ? <Banner tone="info" text={t('paymentUnavailable')} /> : null}
     <Banner text={error} />
     <AutopayCard org={org} />
@@ -64,7 +64,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
         </View>
       </Card>;
     })}
-    <Sub>{t('pricesNote')}</Sub>
+    
     <Section>{t('invoiceHistory')}</Section>
     {invoices.length ? <Card padded={false}>{invoices.map((inv, i) =>
       <Row key={inv.id} last={i === invoices.length - 1} icon="receipt" tone={inv.status === 'paid' ? 'green' : 'amber'} onPress={() => onOpenInvoice(inv.id)}
@@ -108,11 +108,11 @@ function TaxCard({ org }: { org: string }) {
   return <>
     <Section>{t('tax.title')}</Section>
     <Card>
-      <Sub>{t('tax.hint')}</Sub>
+      
       <Banner text={error} />{done ? <Banner tone="success" text={done} /> : null}
       <Strong>{t('tax.buyerTitle')}</Strong>
       {form ? <View style={{ gap: 8, marginTop: 8 }}>
-        <Sub>{t('tax.buyerHint')}</Sub>
+        
         <Field label={t('tax.buyerName')} required value={form.buyer_name} maxLength={200} onChangeText={v => set({ buyer_name: v })} />
         <Field label={t('tax.taxId')} value={form.tax_id} keyboardType="number-pad" maxLength={17} onChangeText={v => set({ tax_id: v })} />
         {form.tax_id.trim() ? <View style={{ flexDirection: 'row', gap: 8 }}>

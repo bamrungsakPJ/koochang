@@ -293,16 +293,15 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
         style={[styles.quick, on && styles.quickOn]}><Text style={[styles.quickText, on && { color: colors.onPrimary }]}>{phrase}</Text></Pressable>; })}</View>;
   };
   return <Screen onBack={onBack} title={job ? t('recordService') : t('recordAdhoc')} subtitle={title || undefined} footer={<>
-    {waiting ? <Sub>{t('photosWaiting', { n: waiting })}</Sub> : draftSaved === true ? <Sub>{t('draftOnDevice')}</Sub> : null}
+    {waiting ? <Sub>{t('photosWaiting', { n: waiting })}</Sub> : null}
     {waiting ? <Button small kind="ghost" icon="cloud-upload-outline" title={t('retryPhotos')} busy={busy || uploading !== null} onPress={() => { void flushPhotos(); }} /> : null}
     <Button icon="checkmark-done" title={`${job ? t('finishJob') : t('recordService')} · ${t('equipmentCount', { count: chosen.length })}`} busy={busy} disabled={waiting > 0 || uploading !== null} onPress={submit} />
   </>}>
     <Card padded={false}><Row icon="location-outline" tone="sky" title={t('ownerWeb.location_coordinates')}
       subtitle={job ? (job.latitude !== null ? t('hasCoordinates') : t('noCoordinates')) : undefined} onPress={busyNow ? undefined : () => { void leaveWithDraft(onOpenLocation); }} last /></Card>
-    {job ? null : <Sub>{t('adhocHint')}</Sub>}
     {restored ? <Banner tone="info" text={t('draftRestored')} /> : null}
     {chosen.length > 1 ? <Card>
-      <Strong>{t('photoRun')}</Strong><Sub>{t('photoRunHint')}</Sub>
+      <Strong>{t('photoRun')}</Strong>
       <View style={styles.shots}>{run('before')}{run('after')}</View>
     </Card> : null}
     <Section action={<Button small kind="tonal" icon="add" title={t('addEquipment')} disabled={busyNow} onPress={() => { void leaveWithDraft(() => onAddEquipment(locationId)); }} />}>{t('selectEquipment')}</Section>
@@ -320,7 +319,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
           <View style={{ flex: 1 }}>
             <Strong>{equipmentTitle(unit)}</Strong>{unit.serial_number ? <Sub>S/N {unit.serial_number}</Sub> : null}
             <View style={styles.unitMeta}>
-              {d ? <><Badge text={t(`outcome.${d.outcome}` as TranslationKey)} tone={outcomeTone(d.outcome)} /><Badge text={t('photoCount', { n: shots })} tone={d.before.length && d.after.length ? 'ok' : 'neutral'} /></>
+              {d ? <><Badge text={t(`seg.${d.outcome}` as TranslationKey)} tone={outcomeTone(d.outcome)} /><Badge text={t('photoCount', { n: shots })} tone={d.before.length && d.after.length ? 'ok' : 'neutral'} /></>
                 : <Badge text={t('notIncluded')} />}
             </View>
           </View>
@@ -329,7 +328,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
         <View style={styles.segment}>{(['done', 'not_done', 'deferred', 'skip'] as const).map(o => {
           const on = (d?.outcome ?? 'skip') === o;
           return <Pressable key={o} accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={() => { void choose(unit.id, o); }} style={[styles.segmentItem, on && styles.segmentOn]}>
-            <Text style={[styles.segmentText, on && styles.segmentTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t(`outcome.${o}` as TranslationKey)}</Text></Pressable>;
+            <Text style={[styles.segmentText, on && styles.segmentTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t(`seg.${o}` as TranslationKey)}</Text></Pressable>;
         })}</View>
         {d && d.outcome !== 'done' ? <Field required label={t('notDoneReason')} value={d.not_done_reason} onChangeText={v => update(unit.id, { not_done_reason: v })} error={failure && !d.not_done_reason.trim() ? t('field.required') : undefined} maxLength={500} /> : null}
         {expanded && d ? <View style={styles.unitBody}>
@@ -348,14 +347,11 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
             </View>)}
           </View>
           {d.outcome === 'done' ? <>
-            <Text style={styles.label}>{t('workNote')} · {t('quickPick')}</Text>
-            {chips(unit.id, unit.category, 'work_note')}
             <Field label={t('workNote')} value={d.work_note} onChangeText={v => update(unit.id, { work_note: v })} multiline maxLength={2000} />
+            {chips(unit.id, unit.category, 'work_note')}
           </> : null}
-          <Text style={styles.label}>{t('problemNote')} · {t('quickPick')}</Text>
-          {chips(unit.id, unit.category, 'problem_note')}
           <Field label={t('problemNote')} value={d.problem_note} onChangeText={v => update(unit.id, { problem_note: v })} multiline maxLength={2000} />
-          <View style={styles.mic}><Icon name="mic-outline" size={16} color={colors.muted} /><Text style={styles.micText}>{t('micHint')}</Text></View>
+          {chips(unit.id, unit.category, 'problem_note')}
           <Disclosure title={`${t(`jobType.${d.service_type}` as TranslationKey)} · ${t('serviceDetails')}`}>
             <Text style={styles.label}>{t('serviceType')}</Text>
             <View style={styles.chips}>{serviceTypes.map(st => <Chip key={st} label={t(`jobType.${st}` as TranslationKey)} on={d.service_type === st} onPress={() => update(unit.id, { service_type: st })} />)}</View>
@@ -393,7 +389,7 @@ export function UnsentRecords({ membership, onOpen }: { membership: Membership; 
   if (!items.length) return null;
   return <><Section>{t('unsentRecords')}</Section>
     <Card padded={false}>{items.map((d, i) => <Row key={d.key} icon="cloud-upload" tone="amber" last={i === items.length - 1}
-      title={d.value.target!.title || t('recordAdhoc')} subtitle={`${formatDateTime(new Date(d.savedAt), language)} · ${t('unsentRecordsHint')}`}
+      title={d.value.target!.title || t('recordAdhoc')} subtitle={formatDateTime(new Date(d.savedAt), language)}
       onPress={() => onOpen(d.value.target!)} />)}</Card></>;
 }
 
@@ -418,7 +414,7 @@ export function ServiceDone({ result, summary, onDone }: { result: ServiceResult
       <Badge text={t(`outcome.${i.outcome}` as TranslationKey)} tone={outcomeTone(i.outcome)} />
     </View>)}</Card>
     <Card>
-      <Strong>{t('shareSummary')}</Strong><Sub>{t('shareSummaryHint')}</Sub>
+      <Strong>{t('shareSummary')}</Strong>
       <Button kind="secondary" icon="share-social" title={t('shareSummary')} onPress={share} />
     </Card>
   </Screen>;
@@ -474,7 +470,7 @@ const styles = StyleSheet.create({
   mic: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   micText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
   label: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: 12, marginBottom: 6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   chipText: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.ink },
   photos: { flexDirection: 'row', gap: 12 },

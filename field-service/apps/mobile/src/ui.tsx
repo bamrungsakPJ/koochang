@@ -71,7 +71,7 @@ export function handleScreenBack(): boolean {
 }
 
 /** Floating extended action button; it shrinks to the icon while the list scrolls down. */
-export interface Fab { label: string; icon: IconName; onPress: () => void }
+export interface Fab { label: string; icon: IconName; onPress: () => void; startCompact?: boolean }
 
 /** With a title the heading sits in a fixed bar (back + title + subtitle + actions) instead of
  * scrolling away; a top-level screen (no back) gets the large title. */
@@ -79,13 +79,13 @@ export function Screen({ children, onBack, footer, title, subtitle, right, fab }
   children: ReactNode; onBack?: () => void; footer?: ReactNode; title?: string; subtitle?: string; right?: ReactNode; fab?: Fab;
 }) {
   const t = useT();
-  const [compact, setCompact] = useState(false);
+  const [compact, setCompact] = useState(!!fab?.startCompact);
   const [scrolled, setScrolled] = useState(false);
   const lastY = useRef(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
     setScrolled(y > 4);
-    if (y > lastY.current + 4 && y > 40) setCompact(true); else if (y < lastY.current - 4) setCompact(false);
+    if (y > lastY.current + 4 && y > 40) setCompact(true); else if (y < lastY.current - 4 && !fab?.startCompact) setCompact(false);
     lastY.current = y;
   };
   const back = useRef(onBack);
@@ -104,7 +104,7 @@ export function Screen({ children, onBack, footer, title, subtitle, right, fab }
       </Pressable> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text accessibilityRole="header" numberOfLines={onBack ? 1 : 2} style={onBack ? styles.topTitle : styles.title}>{title}</Text>
-        {subtitle ? <Text numberOfLines={onBack ? 1 : 2} style={onBack ? styles.topSub : styles.topSubLarge}>{subtitle}</Text> : null}
+        {subtitle ? <Text numberOfLines={1} style={onBack ? styles.topSub : styles.topSubLarge}>{subtitle}</Text> : null}
       </View>
       {right}
     </View> : null}
@@ -169,7 +169,7 @@ export function Button({ title, onPress, kind = 'primary', icon, busy, disabled,
     style={({ pressed }) => [styles.button, small && styles.buttonSmall, styles[kind], small && kind === 'tonal' && styles.tonalSmall, pressed && (kind === 'primary' ? styles.primaryPressed : styles.pressed), off && styles.disabled]}>
     {busy ? <ActivityIndicator color={tint} /> : <>
       {icon ? <Icon name={icon} size={small ? 16 : 20} color={tint} /> : null}
-      <Text maxFontSizeMultiplier={controlScale} style={[small ? styles.buttonTextSmall : styles.buttonText, { color: tint }, { flexShrink: 1 }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={controlScale} style={[small ? styles.buttonTextSmall : styles.buttonText, { color: tint }]}>{title}</Text>
     </>}
   </Pressable>;
 }
@@ -329,7 +329,8 @@ const styles = StyleSheet.create({
   tabBar: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8, paddingBottom: 10 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 56, gap: 4 },
   // Material 3 active indicator: a soft amber pill behind the icon (amber stays an accent, never text).
-  tabPill: { width: 64, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  // Always has a background (transparent when off): toggling it on a plain view drops the radius on Android.
+  tabPill: { width: 64, height: 32, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   tabPillOn: { backgroundColor: colors.accentSoft },
   tabLabel: text('medium', 13, colors.faint, 18),
   tabBadge: { position: 'absolute', top: -2, right: 6, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },

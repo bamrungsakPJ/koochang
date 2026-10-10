@@ -28,16 +28,16 @@ function JoinLinkCard({ link, shopName, onChange }: { link: JoinLink; shopName: 
   }
   return <Card>
     <View style={styles.linkHead}>
-      <View style={{ flex: 1 }}><Strong>{t('joinLink')}</Strong><Sub>{t('joinLinkHint')}</Sub></View>
+      <View style={{ flex: 1 }}><Strong>{t('joinLink')}</Strong></View>
       <Badge text={link.status === 'active' ? t('joiningOpen') : t('joiningPaused')} tone={link.status === 'active' ? 'ok' : 'neutral'} />
     </View>
     <View style={styles.linkBox}>
       <Icon name="link" size={18} color={colors.muted} />
-      <Text selectable numberOfLines={1} style={styles.linkText}>{link.url}</Text>
+      <Text selectable numberOfLines={1} ellipsizeMode="middle" style={styles.linkText}>{link.url}</Text>
       <IconButton icon="share-social" label={t('share')} onPress={share} />
       <IconButton icon={qr ? 'close' : 'qr-code'} label={qr ? t('hideQr') : t('showQr')} onPress={() => setQr(!qr)} />
     </View>
-    {qr ? <View style={styles.qrBox}><Image source={{ uri: link.qr_png }} style={styles.qr} accessibilityLabel={t('qrHint')} /><Sub center>{t('qrHint')}</Sub></View> : null}
+    {qr ? <View style={styles.qrBox}><Image source={{ uri: link.qr_png }} style={styles.qr} accessibilityLabel={t('qrHint')} /></View> : null}
     {link.status === 'closed' ? <Banner tone="info" text={t('joiningClosed')} /> : null}
     {onChange ? <View style={styles.linkActions}>
       <View style={{ flex: 1 }}><Button small kind="secondary" icon={link.status === 'active' ? 'pause' : 'play'} title={link.status === 'active' ? t('closeJoining') : t('openJoining')}
@@ -58,7 +58,7 @@ export function ShopReady({ shopName, link, onDone }: { shopName: string; link: 
     <StatusIcon icon="checkmark" tone="ok" />
     <Title>{t('shopReadyTitle')}</Title>
     <Sub>{shopName}</Sub>
-    <Sub>{t('shopReadyBody')}</Sub>
+    
     {link ? <JoinLinkCard link={link} shopName={shopName} /> : null}
   </Screen>;
 }
@@ -90,8 +90,8 @@ export function NoShop({ onCreate, onJoin, onSignOut }: { onCreate: () => void; 
     <StatusIcon icon="storefront" tone="info" />
     <Title>{t('noShopYet')}</Title>
     <Card padded={false}>
-      <Row icon="add-circle" tone="green" title={t('createShop')} subtitle={t('createShopHint')} onPress={onCreate} />
-      <Row icon="link" tone="sky" title={t('joinShop')} subtitle={t('joinShopHint')} onPress={onJoin} last />
+      <Row icon="add-circle" tone="green" title={t('createShop')} onPress={onCreate} />
+      <Row icon="link" tone="sky" title={t('joinShop')} onPress={onJoin} last />
     </Card>
   </Screen>;
 }
@@ -149,7 +149,7 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
         {end && sub.writable ? <Sub>{sub.state === 'trialing' ? t('daysLeft', { days: daysUntil(end) })
           : t(sub.state === 'past_due' ? 'graceUntil' : 'periodEnds', { date: formatDate(new Date(end), language) })}</Sub> : null}
       </View>
-      <Badge text={t(`sub.${sub.state}`)} tone={subTone(sub.state)} />
+      {t(`sub.${sub.state}`) !== name ? <Badge text={t(`sub.${sub.state}`)} tone={subTone(sub.state)} /> : null}
     </View>
     {sub.limits && sub.usage ? <>
       {sub.limits.technician_seats ? <Meter tone="blue" label={t('seatsQuota')} used={sub.usage.technician_seats} limit={sub.limits.technician_seats} text={`${sub.usage.technician_seats}/${sub.limits.technician_seats}`} /> : <Sub>{t('ownerOnly')}</Sub>}
@@ -158,7 +158,7 @@ function PlanCard({ sub, organizationId, onChanged, onBilling }: { sub: Subscrip
     </> : null}
     {sub.cancel_at_period_end ? <Banner tone="info" text={t('renewalStopped')} /> : null}
     <Banner text={error} />
-    <Sub>{t('renewHint')}</Sub>
+    
     <View style={{ marginTop: 12 }}><Button icon="card" title={t('renewOrChange')} onPress={onBilling} /></View>
     {sub.source === 'paid' ? <View style={{ marginTop: 12 }}><Button small kind="secondary" icon={sub.cancel_at_period_end ? 'refresh' : 'stop-circle-outline'}
       title={sub.cancel_at_period_end ? t('resumeRenewal') : t('cancelRenewal')} busy={busy} onPress={toggleRenewal} /></View> : null}
@@ -181,7 +181,7 @@ export function Home({ me, membership, onNotifications, onAccount, onOpenJob, on
   useEffect(() => { setUnassigned(false); if (owner) api.jobs(org, { status: 'unassigned', limit: '1' }).then(r => setUnassigned(r.items.length > 0), () => {}); }, [org, owner]);
   const date = new Intl.DateTimeFormat(language === 'th' ? 'th-TH-u-ca-buddhist-nu-latn' : 'en-GB', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
   return <Screen title={t('today')} subtitle={`${date} · ${membership.organization_name ?? ''}`}
-    fab={{ label: t('recordWork'), icon: 'add', onPress: onRecordAdhoc }}
+    fab={{ label: t('recordWork'), icon: 'add', onPress: onRecordAdhoc, startCompact: true }}
     right={<View style={styles.headActions}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t('notifications')} ${unread}`} onPress={onNotifications} style={({ pressed }) => [styles.bell, pressed && { backgroundColor: colors.tonal }]} hitSlop={4}>
         <Icon name="notifications-outline" size={24} color={colors.primary} />
@@ -218,7 +218,6 @@ export function ShopManagement({ membership, onTeam, onMaintenance, onBilling, o
     <Banner text={error} />
     {error ? <Button kind="secondary" title={t('retry')} onPress={() => { setError(null); void load(); }} /> : null}
     <Card padded={false}>
-      <Row icon="card-outline" title={t('renewOrChange')} onPress={onBilling} />
       <Row icon="person-circle-outline" title={t('account')} onPress={onAccount} />
       <Row icon="swap-horizontal" title={t('myShops')} onPress={onSwitch} />
       <Row icon="help-buoy-outline" title={t('support')} onPress={onSupport} last />
@@ -256,7 +255,7 @@ export function Account({ me, language, onLanguage, onSignOut, onSwitch, onBack,
     </Card>
     <BiometricSetting />
     <Card padded={false}>
-      {onSupport ? <Row icon="help-buoy" tone="teal" title={t('support')} subtitle={t('supportHint')} onPress={onSupport} /> : null}
+      {onSupport ? <Row icon="help-buoy" tone="teal" title={t('support')} onPress={onSupport} /> : null}
       <Row icon="information-circle-outline" tone="blue" title={t('aboutApp')} onPress={onAbout} last
         trailing={<Text style={styles.versionHint}>{appVersion}</Text>} />
     </Card>
@@ -281,7 +280,7 @@ function MemberRow({ member, actions, last }: { member: TeamMember; actions: Rea
 }
 
 /** Owner team screen: join link, seat usage, pending requests and members. */
-export function TeamScreen({ membership }: { membership: Membership }) {
+export function TeamScreen({ membership, onBack }: { membership: Membership; onBack?: () => void }) {
   const t = useT();
   const errorText = useErrorText();
   const organizationId = membership.organization_id;
@@ -322,7 +321,7 @@ export function TeamScreen({ membership }: { membership: Membership }) {
   const small = (m: TeamMember, action: Parameters<typeof act>[1], kind: 'primary' | 'secondary' | 'danger', icon: IconName, disabled = false) =>
     <View style={{ flex: 1 }}><Button small kind={kind} icon={icon} title={t(action)} disabled={disabled} busy={busy === `${m.member_id}:${action}`} onPress={() => act(m, action)} /></View>;
 
-  return <Screen title={t('team')}>
+  return <Screen title={t('team')} onBack={onBack}>
     <View style={styles.seatRow}><Sub>{t('seatUsage', { active, limit })}</Sub></View>
     <View style={styles.seatBar}><View style={[styles.seatFill, { width: `${limit ? Math.min(100, (active / limit) * 100) : 100}%` }, full && { backgroundColor: colors.warn }]} /></View>
     {limit === 0 ? <Banner tone="info" text={t('soloPlanHint')} /> : null}

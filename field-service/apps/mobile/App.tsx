@@ -43,7 +43,7 @@ type Route =
   | { screen: 'locationNew'; customerId: string } | { screen: 'locationEdit'; customerId: string; location: CustomerLocation }
   | { screen: 'equipmentNew'; customerId: string; locationId: string; returnTo?: Route } | { screen: 'equipment'; customerId: string; id: string }
   | { screen: 'service'; job: Job } | { screen: 'serviceAdhoc'; customerId: string; locationId: string } | { screen: 'adhocPick' }
-  | { screen: 'serviceDone'; result: ServiceResult; summary?: ServiceSummary; back: Route } | { screen: 'maintenance' } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
+  | { screen: 'serviceDone'; result: ServiceResult; summary?: ServiceSummary; back: Route } | { screen: 'maintenance'; back?: Route } | { screen: 'maintenanceItem'; item: MaintenanceItem } | { screen: 'billing' } | { screen: 'invoice'; id: string } | { screen: 'support' }
   | { screen: 'jobs'; filter?: 'today' | 'upcoming' | 'unassigned' } | { screen: 'job'; id: string; conflicts?: number } | { screen: 'jobPick' } | { screen: 'jobNew'; customerId: string; locationId: string };
 
 // The native splash is hidden only once the start screen below has drawn, so there is no blank frame.
@@ -73,7 +73,8 @@ export default function App() {
       if (lockedNow.current) return false;
       if (handleScreenBack()) return true;
       const screen = routeNow.current.screen;
-      if (screen === 'jobs' || screen === 'customers' || screen === 'manage' || screen === 'team' || screen === 'account') { setRoute({ screen: 'shop' }); return true; }
+      if (screen === 'team') { setRoute({ screen: 'manage' }); return true; }
+      if (screen === 'jobs' || screen === 'customers' || screen === 'manage' || screen === 'account') { setRoute({ screen: 'shop' }); return true; }
       if (Date.now() - lastBack.current < 2000) return false;
       lastBack.current = Date.now();
       ToastAndroid.show(translate(languageNow.current, 'pressBackAgain'), ToastAndroid.SHORT);
@@ -300,7 +301,7 @@ export default function App() {
         onOpenLocation={() => setRoute({ screen: 'customer', id: route.screen === 'service' ? route.job.customer_id : route.customerId, back: route })}
         onDone={(result, summary) => setRoute({ screen: 'serviceDone', result, summary, back: route.screen === 'service' ? { screen: 'job', id: route.job.id } : { screen: 'shop' } })} /> : <Loading />; break;
     case 'maintenance': content = membership?.status === 'active' && membership.role === 'owner'
-      ? <MaintenanceScreen membership={membership} onBack={() => setRoute({ screen: 'shop' })} onOpen={item => setRoute({ screen: 'maintenanceItem', item })} /> : <Loading />; break;
+      ? <MaintenanceScreen membership={membership} onBack={() => setRoute(route.back ?? { screen: 'shop' })} onOpen={item => setRoute({ screen: 'maintenanceItem', item })} /> : <Loading />; break;
     case 'maintenanceItem': content = membership?.status === 'active' && membership.role === 'owner'
       ? <MaintenanceDetail key={route.item.id} membership={membership} item={route.item} onBack={() => setRoute({ screen: 'maintenance' })}
         onOpenJob={id => setRoute({ screen: 'job', id })} onOpenCustomer={id => setRoute({ screen: 'customer', id })} /> : <Loading />; break;
@@ -342,9 +343,9 @@ export default function App() {
       </Screen>;
       else if (route.screen === 'shop' && membership && !active) content = <MembershipStatus membership={membership} onCheck={async () => { await loadMe(membership.organization_id); }}
         onSwitch={several ? () => setRoute({ screen: 'shops' }) : undefined} onSignOut={signOut} />;
-      else if (route.screen === 'team' && membership?.role === 'owner' && active) content = <TeamScreen membership={membership} />;
+      else if (route.screen === 'team' && membership?.role === 'owner' && active) content = <TeamScreen membership={membership} onBack={() => setRoute({ screen: 'manage' })} />;
       else if (route.screen === 'manage' && membership?.role === 'owner' && active) content = <ShopManagement membership={membership}
-        onTeam={() => setRoute({ screen: 'team' })} onMaintenance={() => setRoute({ screen: 'maintenance' })} onBilling={() => setRoute({ screen: 'billing' })}
+        onTeam={() => setRoute({ screen: 'team' })} onMaintenance={() => setRoute({ screen: 'maintenance', back: { screen: 'manage' } })} onBilling={() => setRoute({ screen: 'billing' })}
         onAccount={() => setRoute({ screen: 'account' })} onSwitch={() => setRoute({ screen: 'shops' })} onSupport={() => setRoute({ screen: 'support' })} />;
       else if (route.screen === 'jobs' && membership?.role === 'owner' && active) content = <JobsScreen membership={membership} initialFilter={route.filter}
         onOpen={id => setRoute({ screen: 'job', id })} onCreate={() => setRoute({ screen: 'jobPick' })} />;
@@ -352,7 +353,7 @@ export default function App() {
         onOpen={id => setRoute({ screen: 'customer', id })} onCreate={search => setRoute({ screen: 'customerNew', search })} />;
       else if (route.screen === 'account') content = <Account me={me} language={language} onLanguage={changeLanguage} onSignOut={signOut}
         onChangePassword={() => setRoute({ screen: 'changePassword' })} onAbout={() => setRoute({ screen: 'about', back: { screen: 'account' } })}
-        onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={active ? undefined : () => setRoute({ screen: 'shop' })}
+        onSwitch={several || !membership ? () => setRoute({ screen: 'shops' }) : undefined} onBack={!active ? () => setRoute({ screen: 'shop' }) : membership?.role === 'owner' ? () => setRoute({ screen: 'manage' }) : undefined}
         onSupport={membership?.role === 'owner' && membership.status === 'active' ? () => setRoute({ screen: 'support' }) : undefined} />;
       else if (membership && active) content = <Home me={me} membership={membership} onNotifications={() => setRoute({ screen: 'notifications' })} onAccount={() => setRoute({ screen: 'account' })} onOpenJob={id => setRoute({ screen: 'job', id })} onRecordJob={job => setRoute({ screen: 'service', job })}
         onOpenDraft={d => setRoute(d.jobId ? { screen: 'job', id: d.jobId } : { screen: 'serviceAdhoc', customerId: d.customerId, locationId: d.locationId })} onRecordAdhoc={() => setRoute({ screen: 'adhocPick' })} onMaintenance={() => setRoute({ screen: 'maintenance' })}
@@ -415,7 +416,7 @@ function CreateShopSignedIn({ onBack, onCreated }: { onBack: () => void; onCreat
     catch (e) { setFailure(errorText(e)); } finally { setBusy(false); }
   }
   return <Screen onBack={onBack}>
-    <Sub>{t('createShopHint')}</Sub>
+    
     <Title>{t('createShop')}</Title>
     <Field label={t('shopName')} value={name} onChangeText={setName} error={error} maxLength={120} />
     <Banner text={failure} />

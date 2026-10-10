@@ -143,6 +143,25 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api-staging.koochang.com"
       }
+    },
+    {
+      "name": "fs-mobile-metro",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "field-service/apps/mobile",
+        "exec",
+        "expo",
+        "start",
+        
+        "--port",
+        "8081"
+      ],
+      "port": 8081,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:4000",
+        "REACT_NATIVE_PACKAGER_HOSTNAME": "localhost"
+      }
     }
   ]
 }

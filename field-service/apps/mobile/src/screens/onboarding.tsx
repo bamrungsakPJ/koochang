@@ -52,7 +52,7 @@ export function Welcome({ language, onLanguage, onCreate, onSignIn, onJoin }: {
       <LanguageSwitch language={language} onChange={onLanguage} />
     </View>
     <Text style={styles.heroTitle}>{t('welcomeTitle')}</Text>
-    <Sub>{t('welcomeBody')}</Sub>
+    
     <Card>
       <Feature icon="calendar" tone="amber" text={t('featureJobs')} />
       <Feature icon="people" tone="blue" text={t('featureTeam')} />
@@ -93,11 +93,11 @@ export function PhoneForm({ mode, shopPreview, onBack, onCodeSent, initialName }
   }
 
   return <Screen onBack={onBack} footer={<Button title={t('next')} icon="arrow-forward" onPress={submit} busy={busy} />}>
-    <Sub>{mode === 'register' ? t('createShopHint') : mode === 'join' ? shopPreview : t('resetPasswordHint')}</Sub>
+    {mode === 'join' && shopPreview ? <Sub>{shopPreview}</Sub> : null}
     <Title>{mode === 'register' ? t('createShop') : mode === 'join' ? t('joinPreviewTitle') : t('resetPasswordTitle')}</Title>
     {mode !== 'reset' ? <Steps step={1} total={3} /> : null}
     {mode === 'register' ? <Field label={t('shopName')} icon="storefront-outline" value={name} onChangeText={setName} error={errors.name} autoComplete="organization" maxLength={120} /> : null}
-    {mode === 'join' ? <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={errors.name} hint={t('yourNameHint')} autoComplete="name" maxLength={80} /> : null}
+    {mode === 'join' ? <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={errors.name} autoComplete="name" maxLength={80} /> : null}
     <Field label={t('phone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder="08x-xxx-xxxx" />
     <Banner text={failure} />
   </Screen>;
@@ -179,7 +179,7 @@ export function PasswordSignIn({ onBack, onSignedIn, onForgot, onAbout, subtitle
   }
 
   return <Screen onBack={onBack} footer={<Button title={t('signIn')} icon="log-in-outline" onPress={submit} busy={busy} />}>
-    <Sub>{subtitle ?? t('signInHint')}</Sub>
+    {subtitle ? <Sub>{subtitle}</Sub> : null}
     <Title>{t('signIn')}</Title>
     <Field label={t('phone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="username" placeholder="08x-xxx-xxxx" />
     <Field label={t('password')} icon="lock-closed-outline" value={password} onChangeText={setPassword} error={errors.password} secureTextEntry autoCapitalize="none" autoCorrect={false}
@@ -223,7 +223,6 @@ export function PasswordSetup({ onDone, onBack, requireCurrent, step }: { onDone
     <View style={styles.otpIcon}><Icon name="lock-closed" size={28} color={colors.primary} /></View>
     <Title>{requireCurrent ? t('changePassword') : t('setPasswordTitle')}</Title>
     {step ? <Steps step={step} total={3} /> : null}
-    {requireCurrent ? null : <Sub>{t('setPasswordBody')}</Sub>}
     {requireCurrent ? <Field label={t('currentPassword')} icon="lock-closed-outline" value={current} onChangeText={setCurrent} error={errors.current} {...secret} autoComplete="current-password" textContentType="password" /> : null}
     <Field label={requireCurrent ? t('newPassword') : t('password')} icon="key-outline" value={password} onChangeText={setPassword} error={errors.password} hint={t('passwordHint')} {...secret} autoComplete="new-password" textContentType="newPassword" />
     <Field label={t('passwordConfirm')} icon="key-outline" value={again} onChangeText={setAgain} error={errors.again} {...secret} autoComplete="new-password" textContentType="newPassword" />
@@ -239,7 +238,7 @@ export function JoinEntry({ onBack, onToken }: { onBack: () => void; onToken: (t
   const next = () => { const token = tokenFromLink(text); if (token) onToken(token); else setError(t('JOIN_LINK_INVALID')); };
   return <Screen onBack={onBack} footer={<Button title={t('next')} icon="arrow-forward" onPress={next} />}>
     <Title>{t('joinShop')}</Title>
-    <Sub>{t('joinPasteHint')}</Sub>
+    
     <Field label={t('joinPasteLabel')} icon="link-outline" value={text} onChangeText={setText} error={error} autoCapitalize="none" autoCorrect={false} placeholder="https://…/join/…" />
   </Screen>;
 }
@@ -286,7 +285,7 @@ export function JoinPreview({ token, onBack, onContinue, signedInPhone, onUseAno
         <Text style={styles.shopName}>{state.organization_name}</Text>
       </View>
     </Card>
-    <Sub>{t('joinWebBody')}</Sub>
+    
     {signedInPhone ? <Banner tone="info" text={t('joinCurrentAccount', { phone: formatPhone(signedInPhone) })} /> : null}
   </Screen>;
 }
@@ -307,7 +306,7 @@ export function JoinName({ shopName, onBack, onSubmit, initialName }: { shopName
   return <Screen onBack={onBack} footer={<Button title={t('requestJoin')} icon="send" onPress={submit} busy={busy} />}>
     <Sub>{shopName}</Sub>
     <Title>{t('joinPreviewTitle')}</Title>
-    <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={error} hint={t('yourNameHint')} maxLength={80} />
+    <Field label={t('yourName')} icon="person-outline" value={name} onChangeText={setName} error={error} maxLength={80} />
     <Banner text={failure} />
   </Screen>;
 }

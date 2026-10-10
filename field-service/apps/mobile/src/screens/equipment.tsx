@@ -185,7 +185,7 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
     <Disclosure title={`${t('category')}: ${t(`category.${category}` as TranslationKey)}`}>
       <View style={styles.chips}>{categories.map(c => <Button key={c} small kind={c === category ? 'primary' : 'secondary'} title={t(`category.${c}` as TranslationKey)} onPress={() => setCategory(c)} />)}</View>
     </Disclosure>
-    <PhotoSlot title={t('nameplatePhoto')} hint={t('nameplateHint')} photo={nameplate} onPick={source => pick('nameplate', source)}
+    <PhotoSlot title={t('nameplatePhoto')} photo={nameplate} onPick={source => pick('nameplate', source)}
       onRetry={() => sendPhoto('nameplate')}>
       {ocr.state === 'submitting' || ocr.state === 'reading' ? <Banner tone="info" text={t(ocr.state === 'submitting' ? 'ocrSubmitting' : 'ocrReading')} /> : null}
       {ocr.state === 'done' ? <>
@@ -206,7 +206,7 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
     </Card>
     <PhotoSlot title={t('equipmentPhoto')} photo={unitPhoto} onPick={source => pick('equipment', source)} onRetry={() => sendPhoto('equipment')} />
     <Disclosure title={t('optionalDetails')}>
-      <Field label={t('equipmentName')} icon="pricetag-outline" value={values.name} onChangeText={v => setValues(prev => ({ ...prev, name: v }))} hint={t('equipmentNameHint')} maxLength={80} />
+      <Field label={t('equipmentName')} icon="pricetag-outline" value={values.name} onChangeText={v => setValues(prev => ({ ...prev, name: v }))} maxLength={80} />
     </Disclosure>
     <Banner text={failure} />
     {duplicates.length ? <Card>
@@ -292,7 +292,7 @@ export function EquipmentDetail({ membership, equipmentId, onBack }: { membershi
       <Field label={t('equipmentName')} value={values.name} onChangeText={v => setValues({ ...values, name: v })} maxLength={80} />
       <Field label={t('brand')} value={values.brand} onChangeText={v => setValues({ ...values, brand: v })} maxLength={80} />
       <Field label={t('model')} value={values.model} onChangeText={v => setValues({ ...values, model: v })} autoCapitalize="characters" maxLength={80} />
-      <Field label={t('serial')} value={values.serial_number} onChangeText={v => setValues({ ...values, serial_number: v })} autoCapitalize="characters" hint={t('serialHint')} maxLength={80} />
+      <Field label={t('serial')} value={values.serial_number} onChangeText={v => setValues({ ...values, serial_number: v })} autoCapitalize="characters" maxLength={80} />
       <View style={styles.row}>
         <View style={{ flex: 1 }}><Button small icon="checkmark" title={t('save')} busy={busy} onPress={saveEdit} /></View>
         <View style={{ flex: 1 }}><Button small kind="secondary" title={t('cancel')} onPress={() => setEditing(false)} /></View>

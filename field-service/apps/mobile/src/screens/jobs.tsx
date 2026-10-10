@@ -75,7 +75,7 @@ function JobRow({ job, onPress, last }: { job: JobSummary; onPress: () => void; 
   return <Row last={last} onPress={onPress} icon={<IconTile icon={icon} tone={tone} />}
     title={customerTitle({ name: job.customer_name, phone_normalized: job.customer_phone })}
     subtitle={[job.scheduled_start ? formatDateTime(new Date(job.scheduled_start), language) : t('notScheduled'), job.location_label, job.assignee_name ?? t('unassignedOption')].filter(Boolean).join(' · ')}
-    trailing={<Badge text={t(`status.${job.status}` as TranslationKey)} tone={statusTone(job.status)} />} />;
+    below={<Badge text={t(`status.${job.status}` as TranslationKey)} tone={statusTone(job.status)} />} />;
 }
 
 /** Owner job board: today, upcoming, or waiting for a technician. */
@@ -342,7 +342,7 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
         below={dueBadge(t, language, e.next_due_on)} trailing={<Icon name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.primary : colors.faint} />}
         onPress={() => setSelected(on ? selected.filter(x => x !== e.id) : [...selected, e.id])} />;
     })}</Card> : null}
-    {!equipment.length ? <Field label={t('estimatedCount')} hint={t('ownerWeb.noEquipmentHint')} value={estimate} onChangeText={v => setEstimate(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" /> : null}
+    {!equipment.length ? <Field label={t('estimatedCount')} value={estimate} onChangeText={v => setEstimate(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" /> : null}
     <Section>{t('assignee')}</Section>
     {team.length > 6 ? <Field label={t('ownerWeb.pickTechnician')} icon="search" value={teamQuery} onChangeText={setTeamQuery} autoCorrect={false} /> : null}
     <View style={styles.chips}>
@@ -410,11 +410,10 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
   return <Screen onBack={onBack} title={customerTitle({ name: job.customer_name, phone_normalized: job.customer_phone })}
     subtitle={`${t(`jobType.${job.job_type}` as TranslationKey)} · ${job.scheduled_start ? formatDateTime(new Date(job.scheduled_start), language) : t('notScheduled')}`}
     footer={canRecord ? <Button icon="camera" title={t('recordService')} busy={busy} onPress={() => { void recordService(); }} /> : undefined}>
-    <View style={styles.header}>
-      <IconTile icon={icon} tone={tone} size={44} />
-      <View style={{ flex: 1 }}><Strong>{job.location_label ?? ''}</Strong>{job.location_address ? <Sub>{job.location_address}</Sub> : null}</View>
-      <Badge text={t(`status.${job.status}` as TranslationKey)} tone={statusTone(job.status)} />
-    </View>
+    <Card>
+      <View style={styles.placeHead}><View style={{ flex: 1 }}><Strong>{job.location_label ?? ''}</Strong></View><Badge text={t(`status.${job.status}` as TranslationKey)} tone={statusTone(job.status)} /></View>
+      {job.location_address ? <Sub>{job.location_address}</Sub> : null}
+    </Card>
     <ActionTrio items={[
       { icon: 'call', label: t('call'), disabled: !job.customer_phone, onPress: () => { void Linking.openURL(`tel:${job.customer_phone}`); } },
       { icon: 'navigate', label: t('navigate'), onPress: () => openMaps(place) },
@@ -474,6 +473,7 @@ const styles = StyleSheet.create({
   agendaActive: { borderLeftWidth: 4, borderLeftColor: colors.accent, paddingLeft: 12 },
   agendaHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 },
   callButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  placeHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   hero: { backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, marginTop: 4 },
   heroHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   heroKicker: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: '#C9D3E0', flex: 1 },

@@ -51,7 +51,7 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
 
   return <Screen title={t('customers')} right={<Button small kind="tonal" icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} />}>
     <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder={t('ownerWeb.searchCustomerHint')} />
-    {membership.role !== 'owner' ? <Sub>{t('technicianCustomersHint')}</Sub> : null}
+    
     <Banner text={error} />
     {!items ? <Loading /> : items.length === 0
       ? <Card><Sub>{q.trim() ? t('noResults') : t('noCustomers')}</Sub>
@@ -61,7 +61,7 @@ export function CustomersScreen({ membership, onOpen, onCreate }: { membership: 
           icon={<Avatar name={c.name ?? ''} tone={c.customer_type === 'business' ? 'amber' : 'violet'} />}
           title={customerTitle(c)}
           subtitle={[c.first_address, c.name && c.phone_normalized ? formatPhone(c.phone_normalized) : null, c.location_count > 1 ? t('locationCount', { count: c.location_count }) : null].filter(Boolean).join(' · ')}
-          trailing={c.location_count ? <Badge text={c.located_count ? t('hasCoordinates') : t('noCoordinates')} tone={c.located_count ? 'ok' : 'neutral'} /> : undefined} />)}
+          below={c.location_count ? <Badge text={c.located_count ? t('hasCoordinates') : t('noCoordinates')} tone={c.located_count ? 'ok' : 'neutral'} /> : undefined} />)}
       </Card>}
     {items && next !== null ? <Button kind="secondary" icon="chevron-down" title={t('loadMore')} busy={more} onPress={loadMore} /> : null}
   </Screen>;
@@ -126,22 +126,22 @@ export function CustomerForm({ membership, initialSearch, intent, onBack, onSave
   }
 
   return <Screen onBack={onBack} footer={<Button title={t(intent === 'serviceAdhoc' ? 'saveAndService' : intent === 'jobNew' ? 'saveAndJob' : 'saveCustomer')} icon="checkmark" busy={busy} disabled={capture.state === 'reading'} onPress={() => save()} />} title={t('addCustomer')}>
-    <Sub>{t('requiredFieldsHint')}</Sub>
-    <Sub>{t('customerIdentityHint')}</Sub>
+    
+    
     <Field required label={t('customerPhone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" placeholder="08x-xxx-xxxx" />
-    <Field label={t('customerName')} icon="person-outline" value={name} onChangeText={setName} hint={t('customerNameHint')} maxLength={120} />
+    <Field label={t('customerName')} icon="person-outline" value={name} onChangeText={setName} maxLength={120} />
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: business }} onPress={() => setBusiness(!business)} style={styles.check}>
       <Icon name={business ? 'checkbox' : 'square-outline'} size={22} color={business ? colors.primary : colors.faint} />
       <Text style={styles.checkText}>{t('businessCustomer')}</Text>
     </Pressable>
     <Section>{t('firstLocation')}</Section>
-    <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={errors.label} hint={t('locationLabelHint')} maxLength={80} />
+    <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={errors.label} maxLength={80} />
     <Disclosure title={t('optionalDetails')}>
       <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
       <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
     </Disclosure>
     <Button kind="secondary" icon="locate" title={t('useCurrentLocation')} busy={capture.state === 'reading'} disabled={busy} onPress={readLocation} />
-    <Sub>{t('captureHint')}</Sub>
+    
     {capture.state === 'preview' ? <View style={styles.preview}>
       <Text style={styles.coords}>{capture.latitude.toFixed(6)}, {capture.longitude.toFixed(6)}</Text>
       <Sub>{t('capturedPreview', { meters: capture.accuracy === null ? '?' : Math.round(capture.accuracy) })}</Sub>
@@ -181,7 +181,7 @@ export function LocationForm({ membership, customerId, location, onBack, onSaved
     } catch (e) { setFailure(errorText(e)); } finally { setBusy(false); }
   }
   return <Screen onBack={onBack} footer={<Button title={t('saveLocation')} icon="checkmark" busy={busy} onPress={save} />} title={location ? t('edit') : t('addLocation')}>
-    <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={error} hint={t('locationLabelHint')} maxLength={80} />
+    <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={error} maxLength={80} />
     <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
     <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
     <Banner text={failure} />
@@ -192,8 +192,8 @@ type Capture = { state: 'idle' } | { state: 'reading' } | { state: 'preview'; la
 
 /** Reads the position once, only after the user taps the button, with "while using" permission.
  * Shows it for review; nothing is saved until the user confirms. */
-function LocationCard({ membership, location, onChanged, onEdit, onAddEquipment, onOpenEquipment, onCreateJob, last }: {
-  membership: Membership; location: CustomerLocation; onChanged: (customer: Customer) => void; onEdit: () => void;
+function LocationCard({ membership, location, onChanged, onEdit, onAddEquipment, onOpenEquipment, onCreateJob, last, only }: {
+  only?: boolean; membership: Membership; location: CustomerLocation; onChanged: (customer: Customer) => void; onEdit: () => void;
   onAddEquipment: () => void; onOpenEquipment: (id: string) => void; onCreateJob?: () => void; last: boolean;
 }) {
   const t = useT();
@@ -234,14 +234,13 @@ function LocationCard({ membership, location, onChanged, onEdit, onAddEquipment,
     </View>
     <Badge text={located ? t('hasCoordinates') : t('noCoordinates')} tone={located ? 'ok' : 'neutral'} />
     {!located ? <Sub>{t('addressOnly')}</Sub> : null}
-    <View style={styles.actions}>
+    {only ? null : <View style={styles.actions}>
       <View style={{ flex: 1 }}><Button small kind="secondary" icon="navigate" title={t('navigate')} onPress={() => openMaps(location)} /></View>
       <View style={{ flex: 1 }}><Button small kind="secondary" icon="share-social" title={t('shareAddress')} onPress={() => { void Share.share({ message: [location.label, location.address, mapsUrl(location)].filter(Boolean).join('\n') }); }} /></View>
-    </View>
+    </View>}
     <Button small kind="tonal" icon="locate" title={located ? t('updateToCurrentLocation') : t('useCurrentLocation')} busy={capture.state === 'reading'} onPress={read} />
     {saved !== undefined ? <Banner tone={saved !== null && saved > 50 ? 'info' : 'success'} text={saved !== null && saved > 50 ? t('lowAccuracySaved', { meters: saved }) : t('locationSaved', { meters: saved ?? '?' })} /> : null}
     {capture.state === 'error' ? <Banner tone="info" text={capture.message} /> : null}
-    {capture.state === 'idle' && !located ? <Text style={styles.hint}>{t('captureHint')}</Text> : null}
     <LocationEquipment membership={membership} locationId={location.id} onAdd={onAddEquipment} onOpen={onOpenEquipment} />
     {onCreateJob ? <Button small icon="briefcase" title={t('createJobHere')} onPress={onCreateJob} /> : null}
   </View>;
@@ -299,7 +298,7 @@ export function CustomerDetail({ membership, customerId, onBack, onAddLocation, 
     <Section action={<Button small kind="tonal" icon="add" title={t('addLocation')} onPress={onAddLocation} />}>{t('locations')}</Section>
     <Card padded={false}>
       {customer.locations.length === 0 ? <Row icon="home-outline" tone="sky" title={t('addLocation')} onPress={onAddLocation} last />
-        : customer.locations.map((l, i) => <LocationCard key={l.id} membership={membership} location={l} last={i === customer.locations.length - 1}
+        : customer.locations.map((l, i) => <LocationCard key={l.id} membership={membership} location={l} last={i === customer.locations.length - 1} only={customer.locations.length === 1}
           onChanged={setCustomer} onEdit={() => onEditLocation(l)} onAddEquipment={() => onAddEquipment(l.id)} onOpenEquipment={onOpenEquipment}
           onCreateJob={membership.role === 'owner' ? () => onCreateJob(l.id) : undefined} />)}
     </Card>

@@ -28,7 +28,7 @@ export function MaintenanceCard({ membership, onOpen }: { membership: Membership
   // No row of zero boxes (handoff F17): with nothing due, one line says so.
   const any = !!list && buckets.some(b => list.counts[b] > 0);
   return <Card padded={false}>
-    <Row icon="calendar" tone="violet" title={t('maintenanceDueCount')} subtitle={list && !any ? t('maintenance.none') : t('maintenanceHint')} onPress={onOpen} last={!any} />
+    <Row icon="calendar" tone="violet" title={t('maintenanceDueCount')} subtitle={list && !any ? t('maintenance.none') : undefined} onPress={onOpen} last={!any} />
     {list && any ? <View style={styles.counts}>
       {buckets.map(b => <View key={b} style={[styles.count, { backgroundColor: tones[bucketLook[b].tone][0] }]}>
         <Text style={[styles.countValue, { color: tones[bucketLook[b].tone][1] }]}>{list.counts[b]}</Text>
@@ -49,7 +49,7 @@ export function MaintenanceScreen({ membership, onBack, onOpen }: { membership: 
   useEffect(() => { api.maintenance(membership.organization_id).then(setList, e => setError(errorText(e))); }, [membership.organization_id]);
   if (!list && !error) return <Loading />;
   return <Screen onBack={onBack} title={t('maintenance')}>
-    <Sub>{t('maintenanceHint')}</Sub>
+    
     <Banner text={error} />
     {list && !list.items.length ? <Card><Sub center>{t('maintenanceEmpty')}</Sub></Card> : null}
     {list ? buckets.map(b => {

@@ -1,6 +1,6 @@
 export type Language = 'th' | 'en';
 const th = {
-  nextJob: 'งานถัดไป', noMoreJobs: 'ไม่มีงานอื่นต่อจากนี้', 'maintenance.none': 'ยังไม่มีเครื่องถึงรอบดูแล', removeUnitPhotos: 'ไม่รวมเครื่องนี้? รูปที่ถ่ายไว้ของเครื่องนี้จะถูกลบ', customerInfo: 'ข้อมูลลูกค้า', equipmentCount: '{count} เครื่อง', laterToday: 'ต่อจากนี้', viewJobDetails: 'ดูรายละเอียดงาน', recordWork: 'บันทึกงาน', unassignedAttention: 'งานรอมอบหมาย · เลือกช่าง',
+  nextJob: 'งานถัดไป', 'seg.done': 'เสร็จ', 'seg.not_done': 'ไม่เสร็จ', 'seg.deferred': 'เลื่อน', 'seg.skip': 'ไม่รวม', noMoreJobs: 'ไม่มีงานอื่นต่อจากนี้', 'maintenance.none': 'ยังไม่มีเครื่องถึงรอบดูแล', removeUnitPhotos: 'ไม่รวมเครื่องนี้? รูปที่ถ่ายไว้ของเครื่องนี้จะถูกลบ', customerInfo: 'ข้อมูลลูกค้า', equipmentCount: '{count} เครื่อง', laterToday: 'ต่อจากนี้', viewJobDetails: 'ดูรายละเอียดงาน', recordWork: 'บันทึกงาน', unassignedAttention: 'งานรอมอบหมาย · เลือกช่าง',
   shareAddress: 'ส่งที่อยู่', shareSummary: 'แชร์สรุปงานให้ลูกค้า', shareSummaryHint: 'ส่งผลแต่ละเครื่องผ่านแอพแชทที่ลูกค้าใช้', summaryTitle: 'สรุปงานบริการ',
   photoRun: 'ถ่ายรูปต่อเนื่อง', photoRunHint: 'กล้องเปิดต่อให้ทีละเครื่องเอง', photoNext: 'ถัดไป: {name}', photoAllDone: 'ครบทุกเครื่องแล้ว',
   allDone: 'เสร็จทุกเครื่อง', selectedOf: 'เลือก {n} จาก {total} เครื่อง', 'outcome.skip': 'ไม่รวม', notIncluded: 'ไม่รวมในงานนี้', photoCount: 'รูป {n}',
@@ -217,7 +217,7 @@ const th = {
   'notify.subscription_ended': 'แพ็กเกจสิ้นสุดตามที่ตั้งหยุดต่ออายุไว้', 'notify.storage_threshold': 'ใช้พื้นที่รูปภาพไปแล้ว {percent}%',
   notifications: 'การแจ้งเตือน', noNotifications: 'ยังไม่มีการแจ้งเตือน', markAllRead: 'อ่านทั้งหมดแล้ว',
   DUPLICATE_WARNING: 'มีลูกค้าใช้เบอร์นี้อยู่แล้ว', COORDINATES_EXIST: 'สถานที่นี้มีพิกัดอยู่แล้ว ต้องยืนยันก่อนแทนที่',
-  searchCustomers: 'ค้นหาด้วยเบอร์หรือชื่อ', addCustomer: 'เพิ่มลูกค้า', noCustomers: 'ยังไม่มีลูกค้า', noResults: 'ไม่พบลูกค้าที่ค้นหา',
+  searchCustomers: 'ค้นหาชื่อ เบอร์ หรือที่อยู่', addCustomer: 'เพิ่มลูกค้า', noCustomers: 'ยังไม่มีลูกค้า', noResults: 'ไม่พบลูกค้าที่ค้นหา',
   requiredField: 'จำเป็นต้องกรอก', requiredFieldsHint: '* สีแดงคือข้อมูลที่ต้องกรอก', customerIdentityHint: 'ต้องกรอกเบอร์โทรลูกค้า ชื่อเว้นว่างได้',
   useCurrentLocation: 'ใช้ตำแหน่งปัจจุบัน', removeCapturedLocation: 'ไม่ใช้พิกัดนี้',
   customerName: 'ชื่อลูกค้า', customerNameHint: 'เว้นว่างได้ เติมทีหลังได้', customerPhone: 'เบอร์โทรลูกค้า', customerNote: 'หมายเหตุ',
@@ -266,7 +266,7 @@ const th = {
   serviceNote: 'สรุปงาน', finishJob: 'บันทึกและปิดงาน', selectEquipment: 'เลือกเครื่องที่ทำจริง', selectAtLeastOne: 'เลือกอย่างน้อยหนึ่งเครื่อง',
   jobFinished: 'ปิดงานแล้ว', serviceSaved: 'บันทึกผลบริการแล้ว', serviceHistory: 'ประวัติบริการ', noHistory: 'ยังไม่มีประวัติบริการ',
   performedBy: 'โดย {name}', maintenanceDue: 'ถึงรอบ {date}', 'notify.job_completed': '{name} ปิดงานแล้ว', sending: 'กำลังส่ง…',
-  unsentHint: 'ยังส่งไม่สำเร็จ ข้อมูลเก็บไว้ในเครื่องแล้ว กดส่งอีกครั้งได้เมื่อมีสัญญาณ', draftRestored: 'กู้รายการที่ยังไม่ได้ส่งจากเครื่องแล้ว ตรวจแล้วกดส่งได้เลย',
+  unsentHint: 'ยังส่งไม่สำเร็จ ข้อมูลเก็บไว้ในเครื่องแล้ว กดส่งอีกครั้งได้เมื่อมีสัญญาณ', draftRestored: 'เปิดร่างที่เก็บไว้',
   noPhone: 'ไม่มีเบอร์', technicianCustomersHint: 'คุณเห็นเฉพาะลูกค้าที่คุณเพิ่ม และลูกค้าของงานที่ได้รับมอบหมาย',
   ALREADY_BOOKED: 'รอบนี้มีนัดงานอยู่แล้ว', renewOrChange: 'ต่ออายุ / เลือกแพ็กเกจ', choosePlan: 'เลือกแพ็กเกจ', perMonth: '{amount} / เดือน',
   seatsN: 'ช่างใช้งานได้ {n} คน', storageN: 'พื้นที่รูป {n} GB', ownerOnly: 'เจ้าของใช้งานคนเดียว (ไม่มีที่นั่งช่าง)', soloPlanHint: 'แพ็กเกจปัจจุบันใช้งานคนเดียว ถ้าจะรับช่างเข้าทีม ให้เปลี่ยนเป็นแพ็กเกจทีมก่อน', pricesNote: 'ราคาช่วงทดลอง อาจเปลี่ยนก่อนเปิดขายจริง ใบแจ้งที่ออกแล้วไม่เปลี่ยน',
@@ -356,7 +356,7 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
-  nextJob: 'Next job', noMoreJobs: 'No more jobs after this one', 'maintenance.none': 'No equipment is due yet', removeUnitPhotos: 'Leave this unit out? Its photos will be removed.', customerInfo: 'Customer details', equipmentCount: '{count} unit(s)', laterToday: 'Coming up', viewJobDetails: 'View job details', recordWork: 'Record work', unassignedAttention: 'Jobs waiting · pick a technician',
+  nextJob: 'Next job', 'seg.done': 'Done', 'seg.not_done': 'Not done', 'seg.deferred': 'Later', 'seg.skip': 'Skip', noMoreJobs: 'No more jobs after this one', 'maintenance.none': 'No equipment is due yet', removeUnitPhotos: 'Leave this unit out? Its photos will be removed.', customerInfo: 'Customer details', equipmentCount: '{count} unit(s)', laterToday: 'Coming up', viewJobDetails: 'View job details', recordWork: 'Record work', unassignedAttention: 'Jobs waiting · pick a technician',
   shareAddress: 'Share address', shareSummary: 'Share summary with customer', shareSummaryHint: 'Send the result of each unit through the chat app your customer uses', summaryTitle: 'Service summary',
   photoRun: 'Photos in a row', photoRunHint: 'The camera opens for each unit in turn', photoNext: 'Next: {name}', photoAllDone: 'All units done',
   allDone: 'All done', selectedOf: '{n} of {total} units', 'outcome.skip': 'Skip', notIncluded: 'Not in this job', photoCount: '{n} photos',
@@ -572,7 +572,7 @@ const en: Catalog = {
   'notify.subscription_ended': 'The plan ended because renewal was stopped.', 'notify.storage_threshold': '{percent}% of photo storage is used',
   notifications: 'Notifications', noNotifications: 'No notifications yet', markAllRead: 'Mark all as read',
   DUPLICATE_WARNING: 'A customer with this phone already exists.', COORDINATES_EXIST: 'This place already has coordinates. Confirm before replacing them.',
-  searchCustomers: 'Search by phone or name', addCustomer: 'Add customer', noCustomers: 'No customers yet', noResults: 'No matching customers',
+  searchCustomers: 'Search name, phone or address', addCustomer: 'Add customer', noCustomers: 'No customers yet', noResults: 'No matching customers',
   requiredField: 'Required', requiredFieldsHint: '* Red asterisks mark required fields.', customerIdentityHint: 'Customer phone is required. The name is optional.',
   useCurrentLocation: 'Use current location', removeCapturedLocation: 'Remove this position',
   customerName: 'Customer name', customerNameHint: 'Optional, you can add it later', customerPhone: 'Customer phone', customerNote: 'Note',
@@ -621,7 +621,7 @@ const en: Catalog = {
   serviceNote: 'Summary', finishJob: 'Save and finish job', selectEquipment: 'Pick the units actually serviced', selectAtLeastOne: 'Pick at least one unit',
   jobFinished: 'Job finished', serviceSaved: 'Service recorded', serviceHistory: 'Service history', noHistory: 'No service history yet',
   performedBy: 'by {name}', maintenanceDue: 'Due {date}', 'notify.job_completed': '{name} finished a job', sending: 'Sending…',
-  unsentHint: 'Not sent yet. Your entries are saved on this phone; send again when you have signal.', draftRestored: 'Unsent entries restored from this phone. Check them and send.',
+  unsentHint: 'Not sent yet. Your entries are saved on this phone; send again when you have signal.', draftRestored: 'Saved draft reopened',
   noPhone: 'No phone', technicianCustomersHint: 'You see the customers you added and those of jobs assigned to you.',
   ALREADY_BOOKED: 'This cycle already has a booked job.', renewOrChange: 'Renew / choose plan', choosePlan: 'Choose a plan', perMonth: '{amount} / month',
   seatsN: '{n} active technicians', storageN: '{n} GB photo storage', ownerOnly: 'Owner only (no technician seats)', soloPlanHint: 'Your plan is for one person. Switch to a team plan before approving technicians.', pricesNote: 'Pilot prices; they may change before launch. Issued invoices never change.',

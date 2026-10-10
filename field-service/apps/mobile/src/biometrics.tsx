@@ -26,7 +26,7 @@ export function BiometricSetting() {
       await storage.set(keys.biometric, value ? 'true' : null, true); setEnabled(value);
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   }
-  return <Card padded={false}><Row icon="finger-print" tone="teal" title={t('biometricUnlock')} subtitle={t('biometricHint')} last
+  return <Card padded={false}><Row icon="finger-print" tone="teal" title={t('biometricUnlock')} last
     trailing={<Switch accessibilityLabel={t('biometricUnlock')} value={enabled} disabled={busy} onValueChange={v => void toggle(v)} />} /><Banner text={error} /></Card>;
 }
 export function Unlock({ onUnlock, onPassword }: { onUnlock: () => Promise<void>; onPassword: () => Promise<void> }) {

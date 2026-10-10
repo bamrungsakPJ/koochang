@@ -35,7 +35,7 @@ export function SupportScreen({ membership, onBack }: { membership: Membership; 
   if (!data) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
   const pending = data.access.filter(a => a.status === 'pending' || a.status === 'active');
   return <Screen onBack={onBack} title={t('support')}>
-    <Sub>{t('supportHint')}</Sub>
+    
     <Banner tone="success" text={notice} />
     <Banner text={error} />
 
