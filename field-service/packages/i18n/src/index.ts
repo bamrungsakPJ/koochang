@@ -2,7 +2,7 @@ export type Language = 'th' | 'en';
 const th = {
   nextJob: 'งานถัดไป', noMoreJobs: 'ไม่มีงานอื่นต่อจากนี้', 'maintenance.none': 'ยังไม่มีเครื่องถึงรอบดูแล', removeUnitPhotos: 'ไม่รวมเครื่องนี้? รูปที่ถ่ายไว้ของเครื่องนี้จะถูกลบ', customerInfo: 'ข้อมูลลูกค้า', equipmentCount: '{count} เครื่อง', laterToday: 'ต่อจากนี้', viewJobDetails: 'ดูรายละเอียดงาน', recordWork: 'บันทึกงาน', unassignedAttention: 'งานรอมอบหมาย · เลือกช่าง',
   shareAddress: 'ส่งที่อยู่', shareSummary: 'แชร์สรุปงานให้ลูกค้า', shareSummaryHint: 'ส่งผลแต่ละเครื่องผ่านแอพแชทที่ลูกค้าใช้', summaryTitle: 'สรุปงานบริการ',
-  photoRun: 'ถ่ายรูปต่อเนื่อง', photoRunHint: 'กล้องเปิดต่อทีละเครื่อง · ถ่ายก่อนทำตอนมาถึง หลังทำตอนเสร็จ', photoNext: 'ถัดไป: {name}', photoAllDone: 'ครบทุกเครื่องแล้ว',
+  photoRun: 'ถ่ายรูปต่อเนื่อง', photoRunHint: 'กล้องเปิดต่อให้ทีละเครื่องเอง', photoNext: 'ถัดไป: {name}', photoAllDone: 'ครบทุกเครื่องแล้ว',
   allDone: 'เสร็จทุกเครื่อง', selectedOf: 'เลือก {n} จาก {total} เครื่อง', 'outcome.skip': 'ไม่รวม', notIncluded: 'ไม่รวมในงานนี้', photoCount: 'รูป {n}',
   quickPick: 'แตะเลือกได้ หรือพิมพ์เพิ่ม', micHint: 'แตะไมค์บนคีย์บอร์ดเพื่อพูดแทนพิมพ์', updateToCurrentLocation: 'อัปเดตเป็นตำแหน่งปัจจุบัน',
   locationSaved: 'บันทึกพิกัดแล้ว ความแม่นยำประมาณ {meters} เมตร', lowAccuracySaved: 'ตำแหน่งอาจคลาดเคลื่อนประมาณ {meters} เมตร ลองอ่านใหม่เมื่ออยู่ในที่โล่ง',
@@ -358,7 +358,7 @@ type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
   nextJob: 'Next job', noMoreJobs: 'No more jobs after this one', 'maintenance.none': 'No equipment is due yet', removeUnitPhotos: 'Leave this unit out? Its photos will be removed.', customerInfo: 'Customer details', equipmentCount: '{count} unit(s)', laterToday: 'Coming up', viewJobDetails: 'View job details', recordWork: 'Record work', unassignedAttention: 'Jobs waiting · pick a technician',
   shareAddress: 'Share address', shareSummary: 'Share summary with customer', shareSummaryHint: 'Send the result of each unit through the chat app your customer uses', summaryTitle: 'Service summary',
-  photoRun: 'Photos in a row', photoRunHint: 'The camera opens for each unit in turn · before photos on arrival, after photos when done', photoNext: 'Next: {name}', photoAllDone: 'All units done',
+  photoRun: 'Photos in a row', photoRunHint: 'The camera opens for each unit in turn', photoNext: 'Next: {name}', photoAllDone: 'All units done',
   allDone: 'All done', selectedOf: '{n} of {total} units', 'outcome.skip': 'Skip', notIncluded: 'Not in this job', photoCount: '{n} photos',
   quickPick: 'Tap to add, or type more', micHint: 'Tap the mic on your keyboard to speak instead of typing', updateToCurrentLocation: 'Update to current location',
   locationSaved: 'Location saved, accuracy about {meters} m', lowAccuracySaved: 'Location may be off by about {meters} m. Try again in an open area.',

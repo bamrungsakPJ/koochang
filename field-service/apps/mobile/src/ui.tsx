@@ -31,6 +31,10 @@ export const fonts = {
 const text = (family: keyof typeof fonts, size: number, color: string, lineHeight = Math.round(size * 1.5)): TextStyle =>
   ({ fontFamily: fonts[family], fontSize: size, lineHeight, color });
 
+/** Labels inside fixed-size controls (tabs, badges, buttons) grow with the phone's font size only up
+ * to this much, so they never clip; body text keeps the full system scaling. */
+const controlScale = 1.2;
+
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 export const Icon = ({ name, size = 20, color = colors.ink }: { name: IconName; size?: number; color?: string }) =>
   <Ionicons name={name} size={size} color={color} />;
@@ -114,7 +118,7 @@ export function Screen({ children, onBack, footer, title, subtitle, right, fab }
     {fab ? <Pressable accessibilityRole="button" accessibilityLabel={fab.label} onPress={fab.onPress}
       style={({ pressed }) => [styles.fab, compact && styles.fabCompact, footer ? { bottom: 96 } : null, pressed && { backgroundColor: colors.accentPressed }]}>
       <Icon name={fab.icon} size={22} color={colors.ink} />
-      {compact ? null : <Text style={styles.fabText}>{fab.label}</Text>}
+      {compact ? null : <Text maxFontSizeMultiplier={controlScale} style={styles.fabText}>{fab.label}</Text>}
     </Pressable> : null}
     {footer ? <View style={styles.footer}>{footer}</View> : null}
   </KeyboardAvoidingView>;
@@ -165,7 +169,7 @@ export function Button({ title, onPress, kind = 'primary', icon, busy, disabled,
     style={({ pressed }) => [styles.button, small && styles.buttonSmall, styles[kind], small && kind === 'tonal' && styles.tonalSmall, pressed && (kind === 'primary' ? styles.primaryPressed : styles.pressed), off && styles.disabled]}>
     {busy ? <ActivityIndicator color={tint} /> : <>
       {icon ? <Icon name={icon} size={small ? 16 : 20} color={tint} /> : null}
-      <Text style={[small ? styles.buttonTextSmall : styles.buttonText, { color: tint }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={controlScale} style={[small ? styles.buttonTextSmall : styles.buttonText, { color: tint }, { flexShrink: 1 }]}>{title}</Text>
     </>}
   </Pressable>;
 }
@@ -188,7 +192,7 @@ export function Banner({ text, tone = 'error' }: { text?: string | null; tone?: 
 export function Badge({ text, tone = 'neutral' }: { text: string; tone?: 'neutral' | 'warn' | 'ok' | 'danger' | 'info' }) {
   const [bg, fg] = { neutral: [colors.line, colors.muted], warn: [colors.warnSoft, colors.warn], ok: [colors.successSoft, colors.success],
     danger: [colors.dangerSoft, colors.danger], info: [colors.primarySoft, colors.primary] }[tone];
-  return <View style={[styles.badge, { backgroundColor: bg }]}><Text style={[styles.badgeText, { color: fg }]}>{text}</Text></View>;
+  return <View style={[styles.badge, { backgroundColor: bg }]}><Text maxFontSizeMultiplier={controlScale} style={[styles.badgeText, { color: fg }]}>{text}</Text></View>;
 }
 
 /** Circle with the first letter of a name; a person icon when the name is only a phone number. */
@@ -222,7 +226,7 @@ export function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { k
           <Icon name={(on ? tab.icon : `${tab.icon}-outline`) as IconName} size={24} color={on ? colors.primary : colors.faint} />
           {tab.badge ? <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{tab.badge}</Text></View> : null}
         </View>
-        <Text style={[styles.tabLabel, on && { color: colors.primary, fontFamily: fonts.semibold }]}>{tab.label}</Text>
+        <Text maxFontSizeMultiplier={controlScale} numberOfLines={1} style={[styles.tabLabel, on && { color: colors.primary, fontFamily: fonts.semibold }]}>{tab.label}</Text>
       </Pressable>;
     })}
   </View>;
@@ -232,7 +236,7 @@ export function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { k
 export function ActionTrio({ items }: { items: { icon: IconName; label: string; onPress: () => void; disabled?: boolean }[] }) {
   return <View style={styles.trio}>{items.map(item => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} disabled={item.disabled} onPress={item.onPress}
     style={({ pressed }) => [styles.trioItem, pressed && { backgroundColor: colors.primarySoft }, item.disabled && styles.disabled]}>
-    <Icon name={item.icon} size={22} color={colors.primary} /><Text style={styles.trioText}>{item.label}</Text>
+    <Icon name={item.icon} size={22} color={colors.primary} /><Text maxFontSizeMultiplier={controlScale} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.trioText}>{item.label}</Text>
   </Pressable>)}</View>;
 }
 

@@ -279,7 +279,8 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
     return <Pressable accessibilityRole="button" disabled={busyNow || !next} onPress={() => { void photoRun(kind); }}
       style={({ pressed }) => [styles.shot, !next && styles.shotDone, pressed && { backgroundColor: colors.primarySoft }]}>
       <View style={styles.shotHead}><Icon name={uploading === `run:${kind}` ? 'hourglass' : next ? 'camera' : 'checkmark-done'} size={20} color={next ? colors.primary : colors.success} />
-        <Text style={styles.shotTitle}>{t(kind === 'before' ? 'beforePhoto' : 'afterPhoto')} {done}/{chosen.length}</Text></View>
+        <Text style={styles.shotCount}>{done}/{chosen.length}</Text></View>
+      <Text style={styles.shotTitle}>{t(kind === 'before' ? 'beforePhoto' : 'afterPhoto')}</Text>
       <Text style={[styles.shotSub, !next && { color: colors.success }]} numberOfLines={1}>{next ? t('photoNext', { name: equipmentTitle(next) }) : t('photoAllDone')}</Text>
     </Pressable>;
   };
@@ -300,7 +301,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
       subtitle={job ? (job.latitude !== null ? t('hasCoordinates') : t('noCoordinates')) : undefined} onPress={busyNow ? undefined : () => { void leaveWithDraft(onOpenLocation); }} last /></Card>
     {job ? null : <Sub>{t('adhocHint')}</Sub>}
     {restored ? <Banner tone="info" text={t('draftRestored')} /> : null}
-    {chosen.length ? <Card>
+    {chosen.length > 1 ? <Card>
       <Strong>{t('photoRun')}</Strong><Sub>{t('photoRunHint')}</Sub>
       <View style={styles.shots}>{run('before')}{run('after')}</View>
     </Card> : null}
@@ -310,10 +311,11 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
     {units.map(unit => {
       const d = drafts[unit.id];
       const [icon, tone] = categoryIcon(unit.category);
-      const expanded = !!d && !!open[unit.id];
+      // A single unit opens by itself: its photo slots are the way to take photos then.
+      const expanded = !!d && (open[unit.id] ?? units.length === 1);
       const shots = d ? d.before.length + d.after.length : 0;
       return <Card key={unit.id}>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded }} disabled={!d} onPress={() => setOpen(prev => ({ ...prev, [unit.id]: !prev[unit.id] }))} style={styles.unitHead}>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded }} disabled={!d} onPress={() => setOpen(prev => ({ ...prev, [unit.id]: !expanded }))} style={styles.unitHead}>
           {unit.thumbnail_url ? <Image source={{ uri: unit.thumbnail_url }} style={styles.thumb} /> : <IconTile icon={icon} tone={tone} />}
           <View style={{ flex: 1 }}>
             <Strong>{equipmentTitle(unit)}</Strong>{unit.serial_number ? <Sub>S/N {unit.serial_number}</Sub> : null}
@@ -327,7 +329,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
         <View style={styles.segment}>{(['done', 'not_done', 'deferred', 'skip'] as const).map(o => {
           const on = (d?.outcome ?? 'skip') === o;
           return <Pressable key={o} accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={() => { void choose(unit.id, o); }} style={[styles.segmentItem, on && styles.segmentOn]}>
-            <Text style={[styles.segmentText, on && styles.segmentTextOn]} numberOfLines={1}>{t(`outcome.${o}` as TranslationKey)}</Text></Pressable>;
+            <Text style={[styles.segmentText, on && styles.segmentTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t(`outcome.${o}` as TranslationKey)}</Text></Pressable>;
         })}</View>
         {d && d.outcome !== 'done' ? <Field required label={t('notDoneReason')} value={d.not_done_reason} onChangeText={v => update(unit.id, { not_done_reason: v })} error={failure && !d.not_done_reason.trim() ? t('field.required') : undefined} maxLength={500} /> : null}
         {expanded && d ? <View style={styles.unitBody}>
@@ -461,8 +463,9 @@ const styles = StyleSheet.create({
   shots: { flexDirection: 'row', gap: 8, marginTop: 12 },
   shot: { flex: 1, minHeight: 80, borderRadius: 12, borderWidth: 1, borderColor: colors.faint, padding: 12, gap: 2, backgroundColor: colors.surface },
   shotDone: { borderColor: '#B7DEC3', backgroundColor: '#F3FAF5' },
-  shotHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  shotTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.ink },
+  shotHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  shotTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.ink, marginTop: 4 },
+  shotCount: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, color: colors.ink },
   shotSub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
   bulk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
   quick: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#B8C4D2', backgroundColor: colors.surface },
