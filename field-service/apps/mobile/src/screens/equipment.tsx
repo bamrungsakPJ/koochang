@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TranslationKey } from '@field-service/i18n';
 import { api, ApiFailure, type Equipment, type EquipmentSummary, type Media, type Membership } from '../api';
 import { CameraDeniedError, pickPhoto, uploadPhoto, uuid, type Picked } from '../photos';
@@ -27,9 +27,16 @@ type Ocr = { state: 'submitting' } | { state: 'none' } | { state: 'reading'; id:
 /** Choose camera / library / skip for one photo slot. */
 function PhotoSlot({ title, hint, photo, onPick, onRetry, children }: { children?: React.ReactNode; title: string; hint?: string; photo: PhotoState; onPick: (source: 'camera' | 'library') => void; onRetry?: () => void }) {
   const t = useT();
+  const [big, setBig] = useState(false);
+  const uri = ('uri' in photo ? photo.uri : undefined) || (photo.state === 'ready' ? photo.media.thumbnail_url ?? undefined : undefined);
   return <Card>
+    {uri ? <Modal visible={big} transparent animationType="fade" onRequestClose={() => setBig(false)}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('closePhoto')} style={styles.viewer} onPress={() => setBig(false)}>
+        <Image source={{ uri }} style={styles.viewerImage} resizeMode="contain" />
+      </Pressable>
+    </Modal> : null}
     <View style={styles.slotHead}>
-      {('uri' in photo && photo.uri) || (photo.state === 'ready' && photo.media.thumbnail_url) ? <Image source={{ uri: ('uri' in photo ? photo.uri : undefined) || (photo.state === 'ready' ? photo.media.thumbnail_url! : '') }} style={styles.slotImage} />
+      {uri ? <Pressable accessibilityRole="imagebutton" accessibilityLabel={t('viewPhoto')} onPress={() => setBig(true)}><Image source={{ uri }} style={styles.slotImage} /></Pressable>
         : <IconTile icon="camera" tone="sky" size={56} />}
       <View style={{ flex: 1 }}><Strong>{title}</Strong>{hint ? <Sub>{hint}</Sub> : null}</View>
     </View>
@@ -59,8 +66,12 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
   const [category, setCategory] = useState<string>('air_conditioner');
   const [values, setValues] = useState({ name: '', brand: '', model: '', serial_number: '' });
   const manual = useRef<Partial<Record<OcrField, boolean>>>({});
+  // What the AI filled: 'ai' = read clearly, 'check' = unsure, compare with the plate. Editing clears it.
+  const [marks, setMarks] = useState<Partial<Record<OcrField, 'ai' | 'check'>>>({});
+  const [unreadable, setUnreadable] = useState(false);
   const edit = (field: OcrField, value: string) => {
     manual.current[field] = true;
+    setMarks(prev => { const next = { ...prev }; delete next[field]; return next; });
     setValues(prev => ({ ...prev, [field]: value }));
   };
   const [failure, setFailure] = useState<string | null>(null);
@@ -86,7 +97,9 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
         if (cancelled || token !== generation.current) return;
         if (r.status === 'succeeded') {
           const fields = Object.fromEntries(Object.entries(r.suggestions?.fields ?? {}).filter(([k, v]) => ['brand', 'model', 'serial_number'].includes(k) && typeof v === 'string' && v.trim())) as Record<string, string>;
+          const unsure = new Set(r.suggestions?.uncertain ?? []);
           setValues(prev => applyOcrFields(prev, fields, manual.current));
+          setMarks(Object.fromEntries(Object.keys(fields).filter(k => !manual.current[k as OcrField]).map(k => [k, unsure.has(k) ? 'check' : 'ai'])));
           setOcr(Object.keys(fields).length ? { state: 'done', id, fields } : { state: 'empty', id });
           return;
         }
@@ -151,6 +164,9 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
   }
 
   async function save(confirmDuplicate = false) {
+    // ? marks a character the AI could not read: the technician has to fill it in first.
+    if ([values.brand, values.model, values.serial_number].some(v => v.includes('?'))) { setUnreadable(true); setFailure(t('ocrFixUnreadable')); return; }
+    setUnreadable(false);
     setBusy(true); setFailure(null);
     try {
       const photos = [nameplate.state === 'ready' ? { media_asset_id: nameplate.media.id, photo_type: 'nameplate' } : null,
@@ -168,9 +184,14 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
   function another() {
     manual.current = {};
     pendingPhotos.current = {}; generation.current++; key.current = uuid(); setRound(round + 1); setSaved(null); setNameplate({ state: 'empty' }); setUnitPhoto({ state: 'empty' }); setOcr({ state: 'none' });
-    setValues({ name: '', brand: '', model: '', serial_number: '' }); setDuplicates([]); setFailure(null);
+    setValues({ name: '', brand: '', model: '', serial_number: '' }); setDuplicates([]); setFailure(null); setMarks({}); setUnreadable(false);
   }
   const title = useEquipmentTitle();
+  const aiProps = (f: OcrField) => ({
+    error: unreadable && values[f].includes('?') ? t('ocrFixUnreadable') : undefined,
+    warn: marks[f] === 'check' ? t('ocrCheckField') : undefined,
+    hint: marks[f] === 'ai' ? t('ocrFromAi') : undefined,
+  });
 
   if (saved) return <Screen footer={<>
     <Button icon="checkmark" title={t(returnToService ? 'backToService' : 'done')} onPress={onDone} />
@@ -189,7 +210,7 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
       onRetry={() => sendPhoto('nameplate')}>
       {ocr.state === 'submitting' || ocr.state === 'reading' ? <Banner tone="info" text={t(ocr.state === 'submitting' ? 'ocrSubmitting' : 'ocrReading')} /> : null}
       {ocr.state === 'done' ? <>
-        <Banner tone="success" text={t('ocrDone')} />
+        <Banner tone={Object.values(marks).includes('check') ? 'info' : 'success'} text={t(Object.values(marks).includes('check') ? 'ocrCheck' : 'ocrDone')} />
       </> : null}
       {ocr.state === 'empty' ? <Banner tone="info" text={t('ocrEmpty')} /> : null}
       {ocr.state === 'failed' ? <Banner tone="info" text={ocr.message} /> : null}
@@ -200,9 +221,9 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
       }} /> : null}
     </PhotoSlot>
     <Card>
-      <Field label={t('brand')} value={values.brand} onChangeText={v => edit('brand', v)} maxLength={80} />
-      <Field label={t('model')} value={values.model} onChangeText={v => edit('model', v)} autoCapitalize="characters" maxLength={80} />
-      <Field label={t('serial')} value={values.serial_number} onChangeText={v => edit('serial_number', v)} autoCapitalize="characters" autoCorrect={false} maxLength={80} />
+      <Field label={t('brand')} value={values.brand} onChangeText={v => edit('brand', v)} maxLength={80} {...aiProps('brand')} />
+      <Field label={t('model')} value={values.model} onChangeText={v => edit('model', v)} autoCapitalize="characters" maxLength={80} {...aiProps('model')} />
+      <Field label={t('serial')} value={values.serial_number} onChangeText={v => edit('serial_number', v)} autoCapitalize="characters" autoCorrect={false} maxLength={80} {...aiProps('serial_number')} />
     </Card>
     <PhotoSlot title={t('equipmentPhoto')} photo={unitPhoto} onPick={source => pick('equipment', source)} onRetry={() => sendPhoto('equipment')} />
     <Disclosure title={t('optionalDetails')}>
@@ -310,6 +331,8 @@ export function EquipmentDetail({ membership, equipmentId, onBack }: { membershi
 const styles = StyleSheet.create({
   slotHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   slotImage: { width: 56, height: 56, borderRadius: 14, backgroundColor: colors.line },
+  viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
+  viewerImage: { width: '100%', height: '80%' },
   row: { flexDirection: 'row', gap: 10, marginTop: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },

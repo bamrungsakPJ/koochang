@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ClaudeOcrProvider, TemporaryOcrError, createOcrProvider } from '../apps/api/dist/ocr/ocr.provider.js';
+import { ClaudeOcrProvider, TemporaryOcrError, checkNameplate, createOcrProvider } from '../apps/api/dist/ocr/ocr.provider.js';
 
 // Mocked client only: these tests never call the real Claude API. The SDK is loaded through its ESM
 // entry, the same copy the API imports, so its error classes match.
@@ -11,7 +11,8 @@ function client(reply) { const calls = []; return { calls, beta: { messages: { c
 const answer = (data, stop_reason = 'end_turn') => ({ stop_reason, content: [{ type: 'text', text: JSON.stringify(data) }] });
 
 test('Claude OCR sends the image with a JSON schema and returns cleaned suggestions', async () => {
-  const c = client(answer({ brand: ' Daikin ', model: 'FTKC18TV2S', serial_number: 'E012345', raw_text: 'DAIKIN\nFTKC18TV2S', confidence: 1.4 }));
+  const sure = v => ({ value: v, certain: true });
+  const c = client(answer({ brand: sure(' Daikin '), model: sure('FTKC18TV2S'), serial_number: sure('E012345') }));
   const result = await new ClaudeOcrProvider(c, 'claude-haiku-4-5-20251001').read(jpeg);
   assert.deepEqual(result, { fields: { brand: 'Daikin', model: 'FTKC18TV2S', serial_number: 'E012345' } });
   const p = c.calls[0];
@@ -22,6 +23,8 @@ test('Claude OCR sends the image with a JSON schema and returns cleaned suggesti
   assert.equal(p.fallbacks, undefined);
   assert.equal(p.betas, undefined);
   assert.equal(p.output_config.format.schema.properties.raw_text, undefined);
+  assert.deepEqual(p.output_config.format.schema.properties.model.required, ['value', 'certain']);
+  assert.match(p.system, /Never complete, correct or reconstruct/);
   assert.equal(p.output_config.format.type, 'json_schema');
   assert.deepEqual(p.output_config.format.schema.required, ['brand', 'model', 'serial_number']);
   assert.equal(p.messages[0].content.length, 1);
@@ -33,8 +36,8 @@ test('Claude OCR sends the image with a JSON schema and returns cleaned suggesti
 });
 
 test('Claude OCR leaves unreadable fields out instead of inventing them', async () => {
-  const result = await new ClaudeOcrProvider(client(answer({ brand: 'Mitsubishi', model: '', serial_number: '', raw_text: 'MITSUBISHI', confidence: 0.3 })), 'm').read(jpeg);
-  assert.deepEqual(result.fields, { brand: 'Mitsubishi' });
+  const result = await new ClaudeOcrProvider(client(answer({ brand: { value: 'Mitsubishi', certain: true }, model: { value: '', certain: false }, serial_number: { value: '', certain: false } })), 'm').read(jpeg);
+  assert.deepEqual(result, { fields: { brand: 'Mitsubishi' } });
 });
 
 test('Claude OCR: temporary API problems are retried, everything else fails the job', async () => {
@@ -56,4 +59,14 @@ test('OCR_PROVIDER=claude needs a server-side key and otherwise stays closed', (
   const p = createOcrProvider({ NODE_ENV: 'production', OCR_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'test-only' });
   assert.equal(p?.name, 'claude');
   assert.equal(createOcrProvider({ NODE_ENV: 'production' }), null);
+});
+
+test('unclear plates: unsure, partly unreadable or implausible values are kept but marked to check', () => {
+  const r = checkNameplate({ brand: { value: 'Daikin', certain: true }, model: { value: 'FTKF1?', certain: false }, serial_number: { value: 'E01234', certain: false } });
+  assert.deepEqual(r, { fields: { brand: 'Daikin', model: 'FTKF1?', serial_number: 'E01234' }, uncertain: ['model', 'serial_number'] });
+  // The reader said certain, but a ? or an implausible serial still needs checking.
+  assert.deepEqual(checkNameplate({ brand: { value: 'LG', certain: true }, model: { value: 'S1?Q', certain: true }, serial_number: { value: '12', certain: true } }).uncertain, ['model', 'serial_number']);
+  assert.deepEqual(checkNameplate({ brand: { value: 'Sharp', certain: true }, model: { value: 'รุ่น AH', certain: true }, serial_number: { value: '', certain: false } }), { fields: { brand: 'Sharp', model: 'รุ่น AH' }, uncertain: ['model'] });
+  // A missing certain flag counts as unsure.
+  assert.deepEqual(checkNameplate({ brand: { value: 'Haier' }, model: { value: 'HSU-12', certain: true }, serial_number: { value: '', certain: false } }).uncertain, ['brand']);
 });

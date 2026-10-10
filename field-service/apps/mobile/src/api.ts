@@ -30,7 +30,7 @@ export interface CustomerLocation {
 }
 export interface Customer { id: string; name: string | null; phone_normalized: string | null; customer_type: string; note: string | null; version: number; locations: CustomerLocation[]; }
 export interface Media { id: string; status: string; url: string | null; thumbnail_url: string | null; size_bytes: number; }
-export interface OcrRequest { id: string; error_code?: string | null; provider?: string | null; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; suggestions: { fields?: { brand?: string; model?: string; serial_number?: string } } | null; }
+export interface OcrRequest { id: string; error_code?: string | null; provider?: string | null; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; suggestions: { fields?: { brand?: string; model?: string; serial_number?: string }; uncertain?: string[] } | null; }
 export interface EquipmentInput { category: string; name?: string | null; brand?: string | null; model?: string | null; serial_number?: string | null; note?: string | null; }
 export interface CustomerHistoryEvent {
   id: string; job_id: string | null; job_type: string | null; occurred_at: string; location_id: string; location_label: string | null; note: string | null; performed_by_name: string | null;

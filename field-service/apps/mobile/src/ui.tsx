@@ -148,15 +148,16 @@ export function Steps({ step, total }: { step: number; total: number }) {
   </View>;
 }
 
-export function Field({ label, error, hint, icon, big, required, ...input }: TextInputProps & { label: string; error?: string; hint?: string; icon?: IconName; big?: boolean; required?: boolean }) {
+/** warn: amber box and note, e.g. an AI value that must be checked against the nameplate. */
+export function Field({ label, error, hint, warn, icon, big, required, ...input }: TextInputProps & { label: string; error?: string; hint?: string; warn?: string; icon?: IconName; big?: boolean; required?: boolean }) {
   const t = useT();
   return <View style={styles.field}>
     <Text style={styles.label}>{label}{required ? <Text style={{ color: colors.danger }}> *</Text> : null}</Text>
-    <View style={[styles.inputBox, error ? styles.inputBoxError : null]}>
+    <View style={[styles.inputBox, warn ? styles.inputBoxWarn : null, error ? styles.inputBoxError : null]}>
       {icon ? <Icon name={icon} size={20} color={colors.faint} /> : null}
       <TextInput placeholderTextColor={colors.faint} {...input} accessibilityLabel={required ? `${label}, ${t('requiredField')}` : label} style={[styles.input, big && styles.inputBig]} />
     </View>
-    {error ? <Text style={styles.fieldError} accessibilityLiveRegion="polite">{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
+    {error ? <Text style={styles.fieldError} accessibilityLiveRegion="polite">{error}</Text> : warn ? <Text style={styles.fieldWarn}>{warn}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
   </View>;
 }
 
@@ -297,6 +298,8 @@ const styles = StyleSheet.create({
   label: { ...text('medium', 15, colors.ink, 22), marginBottom: 8 },
   inputBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: 12, paddingHorizontal: 14 },
   inputBoxError: { borderColor: colors.danger },
+  inputBoxWarn: { borderColor: colors.accent, backgroundColor: colors.warnSoft },
+  fieldWarn: { ...text('medium', 14, colors.warn, 20), marginTop: 6 },
   input: { flex: 1, paddingVertical: 13, ...text('regular', 17, colors.ink, 24) },
   inputBig: { fontFamily: fonts.semibold, fontSize: 28, lineHeight: 36, letterSpacing: 10, textAlign: 'center' },
   fieldError: { ...text('regular', 14, colors.danger, 20), marginTop: 6 },
