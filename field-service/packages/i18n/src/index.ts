@@ -1,6 +1,6 @@
 export type Language = 'th' | 'en';
 const th = {
-  nextJob: 'งานถัดไป', 'seg.done': 'เสร็จ', 'seg.not_done': 'ไม่เสร็จ', 'seg.deferred': 'เลื่อน', 'seg.skip': 'ไม่รวม', noMoreJobs: 'ไม่มีงานอื่นต่อจากนี้', 'maintenance.none': 'ยังไม่มีเครื่องถึงรอบดูแล', removeUnitPhotos: 'ไม่รวมเครื่องนี้? รูปที่ถ่ายไว้ของเครื่องนี้จะถูกลบ', customerInfo: 'ข้อมูลลูกค้า', equipmentCount: '{count} เครื่อง', laterToday: 'ต่อจากนี้', viewJobDetails: 'ดูรายละเอียดงาน', recordWork: 'บันทึกงาน', unassignedAttention: 'งานรอมอบหมาย · เลือกช่าง',
+  nextJob: 'งานถัดไป', noJobsToday: 'วันนี้ยังไม่มีงาน', 'seg.done': 'เสร็จ', 'seg.not_done': 'ไม่เสร็จ', 'seg.deferred': 'เลื่อน', 'seg.skip': 'ไม่รวม', noMoreJobs: 'ไม่มีงานอื่นต่อจากนี้', 'maintenance.none': 'ยังไม่มีเครื่องถึงรอบดูแล', removeUnitPhotos: 'ไม่รวมเครื่องนี้? รูปที่ถ่ายไว้ของเครื่องนี้จะถูกลบ', customerInfo: 'ข้อมูลลูกค้า', equipmentCount: '{count} เครื่อง', laterToday: 'ต่อจากนี้', viewJobDetails: 'ดูรายละเอียดงาน', recordWork: 'บันทึกงาน', unassignedAttention: 'งานรอมอบหมาย · เลือกช่าง',
   shareAddress: 'ส่งที่อยู่', shareSummary: 'แชร์สรุปงานให้ลูกค้า', shareSummaryHint: 'ส่งผลแต่ละเครื่องผ่านแอพแชทที่ลูกค้าใช้', summaryTitle: 'สรุปงานบริการ',
   photoRun: 'ถ่ายรูปต่อเนื่อง', photoRunHint: 'กล้องเปิดต่อให้ทีละเครื่องเอง', photoNext: 'ถัดไป: {name}', photoAllDone: 'ครบทุกเครื่องแล้ว',
   allDone: 'เสร็จทุกเครื่อง', selectedOf: 'เลือก {n} จาก {total} เครื่อง', 'outcome.skip': 'ไม่รวม', notIncluded: 'ไม่รวมในงานนี้', photoCount: 'รูป {n}',
@@ -150,7 +150,7 @@ const th = {
   'field.required': 'กรุณากรอกข้อมูลนี้', 'field.phone': 'เบอร์มือถือไม่ถูกต้อง', 'field.code': 'กรอกรหัส 6 หลัก',
   'field.tooLong': 'ข้อความยาวเกินไป', 'field.password': 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร', 'field.passwordMismatch': 'รหัสผ่านทั้งสองช่องไม่ตรงกัน', 'field.currentPassword': 'รหัสผ่านปัจจุบันไม่ถูกต้อง',
   password: 'รหัสผ่าน', passwordConfirm: 'ยืนยันรหัสผ่าน', currentPassword: 'รหัสผ่านปัจจุบัน', newPassword: 'รหัสผ่านใหม่',
-  passwordHint: 'อย่างน้อย 8 ตัวอักษร ใช้เข้าสู่ระบบครั้งต่อไปโดยไม่ต้องรอ SMS',
+  passwordHint: 'อย่างน้อย 8 ตัวอักษร',
   setPasswordTitle: 'ตั้งรหัสผ่าน', setPasswordBody: 'ครั้งต่อไปเข้าสู่ระบบด้วยเบอร์มือถือและรหัสผ่านนี้',
   forgotPassword: 'ลืมรหัสผ่าน?', resetPasswordTitle: 'ตั้งรหัสผ่านใหม่', resetPasswordHint: 'เราจะส่งรหัสยืนยันทาง SMS ไปที่เบอร์ของคุณ',
   changePassword: 'เปลี่ยนรหัสผ่าน', passwordChanged: 'เปลี่ยนรหัสผ่านแล้ว',
@@ -356,7 +356,7 @@ const th = {
 };
 type Catalog = { [K in keyof typeof th]: string };
 const en: Catalog = {
-  nextJob: 'Next job', 'seg.done': 'Done', 'seg.not_done': 'Not done', 'seg.deferred': 'Later', 'seg.skip': 'Skip', noMoreJobs: 'No more jobs after this one', 'maintenance.none': 'No equipment is due yet', removeUnitPhotos: 'Leave this unit out? Its photos will be removed.', customerInfo: 'Customer details', equipmentCount: '{count} unit(s)', laterToday: 'Coming up', viewJobDetails: 'View job details', recordWork: 'Record work', unassignedAttention: 'Jobs waiting · pick a technician',
+  nextJob: 'Next job', noJobsToday: 'No jobs today', 'seg.done': 'Done', 'seg.not_done': 'Not done', 'seg.deferred': 'Later', 'seg.skip': 'Skip', noMoreJobs: 'No more jobs after this one', 'maintenance.none': 'No equipment is due yet', removeUnitPhotos: 'Leave this unit out? Its photos will be removed.', customerInfo: 'Customer details', equipmentCount: '{count} unit(s)', laterToday: 'Coming up', viewJobDetails: 'View job details', recordWork: 'Record work', unassignedAttention: 'Jobs waiting · pick a technician',
   shareAddress: 'Share address', shareSummary: 'Share summary with customer', shareSummaryHint: 'Send the result of each unit through the chat app your customer uses', summaryTitle: 'Service summary',
   photoRun: 'Photos in a row', photoRunHint: 'The camera opens for each unit in turn', photoNext: 'Next: {name}', photoAllDone: 'All units done',
   allDone: 'All done', selectedOf: '{n} of {total} units', 'outcome.skip': 'Skip', notIncluded: 'Not in this job', photoCount: '{n} photos',
@@ -505,7 +505,7 @@ const en: Catalog = {
   'field.required': 'This field is required.', 'field.phone': 'Enter a valid mobile number.', 'field.code': 'Enter the 6-digit code.',
   'field.tooLong': 'This text is too long.', 'field.password': 'Use at least 8 characters.', 'field.passwordMismatch': 'The passwords do not match.', 'field.currentPassword': 'The current password is not correct.',
   password: 'Password', passwordConfirm: 'Confirm password', currentPassword: 'Current password', newPassword: 'New password',
-  passwordHint: 'At least 8 characters. Sign in next time without waiting for an SMS.',
+  passwordHint: 'At least 8 characters',
   setPasswordTitle: 'Set a password', setPasswordBody: 'Next time, sign in with your mobile number and this password.',
   forgotPassword: 'Forgot password?', resetPasswordTitle: 'Set a new password', resetPasswordHint: 'We will send a verification code by SMS to your number.',
   changePassword: 'Change password', passwordChanged: 'Password changed',

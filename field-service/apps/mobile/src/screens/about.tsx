@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { useContext, useState } from 'react';
 import { Image, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { apiBaseUrl } from '../api';
-import { Badge, Card, colors, fonts, LanguageContext, Row, Screen, Sub, useT } from '../ui';
+import { Badge, Card, colors, fonts, LanguageContext, Row, Screen, useT } from '../ui';
 
 // Read the installed app manifest rather than maintaining a second version string.
 export const appVersion = Constants.expoConfig?.version ?? '—';
@@ -25,16 +25,14 @@ export function About({ onBack }: { onBack: () => void }) {
   const [shared, setShared] = useState(false);
   const company = Constants.expoConfig?.extra?.company as { th?: string; en?: string } | undefined;
   const companyName = (language === 'th' ? company?.th : company?.en) || company?.th || company?.en;
-  const versionText = t('appVersionLabel', { version: appVersion, build: appBuild });
   async function share() {
     const lines = [`KooChang ${appVersion} (Build ${appBuild})`, `${t('appSystem')}: ${testSystem ? t('appSystemTest') : t('appSystemLive')}`, `${t('appDevice')}: ${platformName}`];
     try { const r = await Share.share({ message: lines.join('\n') }); if (r.action === Share.sharedAction) setShared(true); } catch { /* user closed the sheet */ }
   }
-  return <Screen onBack={onBack}>
+  return <Screen onBack={onBack} title={t('aboutApp')}>
     <View style={styles.hero}>
       <Image source={require('../../assets/icon.png')} style={styles.logo} accessibilityIgnoresInvertColors />
       <Text style={styles.name}>{t('appName')}</Text>
-      <Sub>{versionText}</Sub>
     </View>
     <Text style={styles.section}>{t('appDetails')}</Text>
     <Card padded={false}>
@@ -43,7 +41,7 @@ export function About({ onBack }: { onBack: () => void }) {
       <Row title={t('appDevice')} trailing={<Text style={styles.value}>{platformName}</Text>} last />
     </Card>
     <Card padded={false}>
-      <Row icon="share-outline" tone="blue" title={t('appShareInfo')} subtitle={shared ? t('appShared') : t('appShareInfoHint')} onPress={() => { void share(); }} last />
+      <Row icon="share-outline" tone="blue" title={t('appShareInfo')} subtitle={shared ? t('appShared') : undefined} onPress={() => { void share(); }} last />
     </Card>
     <Text style={styles.section}>{t('legalLinks')}</Text>
     <Card padded={false}>

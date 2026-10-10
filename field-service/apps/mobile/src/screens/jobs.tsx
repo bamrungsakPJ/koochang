@@ -207,8 +207,9 @@ export function MyJobs({ membership, onOpen, onRecord, onCreate }: { membership:
   return <>
     {next ? <NextJobCard membership={membership} job={next} onOpen={() => onOpen(next.id)} onRecord={onRecord} /> : null}
     {!groups.size ? <><Section action={createAction}>{t('laterToday')}</Section><Card><Sub>{t('noMoreJobs')}</Sub></Card></> : null}
+    {!next && groups.size && !groups.has(today) ? <><Section action={createAction}>{t('today')}</Section><Card><Sub>{t('noJobsToday')}</Sub></Card></> : null}
     {[...groups].map(([day, jobs], gi) => <View key={day}>
-      <Section action={gi === 0 ? createAction : undefined}>{day === today ? (next ? t('laterToday') : t('today')) : day === bangkokDay(1) ? t('tomorrow') : day === bangkokDay(-1) ? t('yesterday') : day ? formatDate(new Date(`${day}T12:00:00+07:00`), language) : t('notScheduled')}</Section>
+      <Section action={gi === 0 && (next || groups.has(today)) ? createAction : undefined}>{day === today ? (next ? t('laterToday') : t('today')) : day === bangkokDay(1) ? t('tomorrow') : day === bangkokDay(-1) ? t('yesterday') : day ? formatDate(new Date(`${day}T12:00:00+07:00`), language) : t('notScheduled')}</Section>
       <Card padded={false}>{jobs.map((j, i) => <Pressable key={j.id} accessibilityRole="button" onPress={() => onOpen(j.id)} style={[styles.agendaRow, i !== jobs.length - 1 && styles.agendaLine, j.status === 'in_progress' && styles.agendaActive]}>
         <View style={{ flex: 1 }}>
           <View style={styles.agendaHead}><Text style={styles.agendaTime}>{clock(j.scheduled_start, language)}</Text><Badge text={t(`status.${j.status}` as TranslationKey)} tone={statusTone(j.status)} /></View>

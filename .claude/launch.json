@@ -153,7 +153,6 @@
         "exec",
         "expo",
         "start",
-        
         "--port",
         "8081"
       ],
@@ -162,6 +161,16 @@
         "EXPO_PUBLIC_API_URL": "http://localhost:4000",
         "REACT_NATIVE_PACKAGER_HOSTNAME": "localhost"
       }
+    },
+    {
+      "name": "fs-worker",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "field-service/apps/api",
+        "dev:worker"
+      ],
+      "port": 4099
     }
   ]
 }

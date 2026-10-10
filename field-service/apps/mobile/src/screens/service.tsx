@@ -103,8 +103,10 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   const reload = () => api.equipmentList(org, locationId).then(r => {
     setUnits(r.items);
     setDrafts(prev => {
-      if (Object.keys(prev).length || !job) return prev;
-      return Object.fromEntries(job.equipment.map(e => [e.id, fresh()]));
+      if (Object.keys(prev).length) return prev;
+      // Planned units start as done; with none planned, a place with a single unit starts with that one.
+      const ids = job?.equipment.length ? job.equipment.map(e => e.id) : r.items.length === 1 ? [r.items[0]!.id] : [];
+      return Object.fromEntries(ids.map(id => [id, fresh()]));
     });
   }, e => setFailure(errorText(e)));
   useEffect(() => {
@@ -295,7 +297,7 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
   return <Screen onBack={onBack} title={job ? t('recordService') : t('recordAdhoc')} subtitle={title || undefined} footer={<>
     {waiting ? <Sub>{t('photosWaiting', { n: waiting })}</Sub> : null}
     {waiting ? <Button small kind="ghost" icon="cloud-upload-outline" title={t('retryPhotos')} busy={busy || uploading !== null} onPress={() => { void flushPhotos(); }} /> : null}
-    <Button icon="checkmark-done" title={`${job ? t('finishJob') : t('recordService')} · ${t('equipmentCount', { count: chosen.length })}`} busy={busy} disabled={waiting > 0 || uploading !== null} onPress={submit} />
+    <Button icon="checkmark-done" title={chosen.length ? `${job ? t('finishJob') : t('recordService')} · ${t('equipmentCount', { count: chosen.length })}` : job ? t('finishJob') : t('recordService')} busy={busy} disabled={waiting > 0 || uploading !== null} onPress={submit} />
   </>}>
     <Card padded={false}><Row icon="location-outline" tone="sky" title={t('ownerWeb.location_coordinates')}
       subtitle={job ? (job.latitude !== null ? t('hasCoordinates') : t('noCoordinates')) : undefined} onPress={busyNow ? undefined : () => { void leaveWithDraft(onOpenLocation); }} last /></Card>
@@ -371,7 +373,6 @@ export function ServiceForm({ membership, job, adhoc, onBack, onAddEquipment, on
     {draftSaved === false ? <Banner text={t('draftSaveFailed')} /> : null}
     <Banner tone="info" text={notice} />
     <Banner text={failure} />
-    <Text style={styles.hint}>{formatDateTime(new Date(occurredAt.current), language)}</Text>
   </Screen>;
 }
 

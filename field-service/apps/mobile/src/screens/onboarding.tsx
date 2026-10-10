@@ -219,9 +219,9 @@ export function PasswordSetup({ onDone, onBack, requireCurrent, step }: { onDone
   }
 
   const secret = { secureTextEntry: true, autoCapitalize: 'none', autoCorrect: false, maxLength: 200 } as const;
-  return <Screen onBack={onBack} footer={<Button title={requireCurrent ? t('changePassword') : t('save')} icon="checkmark" onPress={submit} busy={busy} />}>
-    <View style={styles.otpIcon}><Icon name="lock-closed" size={28} color={colors.primary} /></View>
-    <Title>{requireCurrent ? t('changePassword') : t('setPasswordTitle')}</Title>
+  return <Screen onBack={onBack} title={requireCurrent ? t('changePassword') : undefined} footer={<Button title={requireCurrent ? t('changePassword') : t('save')} icon="checkmark" onPress={submit} busy={busy} />}>
+    {requireCurrent ? null : <><View style={styles.otpIcon}><Icon name="lock-closed" size={28} color={colors.primary} /></View>
+    <Title>{t('setPasswordTitle')}</Title></>}
     {step ? <Steps step={step} total={3} /> : null}
     {requireCurrent ? <Field label={t('currentPassword')} icon="lock-closed-outline" value={current} onChangeText={setCurrent} error={errors.current} {...secret} autoComplete="current-password" textContentType="password" /> : null}
     <Field label={requireCurrent ? t('newPassword') : t('password')} icon="key-outline" value={password} onChangeText={setPassword} error={errors.password} hint={t('passwordHint')} {...secret} autoComplete="new-password" textContentType="newPassword" />
