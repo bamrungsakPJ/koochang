@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   shotTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.ink, marginTop: 4 },
   shotCount: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, color: colors.ink },
   shotSub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
-  bulk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
+  bulk: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
   quick: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#B8C4D2', backgroundColor: colors.surface },
   quickOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   quickText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink },

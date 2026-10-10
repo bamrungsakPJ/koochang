@@ -185,7 +185,7 @@ export function Home({ me, membership, onNotifications, onAccount, onOpenJob, on
     right={<View style={styles.headActions}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t('notifications')} ${unread}`} onPress={onNotifications} style={({ pressed }) => [styles.bell, pressed && { backgroundColor: colors.tonal }]} hitSlop={4}>
         <Icon name="notifications-outline" size={24} color={colors.primary} />
-        {unread ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View> : null}
+        {unread ? <View style={styles.bellBadge}><Text maxFontSizeMultiplier={1} style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text></View> : null}
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={t('account')} onPress={onAccount} hitSlop={4}
         style={({ pressed }) => [styles.heroAvatar, pressed && { opacity: 0.7 }]}><Avatar name={me.user.display_name} /></Pressable>
@@ -228,8 +228,7 @@ export function ShopManagement({ membership, onTeam, onMaintenance, onBilling, o
 
 export function ShopPicker({ me, onPick, onCreate, onJoin, onBack }: { me: Me; onPick: (organizationId: string) => void; onCreate: () => void; onJoin: () => void; onBack: () => void }) {
   const t = useT();
-  return <Screen onBack={onBack}>
-    <Title>{t('myShops')}</Title>
+  return <Screen onBack={onBack} title={t('myShops')}>
     <Card padded={false}>
       {me.memberships.map((m, i) => <Row key={m.member_id} icon="storefront" tone="amber" title={m.organization_name ?? '—'}
         subtitle={`${t(`role.${m.role}`)} · ${t(`member.${m.status}`)}`} onPress={() => onPick(m.organization_id)} last={i === me.memberships.length - 1} />)}
@@ -391,7 +390,7 @@ const styles = StyleSheet.create({
   memberActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   planIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   meter: { marginTop: 14 },
-  meterHead: { flexDirection: 'row', justifyContent: 'space-between' },
-  meterLabel: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
+  meterHead: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
+  meterLabel: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted, flexShrink: 1 },
   meterValue: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.ink },
 });

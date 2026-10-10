@@ -125,8 +125,7 @@ export function CustomerForm({ membership, initialSearch, intent, onBack, onSave
     finally { captureReading.current = false; }
   }
 
-  return <Screen onBack={onBack} footer={<Button title={t(intent === 'serviceAdhoc' ? 'saveAndService' : intent === 'jobNew' ? 'saveAndJob' : 'saveCustomer')} icon="checkmark" busy={busy} disabled={capture.state === 'reading'} onPress={() => save()} />}>
-    <Title>{t('addCustomer')}</Title>
+  return <Screen onBack={onBack} footer={<Button title={t(intent === 'serviceAdhoc' ? 'saveAndService' : intent === 'jobNew' ? 'saveAndJob' : 'saveCustomer')} icon="checkmark" busy={busy} disabled={capture.state === 'reading'} onPress={() => save()} />} title={t('addCustomer')}>
     <Sub>{t('requiredFieldsHint')}</Sub>
     <Sub>{t('customerIdentityHint')}</Sub>
     <Field required label={t('customerPhone')} icon="call-outline" value={phone} onChangeText={setPhone} error={errors.phone} keyboardType="phone-pad" placeholder="08x-xxx-xxxx" />
@@ -181,8 +180,7 @@ export function LocationForm({ membership, customerId, location, onBack, onSaved
         : await api.addLocation(membership.organization_id, customerId, { request_key: key, label: label.trim(), address: address.trim() || undefined, travel_note: travel.trim() || undefined }));
     } catch (e) { setFailure(errorText(e)); } finally { setBusy(false); }
   }
-  return <Screen onBack={onBack} footer={<Button title={t('saveLocation')} icon="checkmark" busy={busy} onPress={save} />}>
-    <Title>{location ? t('edit') : t('addLocation')}</Title>
+  return <Screen onBack={onBack} footer={<Button title={t('saveLocation')} icon="checkmark" busy={busy} onPress={save} />} title={location ? t('edit') : t('addLocation')}>
     <Field required label={t('locationLabel')} icon="home-outline" value={label} onChangeText={setLabel} error={error} hint={t('locationLabelHint')} maxLength={80} />
     <Field label={t('address')} icon="map-outline" value={address} onChangeText={setAddress} multiline maxLength={500} />
     <Field label={t('travelNote')} icon="navigate-outline" value={travel} onChangeText={setTravel} multiline maxLength={500} />
@@ -312,7 +310,7 @@ export function CustomerDetail({ membership, customerId, onBack, onAddLocation, 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'space-between' },
   check: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-  checkText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink },
+  checkText: { flex: 1, fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink },
   location: { padding: 16, gap: 8 },
   locationLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
   locationHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },

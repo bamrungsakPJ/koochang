@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatDateTime, translate, type TranslationKey } from '@field-service/i18n';
 import { api, type Inbox, type InboxItem, type Membership } from '../api';
-import { Banner, Button, Card, colors, fonts, IconTile, LanguageContext, Loading, Screen, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
+import { Banner, Button, Card, colors, fonts, IconTile, LanguageContext, Loading, Screen, Strong, Sub, Title, useErrorText, useT, type IconName, type Tone } from '../ui';
 
 const look: Record<string, [IconName, Tone]> = {
   join_request: ['person-add', 'blue'], member_approved: ['checkmark-circle', 'green'], trial_ending: ['hourglass', 'amber'],
@@ -49,9 +49,8 @@ export function NotificationsScreen({ membership, onBack, onOpen }: { membership
     onOpen(item);
   }
   if (!inbox) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
-  return <Screen onBack={onBack}>
-    <Title>{t('notifications')}</Title>
-    {announcements.map(item=><Card key={item.id}><Title>{language==='th'?item.title_th:item.title_en}</Title><Text style={styles.text}>{language==='th'?item.body_th:item.body_en}</Text><Sub>{formatDate(new Date(item.publish_at),language)}</Sub></Card>)}
+  return <Screen onBack={onBack} title={t('notifications')}>
+    {announcements.map(item=><Card key={item.id}><Strong>{language==='th'?item.title_th:item.title_en}</Strong><Text style={styles.text}>{language==='th'?item.body_th:item.body_en}</Text><Sub>{formatDate(new Date(item.publish_at),language)}</Sub></Card>)}
     {inbox.unread ? <Button small kind="secondary" icon="checkmark-done" title={t('markAllRead')}
       onPress={async () => { try { setInbox(await api.markRead(membership.organization_id)); } catch (e) { setError(errorText(e)); } }} /> : null}
     <Banner text={error} />

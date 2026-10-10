@@ -39,8 +39,7 @@ export function BillingScreen({ membership, onBack, onOpenInvoice }: { membershi
   }
 
   if (!plans && !error) return <Loading />;
-  return <Screen onBack={onBack}>
-    <Title>{t('choosePlan')}</Title>
+  return <Screen onBack={onBack} title={t('choosePlan')}>
     <Sub>{t('renewHint')}</Sub>
     {plans && !plans.payment_available ? <Banner tone="info" text={t('paymentUnavailable')} /> : null}
     <Banner text={error} />
@@ -246,8 +245,7 @@ export function InvoiceScreen({ membership, invoiceId, onBack }: { membership: M
     ? [invoice.pay_to?.promptpay_qr_png ? 'qr' : null, invoice.pay_to ? 'transfer' : null, invoice.methods?.stripe_card || active ? 'card' : null].filter((m): m is PayMethod => !!m) : [];
   // A checkout in progress keeps the card view (it also shows an older Stripe PromptPay checkout's status).
   const chosen = active && options.includes('card') ? 'card' : method && options.includes(method) ? method : options[0] ?? null;
-  return <Screen onBack={onBack}>
-    <Sub>{t('invoice')} {invoice.number}</Sub>
+  return <Screen onBack={onBack} title={`${t('invoice')} ${invoice.number}`}>
     <View style={styles.amountRow}>
       <Title>{money(invoice.amount_minor, language)}</Title>
       <Badge text={t(`invoice.${invoice.status}` as TranslationKey)} tone={invoiceTone(invoice.status)} />
@@ -334,15 +332,15 @@ const styles = StyleSheet.create({
   methods: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   method: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 6, borderWidth: 1.5, borderColor: colors.line, borderRadius: 12, backgroundColor: colors.surface },
   methodOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  methodText: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.ink, textAlign: 'center' },
+  methodText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.ink, textAlign: 'center' },
   qrBox: { alignItems: 'center', gap: 6, marginBottom: 8 },
   charge: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, marginBottom: 8, borderWidth: 1.5, borderColor: colors.line, borderRadius: 12, backgroundColor: colors.surface },
   qr: { width: 260, height: 260, borderRadius: 12, backgroundColor: '#fff' },
   planHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   price: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 26 },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  featureText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
-  amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  featureText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink, flex: 1 },
+  amountRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   actions: { flexDirection: 'row', gap: 10 },
   check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginVertical: 8 },
 });

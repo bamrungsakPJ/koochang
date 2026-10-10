@@ -48,8 +48,7 @@ export function MaintenanceScreen({ membership, onBack, onOpen }: { membership: 
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { api.maintenance(membership.organization_id).then(setList, e => setError(errorText(e))); }, [membership.organization_id]);
   if (!list && !error) return <Loading />;
-  return <Screen onBack={onBack}>
-    <Title>{t('maintenance')}</Title>
+  return <Screen onBack={onBack} title={t('maintenance')}>
     <Sub>{t('maintenanceHint')}</Sub>
     <Banner text={error} />
     {list && !list.items.length ? <Card><Sub center>{t('maintenanceEmpty')}</Sub></Card> : null}
@@ -159,14 +158,8 @@ export function MaintenanceDetail({ membership, item: initial, onBack, onOpenJob
   const [icon, tone] = categoryIcon(item.category);
   const look = bucketLook[item.bucket];
   const nextDays = Array.from({ length: 7 }, (_, i) => bangkokDay(i + 1));
-  return <Screen onBack={onBack}>
-    <View style={styles.header}>
-      <IconTile icon={icon} tone={tone} size={48} />
-      <View style={{ flex: 1 }}>
-        <Title>{title({ name: item.equipment_name, category: item.category, brand: item.brand, model: item.model })}</Title>
-        <Sub>{t(`jobType.${item.service_type}` as TranslationKey)}{item.interval_months ? ` · ${t('months', { n: item.interval_months })}` : ''}</Sub>
-      </View>
-    </View>
+  return <Screen onBack={onBack} title={title({ name: item.equipment_name, category: item.category, brand: item.brand, model: item.model })}
+    subtitle={`${t(`jobType.${item.service_type}` as TranslationKey)}${item.interval_months ? ` · ${t('months', { n: item.interval_months })}` : ''}`}>
     <View style={[styles.due, { backgroundColor: tones[look.tone][0] }]}>
       <Icon name="calendar" size={20} color={tones[look.tone][1]} />
       <Text style={[styles.dueText, { color: tones[look.tone][1] }]}>{t('maintenanceDue', { date: formatDate(day(item.due_date), language) })} · {t(look.key)}</Text>
@@ -254,9 +247,9 @@ export function MaintenanceDetail({ membership, item: initial, onBack, onOpenJob
 
 const styles = StyleSheet.create({
   counts: { flexDirection: 'row', gap: 8, padding: 12, paddingTop: 0 },
-  count: { flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  count: { flex: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center' },
   countValue: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 30 },
-  countLabel: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 18 },
+  countLabel: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   due: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 12 },
   dueText: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, flex: 1 },

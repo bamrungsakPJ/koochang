@@ -181,8 +181,7 @@ export function EquipmentForm({ membership, locationId, returnToService, onBack,
     <Sub>{title(saved)}</Sub>
   </Screen>;
 
-  return <Screen key={round} onBack={onBack} footer={<Button title={t('saveEquipment')} icon="checkmark" busy={busy} disabled={nameplate.state === 'uploading' || unitPhoto.state === 'uploading'} onPress={() => save()} />}>
-    <Title>{t('addEquipment')}</Title>
+  return <Screen key={round} onBack={onBack} footer={<Button title={t('saveEquipment')} icon="checkmark" busy={busy} disabled={nameplate.state === 'uploading' || unitPhoto.state === 'uploading'} onPress={() => save()} />} title={t('addEquipment')}>
     <Disclosure title={`${t('category')}: ${t(`category.${category}` as TranslationKey)}`}>
       <View style={styles.chips}>{categories.map(c => <Button key={c} small kind={c === category ? 'primary' : 'secondary'} title={t(`category.${c}` as TranslationKey)} onPress={() => setCategory(c)} />)}</View>
     </Disclosure>
@@ -278,9 +277,7 @@ export function EquipmentDetail({ membership, equipmentId, onBack }: { membershi
   }
   const line = (label: string, value: string | null) => <View style={styles.fieldLine}><Text style={styles.fieldLabel}>{label}</Text><Text style={styles.fieldValue}>{value || t('unknown')}</Text></View>;
 
-  return <Screen onBack={onBack}>
-    <View style={styles.slotHead}><IconTile icon={icon} tone={tone} size={56} /><View style={{ flex: 1 }}><Title>{title(item)}</Title>
-      <Sub>{t(`category.${categories.includes(item.category as never) ? item.category : 'other'}` as TranslationKey)}</Sub></View></View>
+  return <Screen onBack={onBack} title={title(item)} subtitle={t(`category.${categories.includes(item.category as never) ? item.category : 'other'}` as TranslationKey)}>
     <Banner text={error} />
     {item.photos.length ? <View style={styles.gallery}>
       {item.photos.map(p => p.thumbnail_url ? <Pressable key={p.id} onPress={() => { if (p.url) void Linking.openURL(p.url); }}>
@@ -329,7 +326,7 @@ const styles = StyleSheet.create({
   equipmentSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.muted },
   gallery: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   galleryImage: { width: 96, height: 96, borderRadius: 12, backgroundColor: colors.line },
-  fieldLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  fieldLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
   fieldLabel: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.muted },
-  fieldValue: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.ink },
+  fieldValue: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.ink, flexShrink: 1, textAlign: 'right' },
 });

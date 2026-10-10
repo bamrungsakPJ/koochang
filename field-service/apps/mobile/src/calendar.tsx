@@ -33,19 +33,19 @@ export function DatePicker({ value, min, max, onChange }: { value: string | null
       <Pressable accessibilityRole="button" accessibilityLabel={t('prevMonth')} disabled={!canBack} hitSlop={8} onPress={() => setMonth(addMonth(month, -1))}>
         <Icon name="chevron-back" size={22} color={canBack ? colors.primary : colors.line} />
       </Pressable>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>{title}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={t('nextMonth')} disabled={!canNext} hitSlop={8} onPress={() => setMonth(addMonth(month, 1))}>
         <Icon name="chevron-forward" size={22} color={canNext ? colors.primary : colors.line} />
       </Pressable>
     </View>
     <View style={styles.grid}>
-      {weekdays.map(w => <Text key={w} style={styles.weekday}>{w}</Text>)}
+      {weekdays.map(w => <Text key={w} maxFontSizeMultiplier={1.2} style={styles.weekday}>{w}</Text>)}
       {cells.map((d, i) => {
         if (!d) return <View key={`blank${i}`} style={styles.cell} />;
         const off = d < min || d > max, on = d === value;
         return <Pressable key={d} accessibilityRole="button" accessibilityState={{ selected: on, disabled: off }} disabled={off}
           onPress={() => onChange(d)} style={styles.cell}>
-          <View style={[styles.day, on && styles.dayOn]}><Text style={[styles.dayText, off && styles.dayOff, on && styles.dayTextOn]}>{Number(d.slice(8))}</Text></View>
+          <View style={[styles.day, on && styles.dayOn]}><Text maxFontSizeMultiplier={1.2} style={[styles.dayText, off && styles.dayOff, on && styles.dayTextOn]}>{Number(d.slice(8))}</Text></View>
         </Pressable>;
       })}
     </View>

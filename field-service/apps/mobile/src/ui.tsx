@@ -138,7 +138,7 @@ export function Disclosure({ title, children, initiallyOpen = false }: { title: 
 export const Title = ({ children }: { children: ReactNode }) => <Text accessibilityRole="header" style={styles.title}>{children}</Text>;
 export const Sub = ({ children, center }: { children: ReactNode; center?: boolean }) => <Text style={[styles.sub, center && { textAlign: 'center' }]}>{children}</Text>;
 export const Section = ({ children, action }: { children: ReactNode; action?: ReactNode }) =>
-  <View style={styles.sectionRow}><Text accessibilityRole="header" style={styles.section}>{children}</Text>{action}</View>;
+  <View style={styles.sectionRow}><Text accessibilityRole="header" style={[styles.section, { flexShrink: 1 }]}>{children}</Text>{action}</View>;
 export const Card = ({ children, padded = true }: { children: ReactNode; padded?: boolean }) => <View style={[styles.card, padded && styles.cardPad]}>{children}</View>;
 export const Strong = ({ children }: { children: ReactNode }) => <Text style={styles.strong}>{children}</Text>;
 
@@ -201,7 +201,7 @@ export function Avatar({ name, size = 44, tone = 'blue' }: { name: string; size?
   const [bg, fg] = tones[tone];
   return <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
     {!first || /[+\d]/.test(first) ? <Icon name="person" size={size * 0.5} color={fg} />
-      : <Text style={[styles.avatarText, { fontSize: size * 0.4, lineHeight: size * 0.6, color: fg }]}>{first.toUpperCase()}</Text>}
+      : <Text maxFontSizeMultiplier={1} style={[styles.avatarText, { fontSize: size * 0.4, lineHeight: size * 0.6, color: fg }]}>{first.toUpperCase()}</Text>}
   </View>;
 }
 
@@ -224,7 +224,7 @@ export function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { k
       return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(tab.key)} style={styles.tab}>
         <View style={[styles.tabPill, on && styles.tabPillOn]}>
           <Icon name={(on ? tab.icon : `${tab.icon}-outline`) as IconName} size={24} color={on ? colors.primary : colors.faint} />
-          {tab.badge ? <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{tab.badge}</Text></View> : null}
+          {tab.badge ? <View style={styles.tabBadge}><Text maxFontSizeMultiplier={1} style={styles.tabBadgeText}>{tab.badge}</Text></View> : null}
         </View>
         <Text maxFontSizeMultiplier={controlScale} numberOfLines={1} style={[styles.tabLabel, on && { color: colors.primary, fontFamily: fonts.semibold }]}>{tab.label}</Text>
       </Pressable>;
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   title: text('bold', 26, colors.ink, 38),
   sub: { ...text('regular', 15, colors.muted, 23), marginTop: 4 },
   strong: text('semibold', 17, colors.ink, 26),
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10 },
+  sectionRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 24, marginBottom: 10 },
   section: text('semibold', 15, colors.muted, 22),
   card: { backgroundColor: colors.surface, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: colors.line },
   cardPad: { padding: 16 },

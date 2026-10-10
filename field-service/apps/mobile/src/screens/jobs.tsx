@@ -258,13 +258,11 @@ export function JobCustomerPicker({ membership, initialCustomer, onBack, onPicke
   // keep reading pages until there is something or the list ends.
   const searching = Boolean(items) && found.length === 0 && next !== null;
   useEffect(() => { if (searching && !more) void loadMore(); }, [searching, more]);
-  if (customer) return <Screen onBack={() => setCustomer(null)}>
-    <Title>{t('chooseLocation')}</Title><Sub>{customerTitle(customer)}</Sub>
+  if (customer) return <Screen onBack={() => setCustomer(null)} title={t('chooseLocation')} subtitle={customerTitle(customer)}>
     <Card padded={false}>{customer.locations.map((l, i) => <Row key={l.id} icon="home" tone="sky" title={l.label} subtitle={l.address ?? undefined}
       last={i === customer.locations.length - 1} onPress={() => onPicked(customer.id, l.id)} />)}</Card>
   </Screen>;
-  return <Screen onBack={onBack}>
-    <View style={styles.header}><Title>{t('chooseCustomer')}</Title><Button small icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} /></View>
+  return <Screen onBack={onBack} title={t('chooseCustomer')} right={<Button small kind="tonal" icon="person-add" title={t('addCustomer')} onPress={() => onCreate(q)} />}>
     <Field label={t('searchCustomers')} icon="search" value={q} onChangeText={setQ} autoCorrect={false} placeholder={t('ownerWeb.searchCustomerHint')} />
     {!items || searching ? <Loading /> : found.length === 0
       ? <Card><Sub>{q.trim() ? t('noResults') : t('noCustomers')}</Sub>
@@ -324,9 +322,8 @@ export function JobForm({ membership, me, customerId, locationId, onBack, onCrea
     } catch (e) { setFailure(errorText(e)); } finally { setBusy(false); }
   }
 
-  return <Screen onBack={onBack} footer={<Button icon="checkmark" busy={busy} title={assignee ? t('createAndAssign') : t('createUnassigned')} onPress={submit} />}>
-    <Title>{t('createJob')}</Title>
-    {customer ? <Sub>{customerTitle(customer)}{location ? ` · ${location.label}` : ''}</Sub> : null}
+  return <Screen onBack={onBack} title={t('createJob')} subtitle={customer ? `${customerTitle(customer)}${location ? ` · ${location.label}` : ''}` : undefined}
+    footer={<Button icon="checkmark" busy={busy} title={assignee ? t('createAndAssign') : t('createUnassigned')} onPress={submit} />}>
     {location ? <Card>{location.address ? <Text style={styles.historyText}>{location.address}</Text> : null}{location.travel_note ? <Sub>{location.travel_note}</Sub> : null}
       {location.latitude !== null ? <View style={styles.actions}><Button small kind="secondary" icon="navigate" title={t('ownerWeb.openInMaps')} onPress={() => openMaps(location)} /></View>
         : <Banner tone="info" text={t('ownerWeb.noCoordinatesHint')} />}</Card> : null}
@@ -475,10 +472,10 @@ export function JobDetail({ membership, jobId, conflicts, onBack, onOpenCustomer
 const styles = StyleSheet.create({
   agendaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingLeft: 16, paddingRight: 12 },
   agendaActive: { borderLeftWidth: 4, borderLeftColor: colors.accent, paddingLeft: 12 },
-  agendaHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 },
+  agendaHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 },
   callButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   hero: { backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, marginTop: 4 },
-  heroHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heroHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   heroKicker: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: '#C9D3E0', flex: 1 },
   heroName: { fontFamily: fonts.semibold, fontSize: 22, lineHeight: 32, color: colors.onPrimary, marginTop: 12 },
   heroSub: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: '#C9D3E0', marginTop: 4 },

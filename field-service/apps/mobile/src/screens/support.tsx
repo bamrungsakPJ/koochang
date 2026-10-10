@@ -34,8 +34,7 @@ export function SupportScreen({ membership, onBack }: { membership: Membership; 
 
   if (!data) return error ? <Screen onBack={onBack}><Banner text={error} /></Screen> : <Loading />;
   const pending = data.access.filter(a => a.status === 'pending' || a.status === 'active');
-  return <Screen onBack={onBack}>
-    <Title>{t('support')}</Title>
+  return <Screen onBack={onBack} title={t('support')}>
     <Sub>{t('supportHint')}</Sub>
     <Banner tone="success" text={notice} />
     <Banner text={error} />
@@ -44,7 +43,7 @@ export function SupportScreen({ membership, onBack }: { membership: Membership; 
       <Section>{t('accessRequests')}</Section>
       <Sub>{t('accessHint')}</Sub>
       {pending.map(a => <Card key={a.id}>
-        <View style={styles.head}><Strong>{a.agent}</Strong><Badge text={t(`access.${a.status}` as TranslationKey)} tone={accessTone(a.status)} /></View>
+        <View style={styles.head}><View style={{ flex: 1 }}><Strong>{a.agent}</Strong></View><Badge text={t(`access.${a.status}` as TranslationKey)} tone={accessTone(a.status)} /></View>
         <Text style={styles.body}>{a.reason}</Text>
         <Sub>{a.scope.map(s => t(`scope.${s}` as TranslationKey)).join(' · ')} · {t('minutesN', { n: a.duration_minutes })}</Sub>
         {a.status === 'active' && a.valid_until ? <Sub>{t('activeUntil', { time: formatDateTime(new Date(a.valid_until), language) })} · {t('readsN', { n: a.reads })}</Sub> : null}

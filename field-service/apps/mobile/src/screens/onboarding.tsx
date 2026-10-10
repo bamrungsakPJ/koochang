@@ -9,7 +9,7 @@ export function LanguageSwitch({ language, onChange }: { language: Language; onC
   return <View style={styles.languages} accessibilityRole="radiogroup">
     {(['th', 'en'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: language === value }}
       onPress={() => onChange(value)} style={[styles.language, language === value && styles.languageOn]}>
-      <Text style={[styles.languageText, language === value && styles.languageTextOn]}>{value === 'th' ? 'ไทย' : 'EN'}</Text>
+      <Text maxFontSizeMultiplier={1.2} style={[styles.languageText, language === value && styles.languageTextOn]}>{value === 'th' ? 'ไทย' : 'EN'}</Text>
     </Pressable>)}
   </View>;
 }
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   languageText: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: colors.muted },
   languageTextOn: { color: colors.ink },
   otpIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  resendRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginTop: 20 },
   forgotRow: { alignSelf: 'flex-end', paddingVertical: 8 },
   aboutRow: { alignSelf: 'center', paddingVertical: 12, marginTop: 24 },
   aboutLink: { fontFamily: fonts.regular, fontSize: 13, color: colors.faint },
