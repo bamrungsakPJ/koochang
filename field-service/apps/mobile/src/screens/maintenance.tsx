@@ -25,9 +25,11 @@ export function MaintenanceCard({ membership, onOpen }: { membership: Membership
   const t = useT();
   const [list, setList] = useState<MaintenanceList | null>(null);
   useEffect(() => { api.maintenance(membership.organization_id).then(setList, () => setList(null)); }, [membership.organization_id]);
+  // No row of zero boxes (handoff F17): with nothing due, one line says so.
+  const any = !!list && buckets.some(b => list.counts[b] > 0);
   return <Card padded={false}>
-    <Row icon="calendar" tone="violet" title={t('maintenanceDueCount')} subtitle={t('maintenanceHint')} onPress={onOpen} last={!list} />
-    {list ? <View style={styles.counts}>
+    <Row icon="calendar" tone="violet" title={t('maintenanceDueCount')} subtitle={list && !any ? t('maintenance.none') : t('maintenanceHint')} onPress={onOpen} last={!any} />
+    {list && any ? <View style={styles.counts}>
       {buckets.map(b => <View key={b} style={[styles.count, { backgroundColor: tones[bucketLook[b].tone][0] }]}>
         <Text style={[styles.countValue, { color: tones[bucketLook[b].tone][1] }]}>{list.counts[b]}</Text>
         <Text style={[styles.countLabel, { color: tones[bucketLook[b].tone][1] }]}>{t(bucketLook[b].key)}</Text>

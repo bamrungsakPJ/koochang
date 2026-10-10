@@ -194,7 +194,7 @@ export function Home({ me, membership, onNotifications, onAccount, onOpenJob, on
     {owner && unassigned ? <AttentionRow icon="person-add-outline" text={t('unassignedAttention')} onPress={onUnassigned} /> : null}
     <UnsentRecords membership={membership} onOpen={onOpenDraft} />
     <MyJobs membership={membership} onOpen={onOpenJob} onRecord={onRecordJob} onCreate={owner ? onCreateJob : undefined} />
-    {owner ? <MaintenanceCard membership={membership} onOpen={onMaintenance} /> : null}
+    {owner ? <><Section>{t('maintenance')}</Section><MaintenanceCard membership={membership} onOpen={onMaintenance} /></> : null}
   </Screen>;
 }
 

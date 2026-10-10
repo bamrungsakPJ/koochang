@@ -206,7 +206,7 @@ export function MyJobs({ membership, onOpen, onRecord, onCreate }: { membership:
   if (items.length === 0) return <><Section action={createAction}>{t('myJobs')}</Section><Card><Sub>{t('noJobs')}</Sub></Card></>;
   return <>
     {next ? <NextJobCard membership={membership} job={next} onOpen={() => onOpen(next.id)} onRecord={onRecord} /> : null}
-    {!groups.size ? (createAction ? <Section action={createAction}>{t('laterToday')}</Section> : null) : null}
+    {!groups.size ? <><Section action={createAction}>{t('laterToday')}</Section><Card><Sub>{t('noMoreJobs')}</Sub></Card></> : null}
     {[...groups].map(([day, jobs], gi) => <View key={day}>
       <Section action={gi === 0 ? createAction : undefined}>{day === today ? (next ? t('laterToday') : t('today')) : day === bangkokDay(1) ? t('tomorrow') : day === bangkokDay(-1) ? t('yesterday') : day ? formatDate(new Date(`${day}T12:00:00+07:00`), language) : t('notScheduled')}</Section>
       <Card padded={false}>{jobs.map((j, i) => <Pressable key={j.id} accessibilityRole="button" onPress={() => onOpen(j.id)} style={[styles.agendaRow, i !== jobs.length - 1 && styles.agendaLine, j.status === 'in_progress' && styles.agendaActive]}>
@@ -477,19 +477,19 @@ const styles = StyleSheet.create({
   agendaActive: { borderLeftWidth: 4, borderLeftColor: colors.accent, paddingLeft: 12 },
   agendaHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 },
   callButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  hero: { backgroundColor: colors.primary, borderRadius: 20, padding: 16, marginTop: 8 },
+  hero: { backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, marginTop: 4 },
   heroHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   heroKicker: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: '#C9D3E0', flex: 1 },
-  heroName: { fontFamily: fonts.semibold, fontSize: 22, lineHeight: 32, color: colors.onPrimary, marginTop: 6 },
-  heroSub: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: '#C9D3E0' },
-  heroActions: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  heroName: { fontFamily: fonts.semibold, fontSize: 22, lineHeight: 32, color: colors.onPrimary, marginTop: 12 },
+  heroSub: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: '#C9D3E0', marginTop: 4 },
+  heroActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   heroGhost: { flex: 1, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.08)', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   heroGhostPressed: { backgroundColor: 'rgba(255,255,255,0.18)' },
   heroGhostText: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.onPrimary },
-  heroCta: { minHeight: 56, borderRadius: 12, backgroundColor: colors.surface, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  heroCta: { minHeight: 56, borderRadius: 12, backgroundColor: colors.surface, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   heroCtaText: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.ink },
   heroError: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: '#FFD6D1', marginTop: 8 },
-  heroLink: { alignSelf: 'center', minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, marginTop: 4 },
+  heroLink: { alignSelf: 'center', minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, marginTop: 8 },
   heroLinkText: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: '#DCE4EE' },
   agendaLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
   agendaTime: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 24, color: colors.ink },

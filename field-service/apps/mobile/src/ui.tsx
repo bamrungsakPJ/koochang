@@ -76,9 +76,11 @@ export function Screen({ children, onBack, footer, title, subtitle, right, fab }
 }) {
   const t = useT();
   const [compact, setCompact] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const lastY = useRef(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
+    setScrolled(y > 4);
     if (y > lastY.current + 4 && y > 40) setCompact(true); else if (y < lastY.current - 4) setCompact(false);
     lastY.current = y;
   };
@@ -92,7 +94,7 @@ export function Screen({ children, onBack, footer, title, subtitle, right, fab }
   }, [hasBack]);
   const header = title !== undefined;
   return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    {header ? <View style={[styles.topBar, !onBack && styles.topBarLarge]}>
+    {header ? <View style={[styles.topBar, !onBack && styles.topBarLarge, scrolled && styles.topBarScrolled]}>
       {onBack ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.topBack} hitSlop={8}>
         <Icon name="chevron-back" size={24} color={colors.ink} />
       </Pressable> : null}
@@ -103,7 +105,7 @@ export function Screen({ children, onBack, footer, title, subtitle, right, fab }
       {right}
     </View> : null}
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, header && styles.contentUnderBar, fab && { paddingBottom: 104 }]}
-      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScroll={fab ? onScroll : undefined} scrollEventThrottle={64}>
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScroll={fab || header ? onScroll : undefined} scrollEventThrottle={32}>
       {onBack && !header ? <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} style={styles.back} hitSlop={12}>
         <Icon name="chevron-back" size={22} color={colors.ink} />
       </Pressable> : null}
@@ -255,9 +257,11 @@ export function confirm(message: string, okText: string, cancelText: string): Pr
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 16, paddingTop: 20, paddingBottom: 40, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  contentUnderBar: { paddingTop: 4 },
+  contentUnderBar: { paddingTop: 12 },
   topBar: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 64, paddingLeft: 4, paddingRight: 8, paddingVertical: 6, backgroundColor: colors.bg },
-  topBarLarge: { paddingLeft: 16, paddingTop: 12, minHeight: 72 },
+  topBarLarge: { paddingLeft: 16, paddingTop: 12, paddingBottom: 12, minHeight: 72 },
+  // Once content slides under the bar it gets a line and a light shadow, so cut-off text reads as "under", not "glued".
+  topBarScrolled: { borderBottomWidth: 1, borderBottomColor: colors.line, elevation: 3, shadowColor: '#12243A', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, zIndex: 1 },
   topBack: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   topTitle: text('semibold', 18, colors.ink, 26),
   topSub: text('regular', 14, colors.muted, 20),
